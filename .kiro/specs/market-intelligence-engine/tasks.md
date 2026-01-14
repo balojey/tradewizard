@@ -88,14 +88,16 @@
 - [ ] 6. Build thesis construction LangGraph node
   - Create thesisConstructionNode function
   - Read agentSignals from state and check minimum threshold
-  - Use ChatOpenAI with withStructuredOutput(ThesisSchema) for bull thesis generation
-  - Use ChatOpenAI with withStructuredOutput(ThesisSchema) for bear thesis generation
+  - Use LLM instance (supports both single-provider and multi-provider modes) with withStructuredOutput(ThesisSchema) for bull thesis generation
+  - Use LLM instance (supports both single-provider and multi-provider modes) with withStructuredOutput(ThesisSchema) for bear thesis generation
+  - In single-provider mode: use the configured LLM for thesis generation
+  - In multi-provider mode: use default LLM (ChatOpenAI with GPT-4-turbo) for thesis generation
   - Implement weighted fair probability calculation from agent signals
   - Calculate market edge (fairProbability - marketProbability)
   - Detect fairly priced markets (edge < 2%)
   - Write bullThesis and bearThesis to state
   - Add audit log entry
-  - _Requirements: 4.1, 4.2, 4.3, 4.4, 11.3_
+  - _Requirements: 4.1, 4.2, 4.3, 4.4, 11.3, 11.9, 11.10_
 
 - [ ] 6.1 Write property test for thesis generation
   - **Property 5: Thesis generation completeness**
@@ -106,7 +108,9 @@
   - Test fairly priced market detection (edge < 2%)
   - Test edge calculation accuracy
   - Test state updates (theses written to state)
-  - _Requirements: 4.4, 11.2_
+  - Test with single-provider mode (one LLM for thesis generation)
+  - Test with multi-provider mode (default LLM for thesis generation)
+  - _Requirements: 4.4, 11.2, 11.9, 11.10_
 
 - [ ] 7. Implement cross-examination LangGraph node
   - Create crossExaminationNode function
