@@ -23,6 +23,10 @@ const EngineConfigSchema = z.object({
     trackCosts: z.boolean().default(true),
   }),
   llm: z.object({
+    // Single-provider mode: use one LLM for all agents (cost-effective)
+    singleProvider: z.enum(['openai', 'anthropic', 'google']).optional(),
+    
+    // Multi-provider mode: configure each provider separately (default, better quality)
     openai: z
       .object({
         apiKey: z.string(),
@@ -83,6 +87,7 @@ export function loadConfig(): EngineConfig {
       trackCosts: process.env.OPIK_TRACK_COSTS !== 'false',
     },
     llm: {
+      singleProvider: process.env.LLM_SINGLE_PROVIDER as 'openai' | 'anthropic' | 'google' | undefined,
       openai: process.env.OPENAI_API_KEY
         ? {
             apiKey: process.env.OPENAI_API_KEY,

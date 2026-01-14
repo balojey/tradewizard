@@ -5,3 +5,12 @@
  */
 
 export { marketIngestionNode, createMarketIngestionNode } from './market-ingestion.js';
+export {
+  createAgentNode,
+  createLLMInstances,
+  createAgentNodes,
+} from './agents.js';
+export {
+  createThesisConstructionNode,
+  thesisConstructionNode,
+} from './thesis-construction.js';

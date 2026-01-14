@@ -58,7 +58,7 @@
   - Test state updates (MBD written to state)
   - _Requirements: 2.2, 2.3, 11.2_
 
-- [ ] 5. Build intelligence agent nodes with LangChain LLM integration
+- [x] 5. Build intelligence agent nodes with LangChain LLM integration
   - Create agent node factory function that accepts LLM instance and system prompt
   - Create LLM configuration factory that supports both single-provider and multi-provider modes
   - Implement single-provider mode: use one LLM for all agents (budget-friendly)
@@ -72,7 +72,7 @@
   - Add audit logging to state for each agent execution
   - _Requirements: 3.1, 3.2, 11.1, 11.3, 11.9, 11.10_
 
-- [ ] 5.1 Write unit tests for individual agent nodes
+- [x] 5.1 Write unit tests for individual agent nodes
   - Test each agent node with sample MBD in state
   - Verify agent signal structure and content
   - Test agent error handling and state updates
@@ -81,11 +81,11 @@
   - Test structured output parsing
   - _Requirements: 3.2, 11.3, 11.9, 11.10_
 
-- [ ] 5.2 Write property test for agent signal structure
+- [x] 5.2 Write property test for agent signal structure
   - **Property 4: Agent signal structure validity**
   - **Validates: Requirements 3.2, 3.4**
 
-- [ ] 6. Build thesis construction LangGraph node
+- [x] 6. Build thesis construction LangGraph node
   - Create thesisConstructionNode function
   - Read agentSignals from state and check minimum threshold
   - Use LLM instance (supports both single-provider and multi-provider modes) with withStructuredOutput(ThesisSchema) for bull thesis generation
@@ -99,11 +99,11 @@
   - Add audit log entry
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 11.3, 11.9, 11.10_
 
-- [ ] 6.1 Write property test for thesis generation
+- [x] 6.1 Write property test for thesis generation
   - **Property 5: Thesis generation completeness**
   - **Validates: Requirements 4.1, 4.2, 4.3**
 
-- [ ] 6.2 Write unit tests for thesis construction node
+- [x] 6.2 Write unit tests for thesis construction node
   - Test thesis generation from sample agent signals in state
   - Test fairly priced market detection (edge < 2%)
   - Test edge calculation accuracy
