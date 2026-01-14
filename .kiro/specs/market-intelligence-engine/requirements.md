@@ -10,9 +10,11 @@ The Market Intelligence Engine is the foundational system that connects TradeWiz
 - **Polymarket**: A regulated prediction market platform providing real-money trading infrastructure
 - **Market Contract**: A tradable prediction market instrument representing a binary outcome (YES/NO)
 - **LangGraph**: An agentic framework for building stateful, multi-agent workflows with built-in LLM provider abstraction
+- **Opik**: An open-source LLM observability and tracing platform for logging, debugging, and optimizing AI applications
 - **Agent Node**: A LangGraph node representing a specialized AI component that analyzes markets from a specific perspective
 - **Graph State**: The shared state object that flows through the LangGraph workflow, containing market data and agent outputs
 - **Debate Protocol**: The structured LangGraph workflow by which agents analyze markets, challenge assumptions, and reach consensus
+- **Trace**: An Opik log of a complete workflow execution including all LLM calls, agent outputs, and state transitions
 - **Trade Recommendation**: A structured output containing position direction, entry price, expected value, and reasoning
 - **Market Briefing Document (MBD)**: A standardized data structure containing all relevant market context
 - **Thesis**: A structured argument for why a market outcome is likely or unlikely
@@ -113,7 +115,7 @@ The Market Intelligence Engine is the foundational system that connects TradeWiz
 
 ### Requirement 11
 
-**User Story:** As a system operator, I want to use LangGraph for agent orchestration, so that I can leverage battle-tested multi-agent workflows and built-in LLM provider abstraction.
+**User Story:** As a system operator, I want to use LangGraph for agent orchestration with Opik for observability, so that I can leverage battle-tested multi-agent workflows, built-in LLM provider abstraction, and comprehensive tracing for debugging and optimization.
 
 #### Acceptance Criteria
 
@@ -122,6 +124,9 @@ The Market Intelligence Engine is the foundational system that connects TradeWiz
 3. WHEN LLM inference is required THEN the system SHALL use LangGraph's built-in LLM integration supporting OpenAI, Anthropic, and Google Gemini
 4. WHEN the debate protocol executes THEN the system SHALL define the workflow as a LangGraph StateGraph with nodes for each pipeline stage
 5. WHEN debugging is needed THEN the system SHALL leverage LangGraph's built-in visualization and state inspection tools
+6. WHEN the workflow executes THEN the system SHALL use Opik to trace all LLM calls, agent executions, and state transitions for observability
+7. WHEN traces are logged THEN the system SHALL include LangGraph graph visualization in Opik for enhanced debugging
+8. WHEN LLM costs need tracking THEN the system SHALL use Opik's automatic token usage and cost tracking via LangChain callbacks
 
 ### Requirement 9
 

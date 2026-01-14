@@ -576,6 +576,14 @@ interface EngineConfig {
     recursionLimit?: number; // Max graph execution depth
     streamMode?: 'values' | 'updates'; // How to stream graph execution
   };
+  opik: {
+    apiKey?: string; // Opik API key (optional for self-hosted)
+    projectName: string; // Opik project name
+    workspace?: string; // Opik workspace (for cloud)
+    baseUrl?: string; // For self-hosted Opik instances
+    tags?: string[]; // Default tags for all traces
+    trackCosts: boolean; // Enable automatic cost tracking
+  };
   llm: {
     openai?: {
       apiKey: string;
@@ -601,7 +609,6 @@ interface EngineConfig {
   logging: {
     level: 'debug' | 'info' | 'warn' | 'error';
     auditTrailRetentionDays: number;
-    trackLLMCosts: boolean; // Enable token usage and cost tracking
   };
 }
 ```
@@ -610,6 +617,13 @@ interface EngineConfig {
 
 ```typescript
 import { StateGraph, END } from "@langchain/langgraph";
+import { OpikTracer, track_langgraph } from "opik/integrations/langchain";
+
+// Create the Opik tracer for observability
+const opikTracer = new OpikTracer({
+  projectName: "market-intelligence-engine",
+  tags: ["production", "debate-protocol"]
+});
 
 // Create the graph
 const workflow = new StateGraph(GraphState)
@@ -652,21 +666,54 @@ const workflow = new StateGraph(GraphState)
   .addEdge("consensus_engine", "recommendation_generation")
   .addEdge("recommendation_generation", END);
 
-// Compile the graph
+// Compile the graph with checkpointer
 const app = workflow.compile({
   checkpointer: new MemorySaver(), // Or SqliteSaver, PostgresSaver
 });
 
+// Wrap with Opik tracking - automatically logs all executions with graph visualization
+const trackedApp = track_langgraph(app, opikTracer);
+
 // Execute the workflow
 async function analyzeMarket(conditionId: string): Promise<TradeRecommendation> {
-  const result = await app.invoke(
+  const result = await trackedApp.invoke(
     { conditionId },
-    { configurable: { thread_id: conditionId } }
+    { 
+      configurable: { 
+        thread_id: conditionId // Used for both LangGraph checkpointing and Opik thread tracking
+      } 
+    }
   );
   
   return result.recommendation;
 }
 ```
+
+### Opik Observability Features
+
+**Automatic Tracing**:
+- Every LangGraph node execution is logged as an Opik span
+- LLM calls are automatically traced with input/output, tokens, cost
+- Graph visualization is extracted and displayed in Opik UI
+- State transitions are logged for debugging
+
+**Cost Tracking**:
+- Automatic token usage tracking via LangChain callbacks
+- Per-provider cost calculation (OpenAI, Anthropic, Gemini)
+- Aggregated costs per market analysis
+- Cost breakdown by agent and node
+
+**Thread-Based Conversations**:
+- Each market analysis uses `thread_id` (condition ID) for tracking
+- Complete audit trail per market accessible via thread ID
+- Easy to replay and debug specific market analyses
+
+**Debugging Capabilities**:
+- Visual graph representation in Opik UI
+- Step-by-step execution trace with timing
+- Input/output inspection for each node
+- Error tracking with full context
+- LLM prompt and response logging
 
 
 ## Correctness Properties

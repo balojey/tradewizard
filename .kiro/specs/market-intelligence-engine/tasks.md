@@ -3,9 +3,10 @@
 - [ ] 1. Set up project structure and core infrastructure
   - Initialize TypeScript Node.js project with proper configuration
   - Set up ESLint, Prettier, and TypeScript strict mode
-  - Install core dependencies: @langchain/langgraph, @langchain/core, @langchain/openai, @langchain/anthropic, @langchain/google-genai, Polymarket SDK, fast-check, zod
+  - Install core dependencies: @langchain/langgraph, @langchain/core, @langchain/openai, @langchain/anthropic, @langchain/google-genai, Polymarket SDK, opik (for observability), fast-check, zod
   - Create directory structure: src/{nodes, models, utils, config, schemas}
-  - Set up environment configuration for API keys (Polymarket, OpenAI, Anthropic, Google)
+  - Set up environment configuration for API keys (Polymarket, OpenAI, Anthropic, Google, Opik)
+  - Configure Opik for tracing (run `npx opik-ts configure` or set OPIK_API_KEY)
   - _Requirements: All - foundational setup_
 
 - [ ] 2. Implement core data models and LangGraph state
@@ -195,7 +196,7 @@
   - Test state updates
   - _Requirements: 7.1, 7.4, 7.3, 11.2_
 
-- [ ] 10. Build LangGraph workflow and compile graph
+- [ ] 10. Build LangGraph workflow and compile graph with Opik tracing
   - Create StateGraph instance with GraphState
   - Add all nodes to graph (ingestion, 3 agents, thesis, cross-exam, consensus, recommendation)
   - Define entry edge from START to market_ingestion
@@ -205,8 +206,10 @@
   - Add sequential edges through debate protocol (thesis → cross-exam → consensus → recommendation)
   - Add edge from recommendation to END
   - Compile graph with MemorySaver checkpointer for audit trail
-  - Create analyzeMarket() entry point function
-  - _Requirements: 11.1, 11.2, 11.4_
+  - Initialize OpikTracer with project name and tags
+  - Wrap compiled graph with track_langgraph() for automatic tracing
+  - Create analyzeMarket() entry point function with thread_id support
+  - _Requirements: 11.1, 11.2, 11.4, 11.6, 11.7_
 
 - [ ] 10.1 Write property test for LangGraph state flow
   - **Property 16: LangGraph state flow**
@@ -220,14 +223,17 @@
   - **Property 15: Agent failure isolation**
   - **Validates: Requirements 3.3, 10.2**
 
-- [ ] 10.4 Write integration tests for full LangGraph workflow
+- [ ] 10.4 Write integration tests for full LangGraph workflow with Opik
   - Test end-to-end flow with mocked Polymarket APIs
   - Test workflow with various market scenarios
   - Test error propagation through graph
   - Test graceful degradation (agent failures)
   - Test with different LLM provider configurations
   - Test state checkpointing and audit trail
-  - _Requirements: 10.3, 10.5, 11.2, 11.4_
+  - Verify Opik traces are created for each execution
+  - Verify graph visualization appears in Opik
+  - Verify cost tracking is accurate
+  - _Requirements: 10.3, 10.5, 11.2, 11.4, 11.6, 11.7, 11.8_
 
 - [ ] 11. Add configuration and environment management
   - Implement EngineConfig loading from environment variables
@@ -235,18 +241,21 @@
   - Create default configuration values
   - Support LLM provider configuration (OpenAI, Anthropic, Google API keys and models)
   - Support LangGraph configuration (checkpointer type, recursion limit)
+  - Support Opik configuration (API key, project name, workspace, base URL for self-hosted)
   - Add configuration documentation
   - Implement configuration override mechanism
-  - _Requirements: All, 11.5_
+  - _Requirements: All, 11.5, 11.6_
 
-- [ ] 12. Implement audit logging and LangGraph checkpointing
+- [ ] 12. Implement audit logging with Opik and LangGraph checkpointing
   - Configure LangGraph checkpointer (MemorySaver for dev, SqliteSaver for production)
   - Implement audit trail retrieval from checkpointer by thread_id (market ID)
+  - Verify Opik automatically logs all LLM calls via LangChain integration
+  - Verify Opik logs graph structure and execution flow
   - Add structured logging for all graph executions
-  - Log LLM provider usage and costs using LangChain callbacks
   - Implement log retention and rotation
   - Create utility functions to inspect graph state at any checkpoint
-  - _Requirements: 9.1, 9.2, 9.3, 9.4, 11.5_
+  - Create utility functions to query Opik traces by market ID (thread_id)
+  - _Requirements: 9.1, 9.2, 9.3, 9.4, 11.5, 11.6, 11.7, 11.8_
 
 - [ ] 12.1 Write property test for audit trail completeness
   - **Property 13: Audit trail completeness**
@@ -256,26 +265,30 @@
   - **Property 14: Error logging**
   - **Validates: Requirements 9.4**
 
-- [ ] 12.3 Write unit tests for audit logging
+- [ ] 12.3 Write unit tests for audit logging and Opik integration
   - Test checkpoint creation for each graph step
   - Test audit trail retrieval by market ID
   - Test error logging with context
-  - Test LLM cost tracking via callbacks
-  - _Requirements: 9.1, 9.2, 9.3, 9.4_
+  - Test Opik trace creation and retrieval
+  - Test cost tracking via Opik
+  - Test graph visualization extraction
+  - _Requirements: 9.1, 9.2, 9.3, 9.4, 11.6, 11.7, 11.8_
 
 - [ ] 13. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 14. Create CLI interface for testing
+- [ ] 14. Create CLI interface for testing with Opik integration
   - Build simple CLI to analyze markets by condition ID
   - Display formatted trade recommendations
   - Show debug information and graph state
   - Add option to visualize LangGraph workflow (using LangGraph Studio or mermaid)
+  - Add option to open Opik trace in browser for detailed inspection
   - Add command-line options for configuration overrides
   - Add option to select LLM providers via CLI
-  - Display LLM cost tracking if enabled
+  - Display LLM cost tracking from Opik
   - Add option to replay from checkpoint
-  - _Requirements: All, 11.5_
+  - Add option to query historical traces from Opik by market ID
+  - _Requirements: All, 11.5, 11.6, 11.8_
 
 - [ ] 14.1 Write end-to-end tests using CLI
   - Test CLI with real Polymarket API calls (integration test)
@@ -290,11 +303,14 @@
   - Document LangGraph workflow architecture with diagram
   - Document GraphState schema and data flow
   - Create example usage code
-  - Document configuration options (including LLM providers and LangGraph settings)
+  - Document configuration options (including LLM providers, LangGraph settings, and Opik configuration)
   - Add deployment guide for Node.js environments
   - Document LLM provider setup for OpenAI, Anthropic, and Gemini
   - Add troubleshooting guide for common LangGraph issues
   - Document how to use LangGraph Studio for debugging
+  - Document how to use Opik for observability and debugging
+  - Add guide for setting up Opik (cloud vs self-hosted)
+  - Document how to query and analyze traces in Opik
   - _Requirements: All_
 
 - [ ] 16. Final checkpoint - Ensure all tests pass
