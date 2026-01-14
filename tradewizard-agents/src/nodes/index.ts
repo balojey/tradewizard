@@ -14,3 +14,7 @@ export {
   createThesisConstructionNode,
   thesisConstructionNode,
 } from './thesis-construction.js';
+export {
+  createCrossExaminationNode,
+  crossExaminationNode,
+} from './cross-examination.js';

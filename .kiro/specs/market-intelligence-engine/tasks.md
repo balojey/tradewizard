@@ -112,7 +112,7 @@
   - Test with multi-provider mode (default LLM for thesis generation)
   - _Requirements: 4.4, 11.2, 11.9, 11.10_
 
-- [ ] 7. Implement cross-examination LangGraph node
+- [x] 7. Implement cross-examination LangGraph node
   - Create crossExaminationNode function
   - Read bullThesis and bearThesis from state
   - Implement evidence test using LLM (verify factual claims)
@@ -125,19 +125,19 @@
   - Add audit log entry
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 11.3_
 
-- [ ] 7.1 Write property test for cross-examination execution
+- [x] 7.1 Write property test for cross-examination execution
   - **Property 6: Cross-examination execution**
   - **Validates: Requirements 5.1, 5.4**
 
-- [ ] 7.2 Write property test for factual claim verification
+- [x] 7.2 Write property test for factual claim verification
   - **Property 7: Factual claim verification**
   - **Validates: Requirements 5.2**
 
-- [ ] 7.3 Write property test for causality testing
+- [x] 7.3 Write property test for causality testing
   - **Property 8: Causality testing**
   - **Validates: Requirements 5.3**
 
-- [ ] 7.4 Write unit tests for cross-examination node
+- [x] 7.4 Write unit tests for cross-examination node
   - Test each examination test type with sample theses
   - Test debate scoring logic
   - Test argument survival determination
