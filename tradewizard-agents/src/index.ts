@@ -14,3 +14,6 @@ console.log('Configuration loaded:', {
 });
 
 export { config };
+export { createWorkflow, analyzeMarket } from './workflow.js';
+export type { GraphStateType } from './models/state.js';
+export type { TradeRecommendation } from './models/types.js';

@@ -204,7 +204,7 @@
   - Test state updates
   - _Requirements: 7.1, 7.4, 7.3, 11.2_
 
-- [ ] 10. Build LangGraph workflow and compile graph with Opik tracing
+- [x] 10. Build LangGraph workflow and compile graph with Opik tracing
   - Create StateGraph instance with GraphState
   - Add all nodes to graph (ingestion, 3 agents, thesis, cross-exam, consensus, recommendation)
   - Define entry edge from START to market_ingestion
@@ -219,19 +219,19 @@
   - Create analyzeMarket() entry point function with thread_id support
   - _Requirements: 11.1, 11.2, 11.4, 11.6, 11.7_
 
-- [ ] 10.1 Write property test for LangGraph state flow
+- [x] 10.1 Write property test for LangGraph state flow
   - **Property 16: LangGraph state flow**
   - **Validates: Requirements 11.1, 11.2, 11.4**
 
-- [ ] 10.2 Write property test for parallel agent execution
+- [x] 10.2 Write property test for parallel agent execution
   - **Property 17: LangGraph parallel agent execution**
   - **Validates: Requirements 11.2**
 
-- [ ] 10.3 Write property test for agent failure isolation
+- [x] 10.3 Write property test for agent failure isolation
   - **Property 15: Agent failure isolation**
   - **Validates: Requirements 3.3, 10.2**
 
-- [ ] 10.4 Write integration tests for full LangGraph workflow with Opik
+- [x] 10.4 Write integration tests for full LangGraph workflow with Opik
   - Test end-to-end flow with mocked Polymarket APIs
   - Test workflow with various market scenarios
   - Test error propagation through graph
