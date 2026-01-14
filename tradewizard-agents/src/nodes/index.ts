@@ -18,3 +18,7 @@ export {
   createCrossExaminationNode,
   crossExaminationNode,
 } from './cross-examination.js';
+export {
+  createConsensusEngineNode,
+  consensusEngineNode,
+} from './consensus-engine.js';

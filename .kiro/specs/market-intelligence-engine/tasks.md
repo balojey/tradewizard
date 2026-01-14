@@ -144,7 +144,7 @@
   - Test state updates
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 11.2_
 
-- [ ] 8. Build consensus engine LangGraph node
+- [x] 8. Build consensus engine LangGraph node
   - Create consensusEngineNode function
   - Read debateRecord and agentSignals from state
   - Calculate weighted consensus probability from debate scores
@@ -157,11 +157,11 @@
   - Add audit log entry
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 10.4, 11.2_
 
-- [ ] 8.1 Write property test for consensus probability structure
+- [x] 8.1 Write property test for consensus probability structure
   - **Property 9: Consensus probability structure**
   - **Validates: Requirements 6.1, 6.3**
 
-- [ ] 8.2 Write unit tests for consensus engine node
+- [x] 8.2 Write unit tests for consensus engine node
   - Test consensus calculation with sample debate outcomes
   - Test high disagreement confidence band widening
   - Test efficient market classification (edge < 3%)
