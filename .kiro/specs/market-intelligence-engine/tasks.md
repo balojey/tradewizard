@@ -169,7 +169,7 @@
   - Test state updates
   - _Requirements: 6.2, 6.4, 10.4, 11.2_
 
-- [ ] 9. Implement recommendation generation LangGraph node
+- [x] 9. Implement recommendation generation LangGraph node
   - Create recommendationGenerationNode function
   - Read consensus, bullThesis, bearThesis, and mbd from state
   - Calculate expected value from consensus probability
@@ -184,19 +184,19 @@
   - Add audit log entry
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 8.1, 8.2, 8.3, 8.4, 11.3_
 
-- [ ] 9.1 Write property test for recommendation structure
+- [x] 9.1 Write property test for recommendation structure
   - **Property 10: Trade recommendation structure validity**
   - **Validates: Requirements 7.2**
 
-- [ ] 9.2 Write property test for negative EV rejection
+- [x] 9.2 Write property test for negative EV rejection
   - **Property 11: Negative expected value rejection**
   - **Validates: Requirements 7.3**
 
-- [ ] 9.3 Write property test for explanation completeness
+- [x] 9.3 Write property test for explanation completeness
   - **Property 12: Explanation completeness**
   - **Validates: Requirements 7.5, 8.1, 8.2, 8.3, 8.4**
 
-- [ ] 9.4 Write unit tests for recommendation generator node
+- [x] 9.4 Write unit tests for recommendation generator node
   - Test edge threshold boundary (5%)
   - Test liquidity risk flagging (< 5.0)
   - Test NO_TRADE for negative EV

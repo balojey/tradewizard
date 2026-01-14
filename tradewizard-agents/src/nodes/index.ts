@@ -22,3 +22,7 @@ export {
   createConsensusEngineNode,
   consensusEngineNode,
 } from './consensus-engine.js';
+export {
+  createRecommendationGenerationNode,
+  recommendationGenerationNode,
+} from './recommendation-generation.js';
