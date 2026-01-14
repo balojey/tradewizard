@@ -22,7 +22,7 @@
   - **Property 2: Market Briefing Document validity**
   - **Validates: Requirements 2.1, 2.3, 2.4**
 
-- [ ] 3. Build Polymarket API integration layer
+- [x] 3. Build Polymarket API integration layer
   - Implement Polymarket API client wrapper with Gamma API and CLOB API
   - Create API client with rate limiting and retry logic
   - Implement exponential backoff with jitter for failed requests
@@ -30,14 +30,14 @@
   - Implement health check endpoint
   - _Requirements: 1.1, 1.2, 1.3, 1.5, 10.1_
 
-- [ ] 3.1 Write unit tests for API integration
+- [x] 3.1 Write unit tests for API integration
   - Test successful market data fetch with mocked Polymarket APIs
   - Test invalid market ID handling
   - Test rate limit detection and backoff behavior
   - Test API unavailability scenarios
   - _Requirements: 1.1, 1.3, 1.5_
 
-- [ ] 3.2 Write property test for market data retrieval
+- [x] 3.2 Write property test for market data retrieval
   - **Property 1: Market data retrieval completeness**
   - **Validates: Requirements 1.2**
 
