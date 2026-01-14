@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "polymarket": {
+      "url": "https://docs.polymarket.com/mcp",
+      "disabled": false
+    }
+  }
+}
