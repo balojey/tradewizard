@@ -275,30 +275,98 @@ function createAgentNode(
   };
 }
 
-// Create specific agent nodes
-const marketMicrostructureAgent = createAgentNode(
-  'market_microstructure',
-  new ChatOpenAI({ model: 'gpt-4-turbo' }),
-  'You are a market microstructure analyst...'
-);
+// LLM Configuration Factory
+// Supports both multi-provider mode (different LLMs per agent) and single-provider mode (one LLM for all)
+function createLLMInstances(config: EngineConfig): {
+  marketMicrostructure: ChatOpenAI | ChatAnthropic | ChatGoogleGenerativeAI;
+  probabilityBaseline: ChatOpenAI | ChatAnthropic | ChatGoogleGenerativeAI;
+  riskAssessment: ChatOpenAI | ChatAnthropic | ChatGoogleGenerativeAI;
+} {
+  // Single-provider mode: use one LLM for all agents
+  if (config.llm.singleProvider) {
+    const provider = config.llm.singleProvider;
+    let llm: ChatOpenAI | ChatAnthropic | ChatGoogleGenerativeAI;
+    
+    if (provider === 'openai' && config.llm.openai) {
+      llm = new ChatOpenAI({ 
+        apiKey: config.llm.openai.apiKey,
+        model: config.llm.openai.defaultModel 
+      });
+    } else if (provider === 'anthropic' && config.llm.anthropic) {
+      llm = new ChatAnthropic({ 
+        apiKey: config.llm.anthropic.apiKey,
+        model: config.llm.anthropic.defaultModel 
+      });
+    } else if (provider === 'google' && config.llm.google) {
+      llm = new ChatGoogleGenerativeAI({ 
+        apiKey: config.llm.google.apiKey,
+        model: config.llm.google.defaultModel 
+      });
+    } else {
+      throw new Error(`Invalid single provider configuration: ${provider}`);
+    }
+    
+    return {
+      marketMicrostructure: llm,
+      probabilityBaseline: llm,
+      riskAssessment: llm
+    };
+  }
+  
+  // Multi-provider mode: use different LLMs per agent (default for optimal performance)
+  return {
+    marketMicrostructure: new ChatOpenAI({ 
+      apiKey: config.llm.openai?.apiKey,
+      model: config.llm.openai?.defaultModel || 'gpt-4-turbo'
+    }),
+    probabilityBaseline: new ChatGoogleGenerativeAI({ 
+      apiKey: config.llm.google?.apiKey,
+      model: config.llm.google?.defaultModel || 'gemini-1.5-flash'
+    }),
+    riskAssessment: new ChatAnthropic({ 
+      apiKey: config.llm.anthropic?.apiKey,
+      model: config.llm.anthropic?.defaultModel || 'claude-3-sonnet'
+    })
+  };
+}
 
-const probabilityBaselineAgent = createAgentNode(
-  'probability_baseline',
-  new ChatGoogleGenerativeAI({ model: 'gemini-1.5-flash' }),
-  'You are a probability estimation expert...'
-);
-
-const riskAssessmentAgent = createAgentNode(
-  'risk_assessment',
-  new ChatAnthropic({ model: 'claude-3-sonnet' }),
-  'You are a risk assessment specialist...'
-);
+// Create specific agent nodes with LLM instances
+function createAgentNodes(config: EngineConfig) {
+  const llms = createLLMInstances(config);
+  
+  return {
+    marketMicrostructureAgent: createAgentNode(
+      'market_microstructure',
+      llms.marketMicrostructure,
+      'You are a market microstructure analyst...'
+    ),
+    probabilityBaselineAgent: createAgentNode(
+      'probability_baseline',
+      llms.probabilityBaseline,
+      'You are a probability estimation expert...'
+    ),
+    riskAssessmentAgent: createAgentNode(
+      'risk_assessment',
+      llms.riskAssessment,
+      'You are a risk assessment specialist...'
+    )
+  };
+}
 ```
 
 **MVP Agent Set**:
-- **Market Microstructure Agent**: Analyzes order book depth, spread, momentum
-- **Probability Baseline Agent**: Provides naive baseline probability estimate
-- **Risk Assessment Agent**: Identifies tail risks and failure modes
+- **Market Microstructure Agent**: Analyzes order book depth, spread, momentum (default: GPT-4-turbo)
+- **Probability Baseline Agent**: Provides naive baseline probability estimate (default: Gemini-1.5-flash)
+- **Risk Assessment Agent**: Identifies tail risks and failure modes (default: Claude-3-sonnet)
+
+**LLM Configuration Modes**:
+- **Multi-Provider Mode** (default): Each agent uses a different LLM optimized for its task
+  - Provides diverse perspectives and reduces model-specific biases
+  - Higher cost but better quality
+- **Single-Provider Mode**: All agents use the same LLM with different system prompts
+  - Lower cost, simpler API key management
+  - Still maintains agent specialization through prompts
+  - Useful for budget constraints or testing
 
 ### 4. Agent Signal
 
@@ -585,17 +653,21 @@ interface EngineConfig {
     trackCosts: boolean; // Enable automatic cost tracking
   };
   llm: {
+    // Single-provider mode: use one LLM for all agents (cost-effective)
+    singleProvider?: 'openai' | 'anthropic' | 'google';
+    
+    // Multi-provider mode: configure each provider separately (default, better quality)
     openai?: {
       apiKey: string;
-      defaultModel: string; // e.g., 'gpt-4-turbo'
+      defaultModel: string; // e.g., 'gpt-4-turbo', 'gpt-4o-mini'
     };
     anthropic?: {
       apiKey: string;
-      defaultModel: string; // e.g., 'claude-3-sonnet'
+      defaultModel: string; // e.g., 'claude-3-sonnet', 'claude-3-haiku'
     };
     google?: {
       apiKey: string;
-      defaultModel: string; // e.g., 'gemini-1.5-pro'
+      defaultModel: string; // e.g., 'gemini-1.5-pro', 'gemini-1.5-flash'
     };
   };
   agents: {
@@ -612,6 +684,47 @@ interface EngineConfig {
   };
 }
 ```
+
+**LLM Configuration Modes**:
+
+1. **Single-Provider Mode** (Budget-Friendly):
+   ```typescript
+   {
+     llm: {
+       singleProvider: 'openai',
+       openai: {
+         apiKey: process.env.OPENAI_API_KEY,
+         defaultModel: 'gpt-4o-mini'
+       }
+     }
+   }
+   ```
+   - All agents use the same LLM instance
+   - Lower cost, simpler API key management
+   - Agent specialization maintained through system prompts
+
+2. **Multi-Provider Mode** (Optimal Quality):
+   ```typescript
+   {
+     llm: {
+       openai: {
+         apiKey: process.env.OPENAI_API_KEY,
+         defaultModel: 'gpt-4-turbo'
+       },
+       anthropic: {
+         apiKey: process.env.ANTHROPIC_API_KEY,
+         defaultModel: 'claude-3-sonnet'
+       },
+       google: {
+         apiKey: process.env.GOOGLE_API_KEY,
+         defaultModel: 'gemini-1.5-flash'
+       }
+     }
+   }
+   ```
+   - Each agent uses a different LLM optimized for its task
+   - Diverse perspectives reduce model-specific biases
+   - Higher cost but better quality recommendations
 
 ### LangGraph Workflow Definition
 

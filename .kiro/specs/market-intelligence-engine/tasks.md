@@ -60,22 +60,26 @@
 
 - [ ] 5. Build intelligence agent nodes with LangChain LLM integration
   - Create agent node factory function that accepts LLM instance and system prompt
-  - Implement Market Microstructure Agent node using ChatOpenAI (GPT-4-turbo)
-  - Implement Probability Baseline Agent node using ChatGoogleGenerativeAI (Gemini-1.5-flash)
-  - Implement Risk Assessment Agent node using ChatAnthropic (Claude-3-sonnet)
+  - Create LLM configuration factory that supports both single-provider and multi-provider modes
+  - Implement single-provider mode: use one LLM for all agents (budget-friendly)
+  - Implement multi-provider mode: use different LLMs per agent (optimal quality)
+  - Implement Market Microstructure Agent node (default: ChatOpenAI with GPT-4-turbo)
+  - Implement Probability Baseline Agent node (default: ChatGoogleGenerativeAI with Gemini-1.5-flash)
+  - Implement Risk Assessment Agent node (default: ChatAnthropic with Claude-3-sonnet)
   - Use withStructuredOutput() with Zod schemas for type-safe agent signal generation
   - Each agent reads MBD from state and writes AgentSignal to state
   - Add error handling that writes to agentErrors in state
   - Add audit logging to state for each agent execution
-  - _Requirements: 3.1, 3.2, 11.1, 11.3_
+  - _Requirements: 3.1, 3.2, 11.1, 11.3, 11.9, 11.10_
 
 - [ ] 5.1 Write unit tests for individual agent nodes
   - Test each agent node with sample MBD in state
   - Verify agent signal structure and content
   - Test agent error handling and state updates
-  - Test with different LLM providers
+  - Test with single-provider mode (one LLM for all agents)
+  - Test with multi-provider mode (different LLMs per agent)
   - Test structured output parsing
-  - _Requirements: 3.2, 11.3_
+  - _Requirements: 3.2, 11.3, 11.9, 11.10_
 
 - [ ] 5.2 Write property test for agent signal structure
   - **Property 4: Agent signal structure validity**
@@ -239,12 +243,14 @@
   - Implement EngineConfig loading from environment variables
   - Add configuration validation using Zod
   - Create default configuration values
+  - Support single-provider LLM mode (one LLM for all agents via singleProvider field)
+  - Support multi-provider LLM mode (different LLMs per agent, default for optimal quality)
   - Support LLM provider configuration (OpenAI, Anthropic, Google API keys and models)
   - Support LangGraph configuration (checkpointer type, recursion limit)
   - Support Opik configuration (API key, project name, workspace, base URL for self-hosted)
-  - Add configuration documentation
+  - Add configuration documentation with examples for both LLM modes
   - Implement configuration override mechanism
-  - _Requirements: All, 11.5, 11.6_
+  - _Requirements: All, 11.5, 11.6, 11.9, 11.10_
 
 - [ ] 12. Implement audit logging with Opik and LangGraph checkpointing
   - Configure LangGraph checkpointer (MemorySaver for dev, SqliteSaver for production)
@@ -284,26 +290,30 @@
   - Add option to visualize LangGraph workflow (using LangGraph Studio or mermaid)
   - Add option to open Opik trace in browser for detailed inspection
   - Add command-line options for configuration overrides
-  - Add option to select LLM providers via CLI
+  - Add option to select LLM mode (single-provider vs multi-provider)
+  - Add option to select specific LLM provider for single-provider mode
   - Display LLM cost tracking from Opik
   - Add option to replay from checkpoint
   - Add option to query historical traces from Opik by market ID
-  - _Requirements: All, 11.5, 11.6, 11.8_
+  - _Requirements: All, 11.5, 11.6, 11.8, 11.9, 11.10_
 
 - [ ] 14.1 Write end-to-end tests using CLI
   - Test CLI with real Polymarket API calls (integration test)
   - Verify output formatting
   - Test error handling in CLI
-  - Test CLI with different LLM providers
+  - Test CLI with single-provider mode
+  - Test CLI with multi-provider mode
   - Test graph visualization output
-  - _Requirements: All_
+  - _Requirements: All, 11.9, 11.10_
 
 - [ ] 15. Documentation and deployment preparation
   - Write README with setup instructions
   - Document LangGraph workflow architecture with diagram
   - Document GraphState schema and data flow
   - Create example usage code
-  - Document configuration options (including LLM providers, LangGraph settings, and Opik configuration)
+  - Document configuration options (including single-provider vs multi-provider LLM modes, LangGraph settings, and Opik configuration)
+  - Document single-provider mode for budget-conscious deployments
+  - Document multi-provider mode for optimal quality
   - Add deployment guide for Node.js environments
   - Document LLM provider setup for OpenAI, Anthropic, and Gemini
   - Add troubleshooting guide for common LangGraph issues
@@ -311,7 +321,7 @@
   - Document how to use Opik for observability and debugging
   - Add guide for setting up Opik (cloud vs self-hosted)
   - Document how to query and analyze traces in Opik
-  - _Requirements: All_
+  - _Requirements: All, 11.9, 11.10_
 
 - [ ] 16. Final checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.

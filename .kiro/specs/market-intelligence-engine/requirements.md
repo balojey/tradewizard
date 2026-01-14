@@ -127,6 +127,8 @@ The Market Intelligence Engine is the foundational system that connects TradeWiz
 6. WHEN the workflow executes THEN the system SHALL use Opik to trace all LLM calls, agent executions, and state transitions for observability
 7. WHEN traces are logged THEN the system SHALL include LangGraph graph visualization in Opik for enhanced debugging
 8. WHEN LLM costs need tracking THEN the system SHALL use Opik's automatic token usage and cost tracking via LangChain callbacks
+9. WHEN LLM configuration is provided THEN the system SHALL support both multi-provider mode (different LLMs per agent) and single-provider mode (one LLM for all agents)
+10. WHEN single-provider mode is configured THEN the system SHALL use the same LLM instance for all agent nodes while maintaining agent-specific system prompts
 
 ### Requirement 9
 
