@@ -9,7 +9,7 @@
   - Configure Opik for tracing (run `npx opik-ts configure` or set OPIK_API_KEY)
   - _Requirements: All - foundational setup_
 
-- [ ] 2. Implement core data models and LangGraph state
+- [x] 2. Implement core data models and LangGraph state
   - Define TypeScript interfaces for MarketBriefingDocument, AgentSignal, Thesis, DebateRecord, ConsensusProbability, TradeRecommendation
   - Define LangGraph GraphState using Annotation API with all state fields and reducers
   - Implement Result<T, E> type for error handling
@@ -18,7 +18,7 @@
   - Create Zod schemas for structured LLM outputs (AgentSignalSchema, ThesisSchema, etc.)
   - _Requirements: 2.1, 2.4, 11.1, 11.2_
 
-- [ ] 2.1 Write property test for data model validation
+- [x] 2.1 Write property test for data model validation
   - **Property 2: Market Briefing Document validity**
   - **Validates: Requirements 2.1, 2.3, 2.4**
 
