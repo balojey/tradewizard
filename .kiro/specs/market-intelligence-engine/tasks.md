@@ -41,7 +41,7 @@
   - **Property 1: Market data retrieval completeness**
   - **Validates: Requirements 1.2**
 
-- [ ] 4. Implement market ingestion LangGraph node
+- [x] 4. Implement market ingestion LangGraph node
   - Create marketIngestionNode function that reads conditionId from state
   - Fetch and transform market data into MBD using Polymarket client
   - Implement volatility regime calculation from historical prices
@@ -50,7 +50,7 @@
   - Add audit log entry to state
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 11.2_
 
-- [ ] 4.1 Write unit tests for market ingestion node
+- [x] 4.1 Write unit tests for market ingestion node
   - Test node with mocked Polymarket APIs
   - Test MBD creation from sample market data
   - Test ambiguous resolution criteria flagging
