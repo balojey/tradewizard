@@ -460,7 +460,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
   - Verify Opik traces include all advanced agents
   - _Requirements: All_
 
-- [ ] 19. Update CLI to support advanced agent configuration
+- [x] 19. Update CLI to support advanced agent configuration
   - Add CLI flags for enabling/disabling agent groups
   - Add CLI flag for cost budget
   - Add CLI option to display agent selection decisions
@@ -470,7 +470,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
   - Update help text and examples
   - _Requirements: 12.1, 12.2, 12.3, 12.4_
 
-- [ ] 19.1 Write end-to-end tests for CLI with advanced agents
+- [x] 19.1 Write end-to-end tests for CLI with advanced agents
   - Test CLI with all agents enabled
   - Test CLI with selective agents
   - Test CLI with MVP only

@@ -42,6 +42,19 @@ program
   .option('--project <name>', 'Override Opik project name')
   .option('--show-costs', 'Display LLM cost tracking from Opik')
   .option('--replay', 'Replay from checkpoint (if available)')
+  // Advanced Agent Configuration
+  .option('--enable-event-intelligence', 'Enable Event Intelligence agents (Breaking News, Event Impact)')
+  .option('--enable-polling', 'Enable Polling & Statistical agents')
+  .option('--enable-sentiment', 'Enable Sentiment & Narrative agents')
+  .option('--enable-price-action', 'Enable Price Action agents (Momentum, Mean Reversion)')
+  .option('--enable-event-scenario', 'Enable Event Scenario agents (Catalyst, Tail Risk)')
+  .option('--enable-risk-philosophy', 'Enable Risk Philosophy agents (Aggressive, Conservative, Neutral)')
+  .option('--enable-all-agents', 'Enable all advanced agent groups')
+  .option('--cost-budget <amount>', 'Set maximum cost per analysis in USD (default: 2.0)', parseFloat)
+  .option('--show-agent-selection', 'Display which agents were selected and why')
+  .option('--show-signal-fusion', 'Display signal fusion details (weights, conflicts, alignment)')
+  .option('--show-risk-perspectives', 'Display risk philosophy perspectives in recommendation')
+  .option('--show-performance', 'Display agent performance metrics')
   .action(async (conditionId: string, options) => {
     const spinner = ora('Initializing Market Intelligence Engine...').start();
 
@@ -84,6 +97,52 @@ program
         };
       }
 
+      // Advanced Agent Configuration
+      if (options.enableAllAgents) {
+        configOverrides.advancedAgents = {
+          eventIntelligence: { enabled: true, breakingNews: true, eventImpact: true },
+          pollingStatistical: { enabled: true, pollingIntelligence: true, historicalPattern: true },
+          sentimentNarrative: { enabled: true, mediaSentiment: true, socialSentiment: true, narrativeVelocity: true },
+          priceAction: { enabled: true, momentum: true, meanReversion: true, minVolumeThreshold: 1000 },
+          eventScenario: { enabled: true, catalyst: true, tailRisk: true },
+          riskPhilosophy: { enabled: true, aggressive: true, conservative: true, neutral: true },
+        };
+      } else {
+        // Individual agent group overrides
+        if (options.enableEventIntelligence || options.enablePolling || options.enableSentiment || 
+            options.enablePriceAction || options.enableEventScenario || options.enableRiskPhilosophy) {
+          configOverrides.advancedAgents = {
+            eventIntelligence: options.enableEventIntelligence 
+              ? { enabled: true, breakingNews: true, eventImpact: true }
+              : undefined,
+            pollingStatistical: options.enablePolling
+              ? { enabled: true, pollingIntelligence: true, historicalPattern: true }
+              : undefined,
+            sentimentNarrative: options.enableSentiment
+              ? { enabled: true, mediaSentiment: true, socialSentiment: true, narrativeVelocity: true }
+              : undefined,
+            priceAction: options.enablePriceAction
+              ? { enabled: true, momentum: true, meanReversion: true, minVolumeThreshold: 1000 }
+              : undefined,
+            eventScenario: options.enableEventScenario
+              ? { enabled: true, catalyst: true, tailRisk: true }
+              : undefined,
+            riskPhilosophy: options.enableRiskPhilosophy
+              ? { enabled: true, aggressive: true, conservative: true, neutral: true }
+              : undefined,
+          } as any;
+        }
+      }
+
+      // Cost budget override
+      if (options.costBudget) {
+        configOverrides.costOptimization = {
+          maxCostPerAnalysis: options.costBudget,
+          skipLowImpactAgents: false,
+          batchLLMRequests: true,
+        };
+      }
+
       const config = Object.keys(configOverrides).length > 0
         ? createConfig(configOverrides)
         : loadConfig();
@@ -96,6 +155,22 @@ program
         console.log(chalk.dim(`  Opik Project: ${config.opik.projectName}`));
         console.log(chalk.dim(`  Min Agents: ${config.agents.minAgentsRequired}`));
         console.log(chalk.dim(`  Edge Threshold: ${(config.consensus.minEdgeThreshold * 100).toFixed(1)}%`));
+        console.log(chalk.dim(`  Max Cost: $${config.costOptimization.maxCostPerAnalysis.toFixed(2)}`));
+        
+        // Display advanced agent configuration
+        const enabledGroups: string[] = [];
+        if (config.advancedAgents.eventIntelligence.enabled) enabledGroups.push('Event Intelligence');
+        if (config.advancedAgents.pollingStatistical.enabled) enabledGroups.push('Polling & Statistical');
+        if (config.advancedAgents.sentimentNarrative.enabled) enabledGroups.push('Sentiment & Narrative');
+        if (config.advancedAgents.priceAction.enabled) enabledGroups.push('Price Action');
+        if (config.advancedAgents.eventScenario.enabled) enabledGroups.push('Event Scenario');
+        if (config.advancedAgents.riskPhilosophy.enabled) enabledGroups.push('Risk Philosophy');
+        
+        if (enabledGroups.length > 0) {
+          console.log(chalk.dim(`  Advanced Agents: ${enabledGroups.join(', ')}`));
+        } else {
+          console.log(chalk.dim('  Advanced Agents: MVP Only'));
+        }
       }
 
       // Initialize Polymarket client
@@ -113,6 +188,26 @@ program
         displayRecommendation(recommendation);
       } else {
         console.log(chalk.yellow('\n⚠️  No recommendation generated'));
+      }
+
+      // Show agent selection if requested
+      if (options.showAgentSelection) {
+        await displayAgentSelection(conditionId, config);
+      }
+
+      // Show signal fusion if requested
+      if (options.showSignalFusion) {
+        await displaySignalFusion(conditionId, config);
+      }
+
+      // Show risk perspectives if requested
+      if (options.showRiskPerspectives) {
+        await displayRiskPerspectives(conditionId, config);
+      }
+
+      // Show performance metrics if requested
+      if (options.showPerformance) {
+        await displayPerformanceMetrics(conditionId, config);
       }
 
       // Show debug information if requested
@@ -447,6 +542,241 @@ function openOpikTrace(conditionId: string, config: EngineConfig): void {
   console.log(chalk.bold('\nTrace URL:'));
   console.log(chalk.blue(url));
   console.log(chalk.dim('\nOpen this URL in your browser to view the detailed trace'));
+}
+
+/**
+ * Display agent selection decisions
+ */
+async function displayAgentSelection(conditionId: string, config: EngineConfig): Promise<void> {
+  console.log(chalk.cyan('\n🤖 Agent Selection'));
+  console.log(chalk.dim('─'.repeat(60)));
+
+  try {
+    const checkpointer = getCheckpointer(config);
+    const checkpoint = await checkpointer.get({
+      configurable: { thread_id: conditionId },
+    });
+
+    if (checkpoint) {
+      const state = checkpoint.channel_values as GraphStateType;
+
+      if (state.activeAgents && state.activeAgents.length > 0) {
+        console.log(chalk.bold('\nActive Agents:'));
+        state.activeAgents.forEach((agent) => {
+          console.log(chalk.green(`  ✓ ${agent}`));
+        });
+
+        // Display selection reasoning from audit log
+        const selectionEntry = state.auditLog?.find(entry => entry.stage === 'agent_selection');
+        if (selectionEntry && selectionEntry.data) {
+          const data = selectionEntry.data as any;
+          console.log(chalk.bold('\nSelection Reasoning:'));
+          console.log(chalk.dim(`  Market Type: ${data.marketType || 'unknown'}`));
+          
+          if (data.selectedAgents && Array.isArray(data.selectedAgents)) {
+            console.log(chalk.dim(`  Total Selected: ${data.selectedAgents.length}`));
+          }
+        }
+      } else {
+        console.log(chalk.yellow('\n⚠️  No agent selection data available'));
+      }
+    } else {
+      console.log(chalk.yellow('\n⚠️  No checkpoint data available'));
+    }
+  } catch (error) {
+    console.log(chalk.red('\n❌ Failed to load agent selection data'));
+    console.error(chalk.dim(error instanceof Error ? error.message : String(error)));
+  }
+}
+
+/**
+ * Display signal fusion details
+ */
+async function displaySignalFusion(conditionId: string, config: EngineConfig): Promise<void> {
+  console.log(chalk.cyan('\n🔀 Signal Fusion'));
+  console.log(chalk.dim('─'.repeat(60)));
+
+  try {
+    const checkpointer = getCheckpointer(config);
+    const checkpoint = await checkpointer.get({
+      configurable: { thread_id: conditionId },
+    });
+
+    if (checkpoint) {
+      const state = checkpoint.channel_values as GraphStateType;
+
+      if (state.fusedSignal) {
+        console.log(chalk.bold('\nFused Signal:'));
+        console.log(chalk.dim(`  Fair Probability: ${(state.fusedSignal.fairProbability * 100).toFixed(1)}%`));
+        console.log(chalk.dim(`  Confidence: ${(state.fusedSignal.confidence * 100).toFixed(1)}%`));
+
+        if (state.fusedSignal.weights) {
+          console.log(chalk.bold('\nAgent Weights:'));
+          Object.entries(state.fusedSignal.weights).forEach(([agent, weight]) => {
+            console.log(chalk.dim(`  ${agent}: ${(weight as number).toFixed(2)}`));
+          });
+        }
+
+        if (state.fusedSignal.conflictingSignals && state.fusedSignal.conflictingSignals.length > 0) {
+          console.log(chalk.bold('\nSignal Conflicts:'));
+          state.fusedSignal.conflictingSignals.forEach((conflict) => {
+            console.log(chalk.yellow(`  ⚠️  ${conflict.agent1} vs ${conflict.agent2}: ${conflict.disagreement.toFixed(2)}`));
+          });
+        }
+
+        if (state.fusedSignal.signalAlignment !== undefined) {
+          console.log(chalk.bold('\nSignal Alignment:'));
+          console.log(chalk.dim(`  Alignment Score: ${(state.fusedSignal.signalAlignment * 100).toFixed(1)}%`));
+        }
+
+        if (state.fusedSignal.confidence !== undefined) {
+          console.log(chalk.bold('\nFusion Confidence:'));
+          console.log(chalk.dim(`  Overall Confidence: ${(state.fusedSignal.confidence * 100).toFixed(1)}%`));
+        }
+      } else {
+        console.log(chalk.yellow('\n⚠️  No signal fusion data available (using raw agent signals)'));
+      }
+    } else {
+      console.log(chalk.yellow('\n⚠️  No checkpoint data available'));
+    }
+  } catch (error) {
+    console.log(chalk.red('\n❌ Failed to load signal fusion data'));
+    console.error(chalk.dim(error instanceof Error ? error.message : String(error)));
+  }
+}
+
+/**
+ * Display risk philosophy perspectives
+ */
+async function displayRiskPerspectives(conditionId: string, config: EngineConfig): Promise<void> {
+  console.log(chalk.cyan('\n⚖️  Risk Philosophy Perspectives'));
+  console.log(chalk.dim('─'.repeat(60)));
+
+  try {
+    const checkpointer = getCheckpointer(config);
+    const checkpoint = await checkpointer.get({
+      configurable: { thread_id: conditionId },
+    });
+
+    if (checkpoint) {
+      const state = checkpoint.channel_values as GraphStateType;
+
+      if (state.riskPhilosophySignals) {
+        const signals = state.riskPhilosophySignals;
+        const philosophies = ['aggressive', 'conservative', 'neutral'] as const;
+        let hasSignals = false;
+
+        philosophies.forEach((philosophy) => {
+          const signal = signals[philosophy];
+          if (signal) {
+            hasSignals = true;
+            const philosophyName = philosophy.charAt(0).toUpperCase() + philosophy.slice(1);
+            console.log(chalk.bold(`\n${philosophyName}:`));
+            console.log(chalk.dim(`  Direction: ${signal.direction}`));
+            console.log(chalk.dim(`  Fair Probability: ${(signal.fairProbability * 100).toFixed(1)}%`));
+            console.log(chalk.dim(`  Confidence: ${(signal.confidence * 100).toFixed(1)}%`));
+
+            if (signal.metadata) {
+              const metadata = signal.metadata as any;
+              
+              if (metadata.recommendedPositionSize !== undefined) {
+                console.log(chalk.dim(`  Position Size: ${(metadata.recommendedPositionSize * 100).toFixed(1)}% of bankroll`));
+              }
+              
+              if (metadata.kellyCriterion !== undefined) {
+                console.log(chalk.dim(`  Kelly Criterion: ${(metadata.kellyCriterion * 100).toFixed(1)}%`));
+              }
+              
+              if (metadata.hedgingStrategy) {
+                console.log(chalk.dim(`  Hedging: ${metadata.hedgingStrategy}`));
+              }
+              
+              if (metadata.maxDrawdownTolerance !== undefined) {
+                console.log(chalk.dim(`  Max Drawdown: ${(metadata.maxDrawdownTolerance * 100).toFixed(1)}%`));
+              }
+              
+              if (metadata.convictionLevel) {
+                console.log(chalk.dim(`  Conviction: ${metadata.convictionLevel}`));
+              }
+            }
+
+            if (signal.keyDrivers && signal.keyDrivers.length > 0) {
+              console.log(chalk.dim(`  Key Drivers: ${signal.keyDrivers.slice(0, 2).join(', ')}`));
+            }
+          }
+        });
+
+        if (!hasSignals) {
+          console.log(chalk.yellow('\n⚠️  No risk philosophy signals available'));
+          console.log(chalk.dim('  Enable risk philosophy agents with --enable-risk-philosophy'));
+        }
+      } else {
+        console.log(chalk.yellow('\n⚠️  No risk philosophy signals available'));
+        console.log(chalk.dim('  Enable risk philosophy agents with --enable-risk-philosophy'));
+      }
+    } else {
+      console.log(chalk.yellow('\n⚠️  No checkpoint data available'));
+    }
+  } catch (error) {
+    console.log(chalk.red('\n❌ Failed to load risk philosophy data'));
+    console.error(chalk.dim(error instanceof Error ? error.message : String(error)));
+  }
+}
+
+/**
+ * Display agent performance metrics
+ */
+async function displayPerformanceMetrics(conditionId: string, config: EngineConfig): Promise<void> {
+  console.log(chalk.cyan('\n📊 Agent Performance Metrics'));
+  console.log(chalk.dim('─'.repeat(60)));
+
+  try {
+    const checkpointer = getCheckpointer(config);
+    const checkpoint = await checkpointer.get({
+      configurable: { thread_id: conditionId },
+    });
+
+    if (checkpoint) {
+      const state = checkpoint.channel_values as GraphStateType;
+
+      if (state.agentPerformance && Object.keys(state.agentPerformance).length > 0) {
+        console.log(chalk.bold('\nAgent Performance:'));
+        
+        // Sort agents by accuracy
+        const sortedAgents = Object.entries(state.agentPerformance)
+          .sort(([, a], [, b]) => (b as any).accuracy - (a as any).accuracy);
+
+        sortedAgents.forEach(([agentName, metrics]) => {
+          const m = metrics as any;
+          const agentDisplayName = agentName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+          
+          console.log(chalk.bold(`\n  ${agentDisplayName}:`));
+          console.log(chalk.dim(`    Accuracy: ${(m.accuracy * 100).toFixed(1)}%`));
+          console.log(chalk.dim(`    Total Predictions: ${m.totalPredictions || 0}`));
+          console.log(chalk.dim(`    Correct: ${m.correctPredictions || 0}`));
+          
+          if (m.averageConfidence !== undefined) {
+            console.log(chalk.dim(`    Avg Confidence: ${(m.averageConfidence * 100).toFixed(1)}%`));
+          }
+          
+          if (m.calibrationScore !== undefined) {
+            console.log(chalk.dim(`    Calibration: ${(m.calibrationScore * 100).toFixed(1)}%`));
+          }
+        });
+
+        console.log(chalk.dim('\n  Note: Performance metrics are updated when markets resolve'));
+      } else {
+        console.log(chalk.yellow('\n⚠️  No performance metrics available'));
+        console.log(chalk.dim('  Performance tracking must be enabled in configuration'));
+        console.log(chalk.dim('  Metrics are calculated after markets resolve'));
+      }
+    } else {
+      console.log(chalk.yellow('\n⚠️  No checkpoint data available'));
+    }
+  } catch (error) {
+    console.log(chalk.red('\n❌ Failed to load performance metrics'));
+    console.error(chalk.dim(error instanceof Error ? error.message : String(error)));
+  }
 }
 
 // ============================================================================
