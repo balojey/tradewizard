@@ -279,8 +279,8 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
   - **Property 4: Signal conflict detection**
   - **Validates: Requirements 8.3**
 
-- [ ] 10. Build Risk Philosophy Agents
-  - [ ] 10.1 Implement Aggressive Agent node
+- [x] 10. Build Risk Philosophy Agents
+  - [x] 10.1 Implement Aggressive Agent node
     - Create agent node using existing agent factory pattern
     - Write system prompt for aggressive risk philosophy
     - Implement AggressiveSignal schema with Zod
@@ -289,7 +289,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
     - Write signal to graph state
     - _Requirements: 6.1, 6.2_
 
-  - [ ] 10.2 Implement Conservative Agent node
+  - [x] 10.2 Implement Conservative Agent node
     - Create agent node using existing agent factory pattern
     - Write system prompt for conservative risk philosophy
     - Implement ConservativeSignal schema with Zod
@@ -298,7 +298,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
     - Write signal to graph state
     - _Requirements: 6.3, 6.4_
 
-  - [ ] 10.3 Implement Neutral Agent node
+  - [x] 10.3 Implement Neutral Agent node
     - Create agent node using existing agent factory pattern
     - Write system prompt for neutral risk philosophy
     - Implement NeutralSignal schema with Zod
@@ -307,14 +307,14 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
     - Write signal to graph state
     - _Requirements: 6.5, 6.6_
 
-  - [ ] 10.4 Write unit tests for Risk Philosophy Agents
+  - [x] 10.4 Write unit tests for Risk Philosophy Agents
     - Test Aggressive Agent position sizing
     - Test Conservative Agent hedging strategies
     - Test Neutral Agent spread identification
     - Test signal structure and content
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6_
 
-  - [ ] 10.5 Write property test for risk philosophy completeness
+  - [x] 10.5 Write property test for risk philosophy completeness
     - **Property 5: Risk philosophy signal completeness**
     - **Validates: Requirements 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7**
 
