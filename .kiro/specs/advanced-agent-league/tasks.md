@@ -223,8 +223,8 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
     - **Property 13: Price action agent activation condition**
     - **Validates: Requirements 4.5**
 
-- [ ] 8. Build Event Scenario Agents
-  - [ ] 8.1 Implement Catalyst Agent node
+- [x] 8. Build Event Scenario Agents
+  - [x] 8.1 Implement Catalyst Agent node
     - Create agent node using existing agent factory pattern
     - Write system prompt for catalyst analysis
     - Implement CatalystSignal schema with Zod
@@ -234,7 +234,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
     - Write signal to graph state
     - _Requirements: 5.1, 5.2_
 
-  - [ ] 8.2 Implement Shock & Tail-Risk Agent node
+  - [x] 8.2 Implement Shock & Tail-Risk Agent node
     - Create agent node using existing agent factory pattern
     - Write system prompt for tail-risk analysis
     - Implement TailRiskSignal schema with Zod
@@ -244,7 +244,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
     - Write signal to graph state
     - _Requirements: 5.3, 5.4_
 
-  - [ ] 8.3 Write unit tests for Event Scenario Agents
+  - [x] 8.3 Write unit tests for Event Scenario Agents
     - Test Catalyst Agent with upcoming events
     - Test Tail-Risk Agent with extreme scenarios
     - Test signal structure and content
