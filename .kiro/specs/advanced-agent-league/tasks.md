@@ -143,8 +143,8 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
     - **Property 11: Polling agent bias adjustment**
     - **Validates: Requirements 2.2**
 
-- [ ] 6. Build Sentiment & Narrative Agents
-  - [ ] 6.1 Implement Media Sentiment Agent node
+- [x] 6. Build Sentiment & Narrative Agents
+  - [x] 6.1 Implement Media Sentiment Agent node
     - Create agent node using existing agent factory pattern
     - Write system prompt for media sentiment analysis
     - Implement MediaSentimentSignal schema with Zod
@@ -155,7 +155,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
     - Write signal to graph state
     - _Requirements: 3.1, 3.2_
 
-  - [ ] 6.2 Implement Social Sentiment Agent node
+  - [x] 6.2 Implement Social Sentiment Agent node
     - Create agent node using existing agent factory pattern
     - Write system prompt for social sentiment analysis
     - Implement SocialSentimentSignal schema with Zod
@@ -166,7 +166,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
     - Write signal to graph state
     - _Requirements: 3.3, 3.4_
 
-  - [ ] 6.3 Implement Narrative Velocity Agent node
+  - [x] 6.3 Implement Narrative Velocity Agent node
     - Create agent node using existing agent factory pattern
     - Write system prompt for narrative velocity analysis
     - Implement NarrativeVelocitySignal schema with Zod
@@ -177,7 +177,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
     - Write signal to graph state
     - _Requirements: 3.5, 3.6_
 
-  - [ ] 6.4 Write unit tests for Sentiment & Narrative Agents
+  - [x] 6.4 Write unit tests for Sentiment & Narrative Agents
     - Test Media Sentiment Agent with sample news data
     - Test Social Sentiment Agent with mock social data
     - Test Narrative Velocity Agent with time-series data
@@ -185,7 +185,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
     - Test error handling when sentiment data unavailable
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7_
 
-  - [ ] 6.5 Write property test for sentiment platform aggregation
+  - [x] 6.5 Write property test for sentiment platform aggregation
     - **Property 14: Sentiment agent platform aggregation**
     - **Validates: Requirements 3.4**
 
