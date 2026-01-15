@@ -256,7 +256,7 @@
   - Implement configuration override mechanism
   - _Requirements: All, 11.5, 11.6, 11.9, 11.10_
 
-- [ ] 12. Implement audit logging with Opik and LangGraph checkpointing
+- [x] 12. Implement audit logging with Opik and LangGraph checkpointing
   - Configure LangGraph checkpointer (MemorySaver for dev, SqliteSaver for production)
   - Implement audit trail retrieval from checkpointer by thread_id (market ID)
   - Verify Opik automatically logs all LLM calls via LangChain integration
@@ -267,15 +267,15 @@
   - Create utility functions to query Opik traces by market ID (thread_id)
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 11.5, 11.6, 11.7, 11.8_
 
-- [ ] 12.1 Write property test for audit trail completeness
+- [x] 12.1 Write property test for audit trail completeness
   - **Property 13: Audit trail completeness**
   - **Validates: Requirements 9.1, 9.2, 9.3**
 
-- [ ] 12.2 Write property test for error logging
+- [x] 12.2 Write property test for error logging
   - **Property 14: Error logging**
   - **Validates: Requirements 9.4**
 
-- [ ] 12.3 Write unit tests for audit logging and Opik integration
+- [x] 12.3 Write unit tests for audit logging and Opik integration
   - Test checkpoint creation for each graph step
   - Test audit trail retrieval by market ID
   - Test error logging with context
@@ -284,7 +284,7 @@
   - Test graph visualization extraction
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 11.6, 11.7, 11.8_
 
-- [ ] 13. Checkpoint - Ensure all tests pass
+- [-] 13. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 14. Create CLI interface for testing with Opik integration

@@ -11,6 +11,7 @@ import { GraphState, type GraphStateType } from './models/state.js';
 import type { EngineConfig } from './config/index.js';
 import type { PolymarketClient } from './utils/polymarket-client.js';
 import type { TradeRecommendation } from './models/types.js';
+import { GraphExecutionLogger } from './utils/audit-logger.js';
 import {
   createMarketIngestionNode,
   createAgentNodes,
@@ -134,6 +135,19 @@ function createCheckpointer(config: EngineConfig) {
 }
 
 /**
+ * Get checkpointer instance for audit trail retrieval
+ *
+ * This function creates a checkpointer instance that can be used
+ * to retrieve audit trails and inspect graph state.
+ *
+ * @param config - Engine configuration
+ * @returns Checkpointer instance
+ */
+export function getCheckpointer(config: EngineConfig) {
+  return createCheckpointer(config);
+}
+
+/**
  * Analyze a prediction market
  *
  * This is the main entry point for the Market Intelligence Engine.
@@ -149,23 +163,52 @@ export async function analyzeMarket(
   config: EngineConfig,
   polymarketClient: PolymarketClient
 ): Promise<TradeRecommendation | null> {
+  // Create structured logger for this execution
+  const logger = new GraphExecutionLogger();
+  logger.info('workflow', 'Starting market analysis', { conditionId });
+
   // Create the workflow
   const { app, opikHandler } = createWorkflow(config, polymarketClient);
 
-  // Execute the workflow with thread_id for checkpointing and tracing
-  const result = await app.invoke(
-    { conditionId },
-    {
-      configurable: {
-        thread_id: conditionId, // Used for both LangGraph checkpointing and Opik thread tracking
-      },
-      callbacks: [opikHandler], // Add Opik handler as callback for automatic tracing
+  try {
+    // Execute the workflow with thread_id for checkpointing and tracing
+    logger.info('workflow', 'Invoking LangGraph workflow');
+    const result = await app.invoke(
+      { conditionId },
+      {
+        configurable: {
+          thread_id: conditionId, // Used for both LangGraph checkpointing and Opik thread tracking
+        },
+        callbacks: [opikHandler], // Add Opik handler as callback for automatic tracing
+      }
+    );
+
+    // Flush Opik traces before returning
+    logger.info('workflow', 'Flushing Opik traces');
+    await opikHandler.flushAsync();
+
+    logger.info('workflow', 'Market analysis completed successfully', {
+      action: result.recommendation?.action,
+      expectedValue: result.recommendation?.expectedValue,
+    });
+
+    // Return the final recommendation
+    return result.recommendation;
+  } catch (error) {
+    logger.error('workflow', 'Market analysis failed', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+
+    // Attempt to flush Opik traces even on error
+    try {
+      await opikHandler.flushAsync();
+    } catch (flushError) {
+      logger.error('workflow', 'Failed to flush Opik traces', {
+        error: flushError instanceof Error ? flushError.message : String(flushError),
+      });
     }
-  );
 
-  // Flush Opik traces before returning
-  await opikHandler.flushAsync();
-
-  // Return the final recommendation
-  return result.recommendation;
+    throw error;
+  }
 }
