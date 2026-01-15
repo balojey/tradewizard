@@ -251,7 +251,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
     - Test error handling
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
-- [ ] 9. Implement Agent Signal Fusion Node
+- [x] 9. Implement Agent Signal Fusion Node
   - Create agentSignalFusionNode LangGraph node
   - Implement dynamic weight calculation based on agent type and context
   - Implement signal conflict detection
@@ -262,7 +262,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
   - Add audit logging for fusion process
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
-- [ ] 9.1 Write unit tests for signal fusion
+- [x] 9.1 Write unit tests for signal fusion
   - Test weight calculation with various agent combinations
   - Test conflict detection with divergent signals
   - Test alignment bonus calculation
@@ -271,11 +271,11 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
   - Test state updates
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
-- [ ] 9.2 Write property test for fusion weight validity
+- [x] 9.2 Write property test for fusion weight validity
   - **Property 3: Agent signal fusion weight validity**
   - **Validates: Requirements 8.2**
 
-- [ ] 9.3 Write property test for signal conflict detection
+- [x] 9.3 Write property test for signal conflict detection
   - **Property 4: Signal conflict detection**
   - **Validates: Requirements 8.3**
 

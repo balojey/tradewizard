@@ -69,3 +69,7 @@ export {
   CatalystSignalSchema,
   TailRiskSignalSchema,
 } from './event-scenario.js';
+export {
+  createAgentSignalFusionNode,
+  agentSignalFusionNode,
+} from './agent-signal-fusion.js';
