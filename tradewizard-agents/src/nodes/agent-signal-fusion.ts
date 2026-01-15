@@ -16,6 +16,7 @@
 import type { GraphStateType } from '../models/state.js';
 import type { AgentSignal } from '../models/types.js';
 import type { EngineConfig } from '../config/index.js';
+import { getPerformanceWeightAdjustment } from '../utils/performance-tracking.js';
 
 /**
  * Agent type classification for weighting
@@ -120,6 +121,7 @@ function getBaseWeight(agentType: AgentType, config: EngineConfig): number {
  * - Agent confidence (higher confidence = higher weight)
  * - Data freshness (stale data = lower weight)
  * - Market liquidity (for price action agents)
+ * - Historical performance (high accuracy = higher weight)
  *
  * @param signal - Agent signal
  * @param baseWeight - Base weight for agent type
@@ -183,6 +185,16 @@ function applyContextAdjustments(
       adjustedWeight *= liquidityMultiplier;
     }
   }
+
+  // Performance-based adjustment: scale by historical accuracy
+  // High accuracy agents (>0.7) get up to 1.5x weight
+  // Low accuracy agents (<0.4) get down to 0.5x weight
+  const performanceMultiplier = getPerformanceWeightAdjustment(
+    signal.agentName,
+    state.agentPerformance,
+    config
+  );
+  adjustedWeight *= performanceMultiplier;
 
   return adjustedWeight;
 }

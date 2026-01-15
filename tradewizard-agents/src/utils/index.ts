@@ -23,3 +23,15 @@ export {
   type CachedData,
   type DataSourceConfig,
 } from './data-integration.js';
+export {
+  updateAgentMetrics,
+  calculateAccuracyScore,
+  evaluateOnResolution,
+  getPerformanceWeightAdjustment,
+  getPerformanceLeaderboard,
+  getPerformanceDashboard,
+  trackAgentExecution,
+  type AgentPerformanceMetrics,
+  type MarketResolution,
+} from './performance-tracking.js';
+

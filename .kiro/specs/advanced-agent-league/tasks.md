@@ -346,7 +346,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
   - Test state updates
   - _Requirements: 6.7, 11.2_
 
-- [ ] 13. Implement agent performance tracking
+- [x] 13. Implement agent performance tracking
   - Create AgentPerformanceMetrics schema
   - Implement performance tracking on agent execution
   - Implement accuracy calculation on market resolution
@@ -355,14 +355,14 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
   - Add performance-based weight adjustments to signal fusion
   - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5_
 
-- [ ] 13.1 Write unit tests for performance tracking
+- [x] 13.1 Write unit tests for performance tracking
   - Test performance metric calculation
   - Test accuracy evaluation on resolution
   - Test performance-based weight adjustments
   - Test performance dashboard queries
   - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5_
 
-- [ ] 13.2 Write property test for performance tracking accuracy
+- [x] 13.2 Write property test for performance tracking accuracy
   - **Property 7: Agent performance tracking accuracy**
   - **Validates: Requirements 10.2, 10.3**
 
