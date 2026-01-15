@@ -12,11 +12,7 @@ import { z } from 'zod';
 import type { GraphStateType } from '../models/state.js';
 import type { AgentSignal } from '../models/types.js';
 import { AgentSignalSchema } from '../models/schemas.js';
-
-/**
- * Type for supported LLM instances
- */
-type LLMInstance = ChatOpenAI | ChatAnthropic | ChatGoogleGenerativeAI;
+import type { EngineConfig } from '../config/index.js';
 
 // ============================================================================
 // Momentum Signal Schema
@@ -191,12 +187,34 @@ function calculateReversionIndicators(mbd: GraphStateType['mbd']): {
  *
  * Analyzes price momentum, breakout patterns, and short-term timing opportunities.
  *
- * @param llm - LLM instance to use for analysis
+ * @param config - Engine configuration
  * @returns LangGraph node function
  */
 export function createMomentumAgentNode(
-  llm: LLMInstance
+  config: EngineConfig
 ): (state: GraphStateType) => Promise<Partial<GraphStateType>> {
+  // Use OpenAI for momentum analysis (fast and good at pattern recognition)
+  // Fall back to Anthropic, then Google if OpenAI not available
+  let llm;
+  if (config.llm.openai) {
+    llm = new ChatOpenAI({
+      apiKey: config.llm.openai.apiKey,
+      model: config.llm.openai.defaultModel,
+    });
+  } else if (config.llm.anthropic) {
+    llm = new ChatAnthropic({
+      apiKey: config.llm.anthropic.apiKey,
+      model: config.llm.anthropic.defaultModel,
+    });
+  } else if (config.llm.google) {
+    llm = new ChatGoogleGenerativeAI({
+      apiKey: config.llm.google.apiKey,
+      model: config.llm.google.defaultModel,
+    });
+  } else {
+    throw new Error('No LLM provider configured');
+  }
+  
   return async (state: GraphStateType): Promise<Partial<GraphStateType>> => {
     const startTime = Date.now();
     const agentName = 'momentum';
@@ -330,12 +348,34 @@ export function createMomentumAgentNode(
  *
  * Analyzes price overextensions and identifies mean reversion opportunities.
  *
- * @param llm - LLM instance to use for analysis
+ * @param config - Engine configuration
  * @returns LangGraph node function
  */
 export function createMeanReversionAgentNode(
-  llm: LLMInstance
+  config: EngineConfig
 ): (state: GraphStateType) => Promise<Partial<GraphStateType>> {
+  // Use OpenAI for mean reversion analysis (fast and good at statistical patterns)
+  // Fall back to Anthropic, then Google if OpenAI not available
+  let llm;
+  if (config.llm.openai) {
+    llm = new ChatOpenAI({
+      apiKey: config.llm.openai.apiKey,
+      model: config.llm.openai.defaultModel,
+    });
+  } else if (config.llm.anthropic) {
+    llm = new ChatAnthropic({
+      apiKey: config.llm.anthropic.apiKey,
+      model: config.llm.anthropic.defaultModel,
+    });
+  } else if (config.llm.google) {
+    llm = new ChatGoogleGenerativeAI({
+      apiKey: config.llm.google.apiKey,
+      model: config.llm.google.defaultModel,
+    });
+  } else {
+    throw new Error('No LLM provider configured');
+  }
+  
   return async (state: GraphStateType): Promise<Partial<GraphStateType>> => {
     const startTime = Date.now();
     const agentName = 'mean_reversion';

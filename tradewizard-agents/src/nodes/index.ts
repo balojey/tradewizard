@@ -73,3 +73,12 @@ export {
   createAgentSignalFusionNode,
   agentSignalFusionNode,
 } from './agent-signal-fusion.js';
+export {
+  createAggressiveAgentNode,
+  createConservativeAgentNode,
+  createNeutralAgentNode,
+  createRiskPhilosophyAgentNodes,
+  AggressiveSignalSchema,
+  ConservativeSignalSchema,
+  NeutralSignalSchema,
+} from './risk-philosophy.js';

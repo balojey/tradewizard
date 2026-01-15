@@ -366,7 +366,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
   - **Property 7: Agent performance tracking accuracy**
   - **Validates: Requirements 10.2, 10.3**
 
-- [ ] 14. Update LangGraph workflow to integrate advanced agents
+- [x] 14. Update LangGraph workflow to integrate advanced agents
   - Add dynamicAgentSelectionNode to workflow after market ingestion
   - Add all new agent nodes to workflow as parallel nodes
   - Add agentSignalFusionNode after all agents complete
@@ -376,11 +376,11 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
   - Update Opik tracing to include new nodes
   - _Requirements: 11.1, 11.2, 11.4, 11.5_
 
-- [ ] 14.1 Write property test for backward compatibility
+- [x] 14.1 Write property test for backward compatibility
   - **Property 6: Backward compatibility with MVP agents**
   - **Validates: Requirements 11.1, 11.4**
 
-- [ ] 14.2 Write property test for agent signal schema consistency
+- [x] 14.2 Write property test for agent signal schema consistency
   - **Property 15: Agent signal schema consistency**
   - **Validates: Requirements 11.3**
 
