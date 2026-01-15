@@ -6,7 +6,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
 
 ## Tasks
 
-- [ ] 1. Set up external data integration infrastructure
+- [x] 1. Set up external data integration infrastructure
   - Create data integration layer with caching and rate limiting
   - Implement NewsAPI client for breaking news data
   - Implement polling data aggregator (FiveThirtyEight, RealClearPolitics APIs)
@@ -17,7 +17,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
   - Create fallback logic to use cached data when sources unavailable
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
 
-- [ ] 1.1 Write unit tests for data integration layer
+- [x] 1.1 Write unit tests for data integration layer
   - Test news API client with mocked responses
   - Test polling API client with sample data
   - Test social API client with mock data
@@ -27,7 +27,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
   - Test fallback to cached data
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
 
-- [ ] 1.2 Write property test for data caching consistency
+- [x] 1.2 Write property test for data caching consistency
   - **Property 2: External data caching consistency**
   - **Validates: Requirements 7.2, 13.2**
 

@@ -14,3 +14,12 @@ export {
   type OpikTraceQuery,
   type OpikTraceSummary,
 } from './audit-logger.js';
+export {
+  DataIntegrationLayer,
+  createDataIntegrationLayer,
+  type NewsArticle,
+  type PollingData,
+  type SocialSentiment,
+  type CachedData,
+  type DataSourceConfig,
+} from './data-integration.js';
