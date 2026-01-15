@@ -717,4 +717,300 @@ describe('Recommendation Generation Unit Tests', () => {
     expect(targetZone[1]).toBeLessThanOrEqual(1);
     expect(targetZone[0]).toBeLessThan(targetZone[1]);
   });
+
+  // ============================================================================
+  // Risk Philosophy Integration Tests
+  // ============================================================================
+
+  test('should include risk philosophy perspectives when available', async () => {
+    // Skip if no OpenAI API key
+    if (!process.env.OPENAI_API_KEY) {
+      return;
+    }
+
+    // Requirement 6.7: Include risk philosophy perspectives in recommendation
+    const consensus = createSampleConsensus(0.7);
+    const bullThesis = createSampleThesis('YES', 0.7, 0.5);
+    const bearThesis = createSampleThesis('NO', 0.3, 0.5);
+    const mbd = createSampleMBD(0.5);
+
+    // Create risk philosophy signals
+    const riskPhilosophySignals = {
+      aggressive: {
+        agentName: 'risk_philosophy_aggressive',
+        timestamp: Date.now(),
+        confidence: 0.85,
+        direction: 'YES' as const,
+        fairProbability: 0.7,
+        keyDrivers: ['Strong momentum', 'High conviction'],
+        riskFactors: ['High variance', 'Potential drawdown'],
+        metadata: {
+          recommendedPositionSize: 0.25,
+          kellyCriterion: 0.3,
+          convictionLevel: 'high' as const,
+          expectedReturn: 40,
+          varianceWarning: 'High variance strategy with potential for significant drawdowns',
+        },
+      },
+      conservative: {
+        agentName: 'risk_philosophy_conservative',
+        timestamp: Date.now(),
+        confidence: 0.75,
+        direction: 'YES' as const,
+        fairProbability: 0.7,
+        keyDrivers: ['Solid fundamentals', 'Risk management'],
+        riskFactors: ['Market volatility', 'Liquidity risk'],
+        metadata: {
+          recommendedPositionSize: 0.05,
+          hedgingStrategy: 'Use stop-loss at 0.45 and hedge with correlated markets',
+          maxDrawdownTolerance: 0.1,
+          stopLossLevel: 0.45,
+          capitalPreservationScore: 0.9,
+        },
+      },
+      neutral: {
+        agentName: 'risk_philosophy_neutral',
+        timestamp: Date.now(),
+        confidence: 0.8,
+        direction: 'NEUTRAL' as const,
+        fairProbability: 0.7,
+        keyDrivers: ['Spread opportunities', 'Market neutral'],
+        riskFactors: ['Execution risk', 'Correlation risk'],
+        metadata: {
+          spreadOpportunities: [
+            {
+              setup: 'Long YES at 0.5, Short related market at 0.6',
+              expectedReturn: 10,
+              riskLevel: 'low' as const,
+            },
+          ],
+          pairedPositions: [
+            {
+              long: 'Market A YES',
+              short: 'Market B NO',
+              netExposure: 0.1,
+            },
+          ],
+          arbitrageSetups: ['Cross-market arbitrage opportunity'],
+        },
+      },
+    };
+
+    const state: GraphStateType = {
+      conditionId: 'test-condition',
+      mbd,
+      ingestionError: null,
+      agentSignals: [],
+      agentErrors: [],
+      bullThesis,
+      bearThesis,
+      debateRecord: null,
+      consensus,
+      consensusError: null,
+      recommendation: null,
+      auditLog: [],
+      riskPhilosophySignals,
+    };
+
+    const config = createTestConfig();
+    const recommendationNode = createRecommendationGenerationNode(config);
+    const result = await recommendationNode(state);
+
+    expect(result.recommendation).toBeDefined();
+    expect(result.recommendation!.explanation.riskPerspectives).toBeDefined();
+    expect(result.recommendation!.explanation.riskPerspectives).toBeTruthy();
+    
+    // Verify audit log includes risk philosophy information
+    expect(result.auditLog).toBeDefined();
+    expect(result.auditLog![0].data.riskPhilosophyIncluded).toBe(true);
+    expect(result.auditLog![0].data.riskPhilosophyAgents).toContain('aggressive');
+    expect(result.auditLog![0].data.riskPhilosophyAgents).toContain('conservative');
+    expect(result.auditLog![0].data.riskPhilosophyAgents).toContain('neutral');
+  });
+
+  test('should work without risk philosophy signals (backward compatibility)', async () => {
+    // Skip if no OpenAI API key
+    if (!process.env.OPENAI_API_KEY) {
+      return;
+    }
+
+    // Requirement 11.2: Maintain backward compatibility
+    const consensus = createSampleConsensus(0.7);
+    const bullThesis = createSampleThesis('YES', 0.7, 0.5);
+    const bearThesis = createSampleThesis('NO', 0.3, 0.5);
+    const mbd = createSampleMBD(0.5);
+
+    const state: GraphStateType = {
+      conditionId: 'test-condition',
+      mbd,
+      ingestionError: null,
+      agentSignals: [],
+      agentErrors: [],
+      bullThesis,
+      bearThesis,
+      debateRecord: null,
+      consensus,
+      consensusError: null,
+      recommendation: null,
+      auditLog: [],
+      // No riskPhilosophySignals
+    };
+
+    const config = createTestConfig();
+    const recommendationNode = createRecommendationGenerationNode(config);
+    const result = await recommendationNode(state);
+
+    expect(result.recommendation).toBeDefined();
+    expect(result.recommendation!.action).toBe('LONG_YES');
+    expect(result.recommendation!.expectedValue).toBeGreaterThan(0);
+    
+    // Risk perspectives should be undefined when no risk philosophy signals
+    expect(result.recommendation!.explanation.riskPerspectives).toBeUndefined();
+    
+    // Verify audit log shows no risk philosophy
+    expect(result.auditLog).toBeDefined();
+    expect(result.auditLog![0].data.riskPhilosophyIncluded).toBe(false);
+    expect(result.auditLog![0].data.riskPhilosophyAgents).toEqual([]);
+  });
+
+  test('should work with partial risk philosophy signals', async () => {
+    // Skip if no OpenAI API key
+    if (!process.env.OPENAI_API_KEY) {
+      return;
+    }
+
+    // Test with only aggressive agent signal
+    const consensus = createSampleConsensus(0.7);
+    const bullThesis = createSampleThesis('YES', 0.7, 0.5);
+    const bearThesis = createSampleThesis('NO', 0.3, 0.5);
+    const mbd = createSampleMBD(0.5);
+
+    const riskPhilosophySignals = {
+      aggressive: {
+        agentName: 'risk_philosophy_aggressive',
+        timestamp: Date.now(),
+        confidence: 0.85,
+        direction: 'YES' as const,
+        fairProbability: 0.7,
+        keyDrivers: ['Strong momentum'],
+        riskFactors: ['High variance'],
+        metadata: {
+          recommendedPositionSize: 0.25,
+          kellyCriterion: 0.3,
+          convictionLevel: 'high' as const,
+          expectedReturn: 40,
+          varianceWarning: 'High variance strategy',
+        },
+      },
+      // No conservative or neutral signals
+    };
+
+    const state: GraphStateType = {
+      conditionId: 'test-condition',
+      mbd,
+      ingestionError: null,
+      agentSignals: [],
+      agentErrors: [],
+      bullThesis,
+      bearThesis,
+      debateRecord: null,
+      consensus,
+      consensusError: null,
+      recommendation: null,
+      auditLog: [],
+      riskPhilosophySignals,
+    };
+
+    const config = createTestConfig();
+    const recommendationNode = createRecommendationGenerationNode(config);
+    const result = await recommendationNode(state);
+
+    expect(result.recommendation).toBeDefined();
+    expect(result.recommendation!.action).toBe('LONG_YES');
+    
+    // Should still include risk perspectives even with partial signals
+    expect(result.recommendation!.explanation.riskPerspectives).toBeDefined();
+    
+    // Verify audit log shows only aggressive agent
+    expect(result.auditLog).toBeDefined();
+    expect(result.auditLog![0].data.riskPhilosophyIncluded).toBe(true);
+    expect(result.auditLog![0].data.riskPhilosophyAgents).toContain('aggressive');
+    expect(result.auditLog![0].data.riskPhilosophyAgents).not.toContain('conservative');
+    expect(result.auditLog![0].data.riskPhilosophyAgents).not.toContain('neutral');
+  });
+
+  test('should update state correctly with risk philosophy', async () => {
+    // Skip if no OpenAI API key
+    if (!process.env.OPENAI_API_KEY) {
+      return;
+    }
+
+    // Requirement 11.2: Write recommendation to state and add audit log entry
+    const consensus = createSampleConsensus(0.7);
+    const bullThesis = createSampleThesis('YES', 0.7, 0.5);
+    const bearThesis = createSampleThesis('NO', 0.3, 0.5);
+    const mbd = createSampleMBD(0.5);
+
+    const riskPhilosophySignals = {
+      aggressive: {
+        agentName: 'risk_philosophy_aggressive',
+        timestamp: Date.now(),
+        confidence: 0.85,
+        direction: 'YES' as const,
+        fairProbability: 0.7,
+        keyDrivers: ['Strong momentum'],
+        riskFactors: ['High variance'],
+        metadata: {
+          recommendedPositionSize: 0.25,
+          kellyCriterion: 0.3,
+          convictionLevel: 'high' as const,
+          expectedReturn: 40,
+          varianceWarning: 'High variance strategy',
+        },
+      },
+    };
+
+    const state: GraphStateType = {
+      conditionId: 'test-condition',
+      mbd,
+      ingestionError: null,
+      agentSignals: [],
+      agentErrors: [],
+      bullThesis,
+      bearThesis,
+      debateRecord: null,
+      consensus,
+      consensusError: null,
+      recommendation: null,
+      auditLog: [],
+      riskPhilosophySignals,
+    };
+
+    const config = createTestConfig();
+    const recommendationNode = createRecommendationGenerationNode(config);
+    const result = await recommendationNode(state);
+
+    // Verify recommendation structure
+    expect(result.recommendation).toBeDefined();
+    expect(result.recommendation!.marketId).toBe('test-market');
+    expect(result.recommendation!.action).toBeDefined();
+    expect(result.recommendation!.entryZone).toBeDefined();
+    expect(result.recommendation!.targetZone).toBeDefined();
+    expect(result.recommendation!.expectedValue).toBeDefined();
+    expect(result.recommendation!.winProbability).toBeDefined();
+    expect(result.recommendation!.liquidityRisk).toBeDefined();
+    expect(result.recommendation!.explanation).toBeDefined();
+    expect(result.recommendation!.explanation.riskPerspectives).toBeDefined();
+    expect(result.recommendation!.metadata).toBeDefined();
+
+    // Verify audit log entry includes risk philosophy info
+    expect(result.auditLog).toBeDefined();
+    expect(result.auditLog!.length).toBe(1);
+    expect(result.auditLog![0].stage).toBe('recommendation_generation');
+    expect(result.auditLog![0].timestamp).toBeDefined();
+    expect(result.auditLog![0].data).toBeDefined();
+    expect(result.auditLog![0].data.success).toBe(true);
+    expect(result.auditLog![0].data.riskPhilosophyIncluded).toBe(true);
+    expect(result.auditLog![0].data.riskPhilosophyAgents).toBeDefined();
+  });
 });

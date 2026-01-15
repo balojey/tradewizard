@@ -225,6 +225,7 @@ export interface TradeExplanation {
   keyCatalysts: string[];
   failureScenarios: string[];
   uncertaintyNote?: string; // Present if disagreementIndex > 0.15
+  riskPerspectives?: string; // Risk philosophy perspectives on position sizing and risk management
 }
 
 /**

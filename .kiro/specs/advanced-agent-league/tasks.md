@@ -331,7 +331,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
   - Test state updates
   - _Requirements: 8.5, 11.2_
 
-- [ ] 12. Update recommendation generation to include risk philosophy
+- [x] 12. Update recommendation generation to include risk philosophy
   - Modify recommendationGenerationNode to read riskPhilosophySignals from state
   - Include risk philosophy perspectives in recommendation explanation
   - Add position sizing guidance from risk philosophy agents
@@ -339,7 +339,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
   - Update audit logging
   - _Requirements: 6.7, 11.2_
 
-- [ ] 12.1 Write unit tests for updated recommendation generation
+- [x] 12.1 Write unit tests for updated recommendation generation
   - Test recommendation with risk philosophy signals
   - Test backward compatibility without risk philosophy
   - Test explanation includes risk perspectives

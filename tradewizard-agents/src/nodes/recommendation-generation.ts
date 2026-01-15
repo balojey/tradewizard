@@ -193,7 +193,7 @@ async function generateExplanation(
   expectedValue: number,
   edge: number
 ): Promise<TradeRecommendation['explanation']> {
-  const { consensus, bullThesis, bearThesis, mbd } = state;
+  const { consensus, bullThesis, bearThesis, mbd, riskPhilosophySignals } = state;
 
   if (!consensus || !bullThesis || !bearThesis || !mbd) {
     throw new Error('Missing required state for explanation generation');
@@ -227,7 +227,33 @@ async function generateExplanation(
       direction: secondaryThesis.direction,
       coreArgument: secondaryThesis.coreArgument,
     },
+    riskPhilosophy: riskPhilosophySignals ? {
+      aggressive: riskPhilosophySignals.aggressive ? {
+        positionSize: riskPhilosophySignals.aggressive.metadata.recommendedPositionSize,
+        kellyCriterion: riskPhilosophySignals.aggressive.metadata.kellyCriterion,
+        convictionLevel: riskPhilosophySignals.aggressive.metadata.convictionLevel,
+        expectedReturn: riskPhilosophySignals.aggressive.metadata.expectedReturn,
+        varianceWarning: riskPhilosophySignals.aggressive.metadata.varianceWarning,
+      } : undefined,
+      conservative: riskPhilosophySignals.conservative ? {
+        positionSize: riskPhilosophySignals.conservative.metadata.recommendedPositionSize,
+        hedgingStrategy: riskPhilosophySignals.conservative.metadata.hedgingStrategy,
+        maxDrawdown: riskPhilosophySignals.conservative.metadata.maxDrawdownTolerance,
+        stopLoss: riskPhilosophySignals.conservative.metadata.stopLossLevel,
+      } : undefined,
+      neutral: riskPhilosophySignals.neutral ? {
+        spreadOpportunities: riskPhilosophySignals.neutral.metadata.spreadOpportunities,
+        pairedPositions: riskPhilosophySignals.neutral.metadata.pairedPositions,
+      } : undefined,
+    } : undefined,
   };
+
+  const riskPhilosophyInstructions = riskPhilosophySignals 
+    ? `6. Include risk philosophy perspectives in the explanation:
+   - If aggressive philosophy is present, mention position sizing and conviction level
+   - If conservative philosophy is present, mention hedging strategy and risk management
+   - If neutral philosophy is present, mention spread opportunities or paired positions`
+    : '';
 
   const prompt = `You are a trade recommendation explainer for prediction markets.
 
@@ -242,14 +268,15 @@ Your explanation should:
 3. Include key catalysts from the thesis (if any)
 4. Include failure scenarios from the thesis (if any)
 5. ${consensus.disagreementIndex > 0.15 ? 'Acknowledge the uncertainty due to agent disagreement' : 'Omit uncertainty note (low disagreement)'}
+${riskPhilosophyInstructions}
 
 Respond in JSON format with these fields:
 {
-  "summary": "2-3 sentence plain language explanation",
+  "summary": "2-3 sentence plain language explanation${riskPhilosophySignals ? ' including risk philosophy perspectives' : ''}",
   "coreThesis": "The core argument from the primary thesis",
   "keyCatalysts": ["catalyst1", "catalyst2", ...],
   "failureScenarios": ["scenario1", "scenario2", ...],
-  "uncertaintyNote": "Optional note about uncertainty (only if disagreementIndex > 0.15)"
+  "uncertaintyNote": "Optional note about uncertainty (only if disagreementIndex > 0.15)"${riskPhilosophySignals ? ',\n  "riskPerspectives": "Summary of risk philosophy perspectives on position sizing and risk management"' : ''}
 }`;
 
   const response = await llm.invoke([
@@ -287,6 +314,7 @@ Respond in JSON format with these fields:
     keyCatalysts: parsed.keyCatalysts || primaryThesis.catalysts,
     failureScenarios: parsed.failureScenarios || primaryThesis.failureConditions,
     uncertaintyNote: consensus.disagreementIndex > 0.15 ? parsed.uncertaintyNote : undefined,
+    riskPerspectives: parsed.riskPerspectives,
   };
 }
 
@@ -517,6 +545,8 @@ export function createRecommendationGenerationNode(
               liquidityRisk,
               entryZone,
               targetZone,
+              riskPhilosophyIncluded: !!state.riskPhilosophySignals,
+              riskPhilosophyAgents: state.riskPhilosophySignals ? Object.keys(state.riskPhilosophySignals).filter(k => state.riskPhilosophySignals![k as keyof typeof state.riskPhilosophySignals]) : [],
               duration: Date.now() - startTime,
             },
           },
