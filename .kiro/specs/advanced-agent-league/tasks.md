@@ -54,7 +54,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
   - **Property 16: Configuration validation**
   - **Validates: Requirements 12.5**
 
-- [ ] 3. Implement dynamic agent selection node
+- [x] 3. Implement dynamic agent selection node
   - Create dynamicAgentSelectionNode LangGraph node
   - Implement market type-based agent selection logic
   - Add data availability checking for each agent
@@ -64,7 +64,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
   - Add audit logging for agent selection decisions
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 13.3_
 
-- [ ] 3.1 Write unit tests for dynamic agent selection
+- [x] 3.1 Write unit tests for dynamic agent selection
   - Test agent selection for each market type
   - Test data availability filtering
   - Test configuration-based filtering
@@ -72,7 +72,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
   - Test audit logging
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5_
 
-- [ ] 3.2 Write property test for agent selection completeness
+- [x] 3.2 Write property test for agent selection completeness
   - **Property 1: Dynamic agent selection completeness**
   - **Validates: Requirements 9.1, 9.2, 9.3, 9.4, 9.5**
 

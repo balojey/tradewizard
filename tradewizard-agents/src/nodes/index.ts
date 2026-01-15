@@ -26,3 +26,14 @@ export {
   createRecommendationGenerationNode,
   recommendationGenerationNode,
 } from './recommendation-generation.js';
+export {
+  createDynamicAgentSelectionNode,
+  dynamicAgentSelectionNode,
+  MVP_AGENTS,
+  EVENT_INTELLIGENCE_AGENTS,
+  POLLING_STATISTICAL_AGENTS,
+  SENTIMENT_NARRATIVE_AGENTS,
+  PRICE_ACTION_AGENTS,
+  EVENT_SCENARIO_AGENTS,
+  RISK_PHILOSOPHY_AGENTS,
+} from './dynamic-agent-selection.js';
