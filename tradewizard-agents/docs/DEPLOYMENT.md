@@ -860,3 +860,330 @@ For deployment issues:
 ---
 
 **Last Updated:** January 2026
+
+
+## Advanced Agent League Deployment
+
+### Additional Prerequisites
+
+For Advanced Agent League deployment, you need:
+
+**External Data API Keys** (optional but recommended):
+- News API key (NewsAPI, Perplexity, or custom)
+- Polling API access (FiveThirtyEight, RealClearPolitics, or custom)
+- Social Media API keys (Twitter, Reddit, or custom)
+
+### Environment Variables for Advanced Agents
+
+Add to your `.env` file:
+
+```bash
+# Advanced Agent Configuration
+ADVANCED_AGENTS_ENABLED=true
+
+# External Data Sources
+NEWS_API_PROVIDER=newsapi
+NEWS_API_KEY=your_key_here
+NEWS_API_CACHE_TTL=900
+NEWS_API_MAX_ARTICLES=50
+
+POLLING_API_PROVIDER=538
+POLLING_API_CACHE_TTL=3600
+
+SOCIAL_API_PROVIDERS=twitter,reddit
+TWITTER_API_KEY=your_key_here
+TWITTER_BEARER_TOKEN=your_token_here
+REDDIT_CLIENT_ID=your_id_here
+REDDIT_CLIENT_SECRET=your_secret_here
+SOCIAL_API_CACHE_TTL=300
+SOCIAL_API_MAX_MENTIONS=100
+
+# Cost Optimization
+MAX_COST_PER_ANALYSIS=1.00
+SKIP_LOW_IMPACT_AGENTS=true
+BATCH_LLM_REQUESTS=true
+
+# Performance Tracking
+PERFORMANCE_TRACKING_ENABLED=true
+EVALUATE_ON_RESOLUTION=true
+MIN_SAMPLE_SIZE=10
+```
+
+### Caching Infrastructure
+
+For production deployments with Advanced Agent League, consider using Redis for caching:
+
+#### Redis Setup
+
+**Local Redis**:
+
+```bash
+# Install Redis
+sudo apt-get install redis-server
+
+# Start Redis
+sudo systemctl start redis
+sudo systemctl enable redis
+
+# Configure in .env
+REDIS_URL=redis://localhost:6379
+CACHE_PROVIDER=redis
+```
+
+**Cloud Redis**:
+
+- **AWS ElastiCache**: Managed Redis service
+- **Google Cloud Memorystore**: Managed Redis service
+- **Azure Cache for Redis**: Managed Redis service
+
+```bash
+# Configure cloud Redis
+REDIS_URL=redis://your-redis-instance:6379
+REDIS_PASSWORD=your_password
+CACHE_PROVIDER=redis
+```
+
+
+### Configuration Profiles
+
+Create configuration profiles for different deployment scenarios:
+
+**Budget-Conscious Profile** (`config/budget.json`):
+
+```json
+{
+  "advancedAgents": {
+    "eventIntelligence": { "enabled": true, "breakingNews": true, "eventImpact": false },
+    "pollingStatistical": { "enabled": true, "pollingIntelligence": true, "historicalPattern": false },
+    "sentimentNarrative": { "enabled": false },
+    "priceAction": { "enabled": false },
+    "eventScenario": { "enabled": true, "catalyst": true, "tailRisk": false },
+    "riskPhilosophy": { "enabled": true, "aggressive": true, "conservative": true, "neutral": false }
+  },
+  "costOptimization": {
+    "maxCostPerAnalysis": 0.50,
+    "skipLowImpactAgents": true,
+    "batchLLMRequests": true
+  }
+}
+```
+
+**Premium Profile** (`config/premium.json`):
+
+```json
+{
+  "advancedAgents": {
+    "eventIntelligence": { "enabled": true, "breakingNews": true, "eventImpact": true },
+    "pollingStatistical": { "enabled": true, "pollingIntelligence": true, "historicalPattern": true },
+    "sentimentNarrative": { "enabled": true, "mediaSentiment": true, "socialSentiment": true, "narrativeVelocity": true },
+    "priceAction": { "enabled": true, "momentum": true, "meanReversion": true, "minVolumeThreshold": 1000 },
+    "eventScenario": { "enabled": true, "catalyst": true, "tailRisk": true },
+    "riskPhilosophy": { "enabled": true, "aggressive": true, "conservative": true, "neutral": true }
+  },
+  "costOptimization": {
+    "maxCostPerAnalysis": 2.00,
+    "skipLowImpactAgents": false,
+    "batchLLMRequests": true
+  }
+}
+```
+
+### Monitoring Advanced Agents
+
+#### Opik Configuration
+
+Ensure Opik is configured to track advanced agent metrics:
+
+```bash
+# .env
+OPIK_API_KEY=your_key_here
+OPIK_PROJECT_NAME=market-intelligence-advanced
+OPIK_TRACK_COSTS=true
+OPIK_TRACK_AGENT_PERFORMANCE=true
+```
+
+#### Custom Metrics
+
+Track additional metrics for advanced agents:
+
+- Agent activation rate
+- External data fetch success rate
+- Cache hit rate
+- Signal fusion conflicts
+- Cost per agent
+- Agent accuracy over time
+
+
+### Scaling Considerations for Advanced Agents
+
+#### Horizontal Scaling
+
+When scaling horizontally with advanced agents:
+
+1. **Shared Cache**: Use Redis for shared caching across instances
+2. **Rate Limit Coordination**: Implement distributed rate limiting
+3. **Performance Tracking**: Use shared database for agent performance metrics
+4. **Cost Tracking**: Aggregate costs across all instances
+
+**Redis Configuration for Horizontal Scaling**:
+
+```bash
+# Shared Redis instance
+REDIS_URL=redis://shared-redis:6379
+CACHE_PROVIDER=redis
+
+# Distributed rate limiting
+RATE_LIMIT_PROVIDER=redis
+RATE_LIMIT_KEY_PREFIX=tradewizard:ratelimit:
+```
+
+#### Resource Requirements
+
+Advanced Agent League requires more resources than MVP:
+
+**Memory**:
+- Budget-Conscious: 1GB minimum, 2GB recommended
+- Balanced: 2GB minimum, 4GB recommended
+- Premium: 4GB minimum, 8GB recommended
+
+**CPU**:
+- Budget-Conscious: 1 vCPU minimum, 2 vCPU recommended
+- Balanced: 2 vCPU minimum, 4 vCPU recommended
+- Premium: 4 vCPU minimum, 8 vCPU recommended
+
+**Storage**:
+- Cache storage: 1-5GB depending on cache TTLs
+- Performance metrics: 100MB-1GB depending on volume
+
+### Security Considerations
+
+#### API Key Management
+
+Store external data API keys securely:
+
+**AWS Secrets Manager**:
+
+```bash
+# Store secrets
+aws secretsmanager create-secret \
+  --name tradewizard/news-api-key \
+  --secret-string "your_key_here"
+
+# Reference in ECS task definition
+{
+  "secrets": [
+    {
+      "name": "NEWS_API_KEY",
+      "valueFrom": "arn:aws:secretsmanager:region:account:secret:tradewizard/news-api-key"
+    }
+  ]
+}
+```
+
+**Google Secret Manager**:
+
+```bash
+# Store secret
+gcloud secrets create news-api-key --data-file=-
+echo -n "your_key_here" | gcloud secrets versions add news-api-key --data-file=-
+
+# Reference in Cloud Run
+gcloud run deploy market-intelligence-engine \
+  --set-secrets NEWS_API_KEY=news-api-key:latest
+```
+
+#### Network Security
+
+Configure firewall rules for external data sources:
+
+- Allow outbound HTTPS to news APIs
+- Allow outbound HTTPS to polling APIs
+- Allow outbound HTTPS to social media APIs
+- Restrict inbound access as needed
+
+### Cost Management
+
+#### Budget Alerts
+
+Set up budget alerts for API costs:
+
+**AWS Cost Explorer**:
+- Create budget for external API costs
+- Set alerts at 50%, 80%, 100% of budget
+- Monitor daily spending trends
+
+**Opik Cost Tracking**:
+- Monitor LLM costs per agent
+- Track total analysis costs
+- Set cost thresholds per analysis
+
+#### Cost Optimization Strategies
+
+1. **Aggressive Caching**: Increase cache TTLs to reduce API calls
+2. **Agent Selection**: Disable low-value agents for your use case
+3. **Cost Thresholds**: Set strict cost limits per analysis
+4. **Performance-Based**: Reduce weight of underperforming agents
+5. **Batch Processing**: Batch multiple analyses to amortize costs
+
+### Troubleshooting Advanced Agents
+
+#### External Data Issues
+
+**Check data source connectivity**:
+
+```bash
+# Test news API
+curl -H "Authorization: Bearer $NEWS_API_KEY" \
+  https://newsapi.org/v2/everything?q=test
+
+# Test Twitter API
+curl -H "Authorization: Bearer $TWITTER_BEARER_TOKEN" \
+  https://api.twitter.com/2/tweets/search/recent?query=test
+```
+
+**Check cache status**:
+
+```bash
+# Redis cache
+redis-cli
+> KEYS tradewizard:cache:*
+> TTL tradewizard:cache:news:*
+```
+
+#### Agent Performance Issues
+
+**Check agent execution times**:
+
+Review Opik traces for slow agents and optimize:
+- Reduce external data fetch size
+- Increase cache TTLs
+- Set agent timeouts
+- Optimize agent prompts
+
+**Check agent accuracy**:
+
+Query performance metrics:
+
+```bash
+npm run cli -- performance --all
+npm run cli -- performance --underperforming
+```
+
+---
+
+**Advanced Agent League Deployment Checklist**:
+
+- [ ] Configure external data API keys
+- [ ] Set up Redis for caching (production)
+- [ ] Configure cost thresholds
+- [ ] Enable performance tracking
+- [ ] Set up Opik for monitoring
+- [ ] Configure budget alerts
+- [ ] Test data source connectivity
+- [ ] Review agent configuration profile
+- [ ] Set up distributed rate limiting (if scaling)
+- [ ] Configure secrets management
+- [ ] Test end-to-end with sample market
+- [ ] Monitor costs for first week
+- [ ] Tune configuration based on results
+

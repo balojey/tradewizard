@@ -765,3 +765,495 @@ For more examples and help:
 ---
 
 **Last Updated:** January 2026
+
+
+## Advanced Agent League Examples
+
+### Basic Advanced Agent Usage
+
+Analyze a market with all advanced agents enabled:
+
+```bash
+npm run cli -- analyze 0x1234567890abcdef --advanced-agents all
+```
+
+**Output includes additional sections:**
+
+```
+───────────────────────────────────────────────────────────────
+ADVANCED AGENT INSIGHTS
+───────────────────────────────────────────────────────────────
+
+Active Agents: 13
+Agent Groups: Event Intelligence, Polling & Statistical, 
+              Sentiment & Narrative, Price Action, Event Scenario,
+              Risk Philosophy
+
+Event Intelligence:
+• Breaking News: 3 market-moving articles detected
+• Event Impact: Historical analog shows 75% success rate
+
+Polling & Statistical:
+• Polling Intelligence: Aggregated probability 58% (bias-adjusted)
+• Momentum: Rising (+3% over last week)
+
+Sentiment & Narrative:
+• Media Sentiment: Positive trend (+0.15)
+• Social Sentiment: Bullish positioning detected
+• Narrative Velocity: Accelerating coverage
+
+Price Action:
+• Momentum: Breakout pattern forming
+• Mean Reversion: Not overextended
+
+Event Scenario:
+• Catalyst: Major announcement in 5 days
+• Tail Risk: Low probability surprise scenario identified
+
+Risk Philosophy Perspectives:
+• Aggressive: 15% position size recommended (Kelly criterion)
+• Conservative: 5% position size with hedging
+• Neutral: Spread trade opportunity identified
+```
+
+### Budget-Conscious Advanced Analysis
+
+Use only essential advanced agents:
+
+```bash
+npm run cli -- analyze 0x1234567890abcdef --budget-mode
+```
+
+**Configuration:**
+- Event Intelligence: Breaking News only
+- Polling & Statistical: Polling Intelligence only
+- Sentiment & Narrative: Disabled
+- Price Action: Disabled
+- Event Scenario: Catalyst only
+- Risk Philosophy: Aggressive + Conservative
+
+**Cost:** ~$0.40 per analysis
+
+### Premium Advanced Analysis
+
+Use all advanced agents with maximum detail:
+
+```bash
+npm run cli -- analyze 0x1234567890abcdef --premium-mode --verbose
+```
+
+**Configuration:**
+- All agent groups enabled
+- All agents within groups enabled
+- Maximum external data fetching
+- Detailed signal fusion output
+
+**Cost:** ~$1.80 per analysis
+
+### Election Market Analysis
+
+Analyze an election market with polling and sentiment agents:
+
+```bash
+npm run cli -- analyze 0x1234567890abcdef \
+  --event-intelligence \
+  --polling-statistical \
+  --sentiment-narrative \
+  --show-fusion-details
+```
+
+**Output includes:**
+
+```
+───────────────────────────────────────────────────────────────
+SIGNAL FUSION DETAILS
+───────────────────────────────────────────────────────────────
+
+Contributing Agents: 9
+Signal Alignment: 0.85 (high agreement)
+Fusion Confidence: 0.78
+
+Agent Weights:
+• Market Microstructure: 1.0x (base)
+• Probability Baseline: 1.0x (base)
+• Risk Assessment: 1.0x (base)
+• Breaking News: 1.2x (event-driven market)
+• Polling Intelligence: 1.5x (election market)
+• Media Sentiment: 0.8x (noisy signal)
+• Social Sentiment: 0.8x (noisy signal)
+• Narrative Velocity: 0.8x (noisy signal)
+• Catalyst: 1.0x (base)
+
+Signal Conflicts: None detected
+Alignment Bonus: +15% confidence
+
+Weighted Consensus: 62%
+Confidence Band: [58%, 66%]
+```
+
+
+### Court Ruling Market Analysis
+
+Analyze a court ruling market with event intelligence:
+
+```bash
+npm run cli -- analyze 0x1234567890abcdef \
+  --event-intelligence \
+  --show-agent-selection
+```
+
+**Output includes:**
+
+```
+───────────────────────────────────────────────────────────────
+AGENT SELECTION
+───────────────────────────────────────────────────────────────
+
+Market Type: Court Ruling
+Selected Agents: 8
+
+MVP Agents (always active):
+✓ Market Microstructure
+✓ Probability Baseline
+✓ Risk Assessment
+
+Event Intelligence:
+✓ Breaking News (legal developments)
+✓ Event Impact (historical analogs)
+
+Polling & Statistical:
+✓ Historical Pattern (similar rulings)
+
+Event Scenario:
+✓ Catalyst (hearing dates)
+✓ Tail-Risk (surprise outcomes)
+
+Risk Philosophy:
+✓ Aggressive
+✓ Conservative
+✓ Neutral
+
+Skipped Agents:
+✗ Polling Intelligence (not election market)
+✗ Sentiment agents (insufficient social data)
+✗ Price Action (insufficient volume)
+```
+
+### Cost-Constrained Analysis
+
+Set a strict cost budget:
+
+```bash
+npm run cli -- analyze 0x1234567890abcdef --max-cost 0.50
+```
+
+**Output includes:**
+
+```
+───────────────────────────────────────────────────────────────
+COST OPTIMIZATION
+───────────────────────────────────────────────────────────────
+
+Cost Budget: $0.50
+Estimated Cost: $0.48
+
+Agent Prioritization:
+✓ MVP Agents (priority: critical)
+✓ Breaking News (priority: high)
+✓ Polling Intelligence (priority: high)
+✓ Catalyst (priority: high)
+✗ Event Impact (skipped: budget)
+✗ Sentiment agents (skipped: budget)
+✗ Price Action (skipped: budget)
+
+Active Agents: 6
+Cost Saved: $0.32
+```
+
+### Performance Tracking
+
+Query agent performance metrics:
+
+```bash
+# View all agent performance
+npm run cli -- performance --all
+
+# View top performers
+npm run cli -- performance --top 5
+
+# View underperformers
+npm run cli -- performance --underperforming
+
+# View specific agent
+npm run cli -- performance --agent polling_intelligence
+```
+
+**Output:**
+
+```
+═══════════════════════════════════════════════════════════════
+AGENT PERFORMANCE METRICS
+═══════════════════════════════════════════════════════════════
+
+Top Performing Agents:
+
+1. Polling Intelligence Agent
+   • Accuracy: 78%
+   • Total Analyses: 45
+   • Avg Confidence: 0.82
+   • Avg Execution Time: 3.2s
+   • Error Rate: 0%
+
+2. Market Microstructure Agent
+   • Accuracy: 75%
+   • Total Analyses: 120
+   • Avg Confidence: 0.78
+   • Avg Execution Time: 2.8s
+   • Error Rate: 1%
+
+3. Breaking News Agent
+   • Accuracy: 72%
+   • Total Analyses: 38
+   • Avg Confidence: 0.75
+   • Avg Execution Time: 4.1s
+   • Error Rate: 2%
+
+Underperforming Agents:
+
+1. Social Sentiment Agent
+   • Accuracy: 52%
+   • Total Analyses: 28
+   • Avg Confidence: 0.65
+   • Avg Execution Time: 3.5s
+   • Error Rate: 5%
+   • Note: Consider reducing weight or disabling
+```
+
+
+### Programmatic Advanced Agent Usage
+
+Use advanced agents programmatically:
+
+```typescript
+import { analyzeMarket } from './src/workflow';
+import { loadConfig } from './src/config';
+
+async function analyzeWithAdvancedAgents(conditionId: string) {
+  // Load config and enable advanced agents
+  const config = loadConfig();
+  config.advancedAgents = {
+    eventIntelligence: { enabled: true, breakingNews: true, eventImpact: true },
+    pollingStatistical: { enabled: true, pollingIntelligence: true, historicalPattern: false },
+    sentimentNarrative: { enabled: false },
+    priceAction: { enabled: true, momentum: true, meanReversion: true, minVolumeThreshold: 1000 },
+    eventScenario: { enabled: true, catalyst: true, tailRisk: true },
+    riskPhilosophy: { enabled: true, aggressive: true, conservative: true, neutral: true }
+  };
+  
+  const result = await analyzeMarket(conditionId, config);
+  
+  // Access advanced agent signals
+  console.log('Active Agents:', result.activeAgents);
+  console.log('Fused Signal:', result.fusedSignal);
+  console.log('Risk Philosophy:', result.riskPhilosophySignals);
+  
+  return result;
+}
+```
+
+### Custom Agent Configuration
+
+Create a custom configuration file:
+
+```typescript
+// config/custom-advanced.json
+{
+  "advancedAgents": {
+    "eventIntelligence": {
+      "enabled": true,
+      "breakingNews": true,
+      "eventImpact": true
+    },
+    "pollingStatistical": {
+      "enabled": true,
+      "pollingIntelligence": true,
+      "historicalPattern": false
+    },
+    "sentimentNarrative": {
+      "enabled": true,
+      "mediaSentiment": true,
+      "socialSentiment": false,
+      "narrativeVelocity": false
+    },
+    "priceAction": {
+      "enabled": true,
+      "momentum": true,
+      "meanReversion": true,
+      "minVolumeThreshold": 1000
+    },
+    "eventScenario": {
+      "enabled": true,
+      "catalyst": true,
+      "tailRisk": true
+    },
+    "riskPhilosophy": {
+      "enabled": true,
+      "aggressive": true,
+      "conservative": true,
+      "neutral": true
+    }
+  },
+  "externalData": {
+    "news": {
+      "provider": "newsapi",
+      "cacheTTL": 900,
+      "maxArticles": 50
+    },
+    "polling": {
+      "provider": "538",
+      "cacheTTL": 3600
+    },
+    "social": {
+      "providers": ["twitter"],
+      "cacheTTL": 300,
+      "maxMentions": 100
+    }
+  },
+  "signalFusion": {
+    "contextAdjustments": true,
+    "conflictThreshold": 0.20,
+    "alignmentBonus": 0.20
+  },
+  "costOptimization": {
+    "maxCostPerAnalysis": 1.00,
+    "skipLowImpactAgents": true,
+    "batchLLMRequests": true
+  },
+  "performanceTracking": {
+    "enabled": true,
+    "evaluateOnResolution": true,
+    "minSampleSize": 10
+  }
+}
+```
+
+Use the custom configuration:
+
+```bash
+npm run cli -- analyze 0x1234567890abcdef --config config/custom-advanced.json
+```
+
+### Batch Analysis with Advanced Agents
+
+Analyze multiple markets with advanced agents:
+
+```typescript
+import { analyzeMarket } from './src/workflow';
+import { loadConfig } from './src/config';
+
+async function batchAnalyzeWithAdvancedAgents(conditionIds: string[]) {
+  const config = loadConfig();
+  
+  // Enable budget-conscious advanced agents for batch processing
+  config.advancedAgents = {
+    eventIntelligence: { enabled: true, breakingNews: true, eventImpact: false },
+    pollingStatistical: { enabled: true, pollingIntelligence: true, historicalPattern: false },
+    sentimentNarrative: { enabled: false },
+    priceAction: { enabled: false },
+    eventScenario: { enabled: true, catalyst: true, tailRisk: false },
+    riskPhilosophy: { enabled: true, aggressive: true, conservative: true, neutral: false }
+  };
+  
+  config.costOptimization = {
+    maxCostPerAnalysis: 0.50,
+    skipLowImpactAgents: true,
+    batchLLMRequests: true
+  };
+  
+  const results = await Promise.allSettled(
+    conditionIds.map(id => analyzeMarket(id, config))
+  );
+  
+  // Process results
+  const successful = results.filter(r => r.status === 'fulfilled');
+  const failed = results.filter(r => r.status === 'rejected');
+  
+  console.log(`Successful: ${successful.length}/${conditionIds.length}`);
+  console.log(`Failed: ${failed.length}/${conditionIds.length}`);
+  
+  // Calculate total cost
+  const totalCost = successful.reduce((sum, result) => {
+    if (result.status === 'fulfilled') {
+      return sum + (result.value.totalCost || 0);
+    }
+    return sum;
+  }, 0);
+  
+  console.log(`Total Cost: $${totalCost.toFixed(2)}`);
+  console.log(`Avg Cost: $${(totalCost / successful.length).toFixed(2)}`);
+  
+  return results;
+}
+
+const markets = [
+  '0x1234567890abcdef',
+  '0xabcdef1234567890',
+  '0x9876543210fedcba'
+];
+
+batchAnalyzeWithAdvancedAgents(markets);
+```
+
+### External Data Integration Example
+
+Test external data sources:
+
+```bash
+# Test news API
+npm run cli -- test-data-source news --query "election 2026"
+
+# Test polling API
+npm run cli -- test-data-source polling --market "presidential-election"
+
+# Test social API
+npm run cli -- test-data-source social --query "candidate X"
+
+# Test all sources
+npm run cli -- test-data-sources --all
+```
+
+**Output:**
+
+```
+═══════════════════════════════════════════════════════════════
+DATA SOURCE TEST RESULTS
+═══════════════════════════════════════════════════════════════
+
+News API (NewsAPI):
+✓ Connection: Success
+✓ Latency: 150ms
+✓ Articles Fetched: 50
+✓ Cache Status: Miss (first fetch)
+✓ Rate Limit: 80/100 requests remaining
+
+Polling API (FiveThirtyEight):
+✓ Connection: Success
+✓ Latency: 200ms
+✓ Polls Fetched: 12
+✓ Cache Status: Miss (first fetch)
+✓ Rate Limit: 45/60 requests remaining
+
+Social API (Twitter):
+✗ Connection: Failed
+✗ Error: Rate limit exceeded
+✗ Retry After: 15 minutes
+✗ Fallback: Using cached data (2 hours old)
+```
+
+---
+
+For more advanced agent examples and documentation:
+- See [Advanced Agent League Guide](./ADVANCED_AGENT_LEAGUE.md)
+- See [External Data Sources Setup](./EXTERNAL_DATA_SOURCES.md)
+- See [Deployment Guide](./DEPLOYMENT.md) for production setup
+
