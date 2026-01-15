@@ -284,7 +284,7 @@
   - Test graph visualization extraction
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 11.6, 11.7, 11.8_
 
-- [-] 13. Checkpoint - Ensure all tests pass
+- [x] 13. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 14. Create CLI interface for testing with Opik integration
