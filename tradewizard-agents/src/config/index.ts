@@ -82,55 +82,55 @@ const EngineConfigSchema = z
         enabled: z.boolean().default(false),
         breakingNews: z.boolean().default(true),
         eventImpact: z.boolean().default(true),
-      }).default({}),
+      }),
       pollingStatistical: z.object({
         enabled: z.boolean().default(false),
         pollingIntelligence: z.boolean().default(true),
         historicalPattern: z.boolean().default(true),
-      }).default({}),
+      }),
       sentimentNarrative: z.object({
         enabled: z.boolean().default(false),
         mediaSentiment: z.boolean().default(true),
         socialSentiment: z.boolean().default(true),
         narrativeVelocity: z.boolean().default(true),
-      }).default({}),
+      }),
       priceAction: z.object({
         enabled: z.boolean().default(false),
         momentum: z.boolean().default(true),
         meanReversion: z.boolean().default(true),
         minVolumeThreshold: z.number().positive().default(1000),
-      }).default({}),
+      }),
       eventScenario: z.object({
         enabled: z.boolean().default(false),
         catalyst: z.boolean().default(true),
         tailRisk: z.boolean().default(true),
-      }).default({}),
+      }),
       riskPhilosophy: z.object({
         enabled: z.boolean().default(false),
         aggressive: z.boolean().default(true),
         conservative: z.boolean().default(true),
         neutral: z.boolean().default(true),
-      }).default({}),
-    }).default({}),
+      }),
+    }),
     externalData: z.object({
       news: z.object({
         provider: z.enum(['newsapi', 'perplexity', 'none']).default('none'),
         apiKey: z.string().optional(),
         cacheTTL: z.number().positive().default(900), // 15 minutes
         maxArticles: z.number().positive().default(20),
-      }).default({}),
+      }),
       polling: z.object({
         provider: z.enum(['538', 'rcp', 'polymarket', 'none']).default('none'),
         apiKey: z.string().optional(),
         cacheTTL: z.number().positive().default(3600), // 1 hour
-      }).default({}),
+      }),
       social: z.object({
         providers: z.array(z.enum(['twitter', 'reddit'])).default([]),
         apiKeys: z.record(z.string(), z.string()).optional(),
         cacheTTL: z.number().positive().default(300), // 5 minutes
         maxMentions: z.number().positive().default(100),
-      }).default({}),
-    }).default({}),
+      }),
+    }),
     signalFusion: z.object({
       baseWeights: z.record(z.string(), z.number()).default({
         'market_microstructure': 1.0,
@@ -151,17 +151,17 @@ const EngineConfigSchema = z
       contextAdjustments: z.boolean().default(true),
       conflictThreshold: z.number().min(0).max(1).default(0.20),
       alignmentBonus: z.number().min(0).max(1).default(0.20),
-    }).default({}),
+    }),
     costOptimization: z.object({
       maxCostPerAnalysis: z.number().positive().default(2.0),
       skipLowImpactAgents: z.boolean().default(false),
       batchLLMRequests: z.boolean().default(true),
-    }).default({}),
+    }),
     performanceTracking: z.object({
       enabled: z.boolean().default(false),
       evaluateOnResolution: z.boolean().default(true),
       minSampleSize: z.number().positive().default(10),
-    }).default({}),
+    }),
   })
   .refine(
     (config) => {
@@ -238,6 +238,12 @@ export type PartialEngineConfig = z.infer<typeof EngineConfigSchema> extends inf
 
 /**
  * Load and validate configuration from environment variables
+ * 
+ * Error handling:
+ * - Validates configuration against schema
+ * - Logs validation errors
+ * - Disables misconfigured agent groups
+ * - Falls back to safe defaults when possible
  */
 export function loadConfig(): EngineConfig {
   const config: EngineConfig = {
@@ -387,7 +393,65 @@ export function loadConfig(): EngineConfig {
   };
 
   // Validate configuration
-  return EngineConfigSchema.parse(config);
+  try {
+    return EngineConfigSchema.parse(config);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      console.error('[Config] Configuration validation failed:');
+      for (const issue of error.issues) {
+        console.error(`  - ${issue.path.join('.')}: ${issue.message}`);
+      }
+      
+      // Try to fix configuration by disabling misconfigured agent groups
+      const fixedConfig = fixMisconfiguredAgentGroups(config);
+      
+      try {
+        console.log('[Config] Attempting to use fixed configuration with disabled agent groups');
+        return EngineConfigSchema.parse(fixedConfig);
+      } catch (retryError) {
+        console.error('[Config] Failed to fix configuration, using minimal safe defaults');
+        throw error; // Re-throw original error
+      }
+    }
+    throw error;
+  }
+}
+
+/**
+ * Fix misconfigured agent groups by disabling them
+ * 
+ * This function disables agent groups that are enabled but don't have
+ * required external data sources configured.
+ * 
+ * @param config - Configuration to fix
+ * @returns Fixed configuration
+ */
+function fixMisconfiguredAgentGroups(config: EngineConfig): EngineConfig {
+  const fixed = { ...config };
+  
+  // Event Intelligence requires news data
+  if (fixed.advancedAgents.eventIntelligence.enabled && 
+      fixed.externalData.news.provider === 'none') {
+    console.warn('[Config] Disabling Event Intelligence agents: news data source not configured');
+    fixed.advancedAgents.eventIntelligence.enabled = false;
+  }
+  
+  // Polling agents require polling data
+  if (fixed.advancedAgents.pollingStatistical.enabled && 
+      fixed.externalData.polling.provider === 'none') {
+    console.warn('[Config] Disabling Polling & Statistical agents: polling data source not configured');
+    fixed.advancedAgents.pollingStatistical.enabled = false;
+  }
+  
+  // Sentiment agents require news or social data
+  if (fixed.advancedAgents.sentimentNarrative.enabled && 
+      fixed.externalData.news.provider === 'none' && 
+      fixed.externalData.social.providers.length === 0) {
+    console.warn('[Config] Disabling Sentiment & Narrative agents: news or social data sources not configured');
+    fixed.advancedAgents.sentimentNarrative.enabled = false;
+  }
+  
+  return fixed;
 }
 
 /**

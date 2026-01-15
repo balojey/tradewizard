@@ -204,6 +204,12 @@ export class DataIntegrationLayer {
 
   /**
    * Fetch news articles relevant to market
+   * 
+   * Error handling:
+   * - Returns cached data (even if stale) when rate limited
+   * - Returns cached data when provider unavailable
+   * - Returns empty array when no data available
+   * - Logs all errors for operator visibility
    */
   async fetchNews(
     market: MarketBriefingDocument,
@@ -221,15 +227,21 @@ export class DataIntegrationLayer {
     if (!this.newsRateLimiter.tryConsume()) {
       console.warn('[DataIntegration] News API rate limit approached, using cached data');
       if (cached) {
+        console.log('[DataIntegration] Returning stale cached news data');
         return cached.data; // Return stale data
       }
+      console.warn('[DataIntegration] No cached news data available');
       return []; // No cached data available
     }
 
     // Check if provider is configured
     if (this.config.news.provider === 'none' || !this.config.news.apiKey) {
       console.warn('[DataIntegration] News provider not configured');
-      return cached?.data || [];
+      if (cached) {
+        console.log('[DataIntegration] Returning stale cached news data');
+        return cached.data;
+      }
+      return [];
     }
 
     try {
@@ -237,14 +249,25 @@ export class DataIntegrationLayer {
       this.newsCache.set(cacheKey, articles);
       return articles;
     } catch (error) {
-      console.error('[DataIntegration] Failed to fetch news:', error);
+      console.error('[DataIntegration] Failed to fetch news:', error instanceof Error ? error.message : String(error));
       // Fallback to cached data if available
-      return cached?.data || [];
+      if (cached) {
+        console.log('[DataIntegration] Falling back to stale cached news data');
+        return cached.data;
+      }
+      console.warn('[DataIntegration] No fallback news data available');
+      return [];
     }
   }
 
   /**
    * Fetch polling data for election markets
+   * 
+   * Error handling:
+   * - Returns cached data (even if stale) when rate limited
+   * - Returns cached data when provider unavailable
+   * - Returns null when no data available
+   * - Logs all errors for operator visibility
    */
   async fetchPollingData(market: MarketBriefingDocument): Promise<PollingData | null> {
     const cacheKey = `polling:${market.marketId}`;
@@ -258,13 +281,22 @@ export class DataIntegrationLayer {
     // Check rate limit
     if (!this.pollingRateLimiter.tryConsume()) {
       console.warn('[DataIntegration] Polling API rate limit approached, using cached data');
-      return cached?.data || null;
+      if (cached) {
+        console.log('[DataIntegration] Returning stale cached polling data');
+        return cached.data;
+      }
+      console.warn('[DataIntegration] No cached polling data available');
+      return null;
     }
 
     // Check if provider is configured
     if (this.config.polling.provider === 'none' || !this.config.polling.apiKey) {
       console.warn('[DataIntegration] Polling provider not configured');
-      return cached?.data || null;
+      if (cached) {
+        console.log('[DataIntegration] Returning stale cached polling data');
+        return cached.data;
+      }
+      return null;
     }
 
     try {
@@ -274,13 +306,24 @@ export class DataIntegrationLayer {
       }
       return pollingData;
     } catch (error) {
-      console.error('[DataIntegration] Failed to fetch polling data:', error);
-      return cached?.data || null;
+      console.error('[DataIntegration] Failed to fetch polling data:', error instanceof Error ? error.message : String(error));
+      if (cached) {
+        console.log('[DataIntegration] Falling back to stale cached polling data');
+        return cached.data;
+      }
+      console.warn('[DataIntegration] No fallback polling data available');
+      return null;
     }
   }
 
   /**
    * Fetch social sentiment data
+   * 
+   * Error handling:
+   * - Returns cached data (even if stale) when rate limited
+   * - Returns cached data when provider unavailable
+   * - Returns null when no data available
+   * - Logs all errors for operator visibility
    */
   async fetchSocialSentiment(
     market: MarketBriefingDocument,
@@ -297,13 +340,22 @@ export class DataIntegrationLayer {
     // Check rate limit
     if (!this.socialRateLimiter.tryConsume()) {
       console.warn('[DataIntegration] Social API rate limit approached, using cached data');
-      return cached?.data || null;
+      if (cached) {
+        console.log('[DataIntegration] Returning stale cached social data');
+        return cached.data;
+      }
+      console.warn('[DataIntegration] No cached social data available');
+      return null;
     }
 
     // Check if providers are configured
     if (this.config.social.providers.length === 0) {
       console.warn('[DataIntegration] Social providers not configured');
-      return cached?.data || null;
+      if (cached) {
+        console.log('[DataIntegration] Returning stale cached social data');
+        return cached.data;
+      }
+      return null;
     }
 
     try {
@@ -313,8 +365,13 @@ export class DataIntegrationLayer {
       }
       return sentiment;
     } catch (error) {
-      console.error('[DataIntegration] Failed to fetch social sentiment:', error);
-      return cached?.data || null;
+      console.error('[DataIntegration] Failed to fetch social sentiment:', error instanceof Error ? error.message : String(error));
+      if (cached) {
+        console.log('[DataIntegration] Falling back to stale cached social data');
+        return cached.data;
+      }
+      console.warn('[DataIntegration] No fallback social data available');
+      return null;
     }
   }
 

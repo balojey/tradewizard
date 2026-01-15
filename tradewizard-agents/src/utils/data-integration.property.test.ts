@@ -1,370 +1,169 @@
 /**
- * Property-based tests for Data Integration Layer
- *
+ * Property-based tests for data integration error handling
+ * 
  * Feature: advanced-agent-league
- * Property 2: External data caching consistency
- * Validates: Requirements 7.2, 13.2
+ * Property 9: External data unavailability graceful degradation
+ * Validates: Requirements 1.5, 2.6, 3.7, 7.4, 14.2
  */
 
-import { describe, it, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
-import {
-  createDataIntegrationLayer,
-  type DataSourceConfig,
-  type NewsArticle,
-} from './data-integration.js';
-import type { MarketBriefingDocument } from '../models/types.js';
+import { DataIntegrationLayer } from './data-integration.js';
+import type { MarketBriefingDocument, Catalyst } from '../models/types.js';
+import type { DataSourceConfig } from './data-integration.js';
 
-// ============================================================================
-// Generators
-// ============================================================================
+describe('Data Integration Property Tests', () => {
+  // Generator for catalysts
+  const catalystGenerator = fc.record({
+    event: fc.string({ minLength: 5, maxLength: 100 }),
+    timestamp: fc.integer({ min: Date.now(), max: Date.now() + 365 * 24 * 60 * 60 * 1000 }),
+  }) as fc.Arbitrary<Catalyst>;
 
-/**
- * Generate a random market briefing document
- */
-const marketGenerator = (): fc.Arbitrary<MarketBriefingDocument> =>
-  fc.record({
-    marketId: fc.string({ minLength: 5, maxLength: 20 }),
-    conditionId: fc.string({ minLength: 5, maxLength: 20 }),
-    eventType: fc.constantFrom('election', 'policy', 'court', 'geopolitical', 'economic', 'other'),
-    question: fc.string({ minLength: 10, maxLength: 100 }),
-    resolutionCriteria: fc.string({ minLength: 10, maxLength: 100 }),
-    expiryTimestamp: fc.integer({ min: Date.now(), max: Date.now() + 86400000 * 365 }),
-    currentProbability: fc.double({ min: 0, max: 1, noNaN: true }),
-    liquidityScore: fc.double({ min: 0, max: 10, noNaN: true }),
-    bidAskSpread: fc.double({ min: 0, max: 10, noNaN: true }),
-    volatilityRegime: fc.constantFrom('low', 'medium', 'high'),
+  // Generator for market briefing documents
+  const mbdGenerator = fc.record({
+    marketId: fc.string({ minLength: 1, maxLength: 50 }),
+    conditionId: fc.string({ minLength: 1, maxLength: 50 }),
+    question: fc.string({ minLength: 10, maxLength: 200 }),
+    resolutionCriteria: fc.string({ minLength: 10, maxLength: 500 }),
+    expiryTimestamp: fc.integer({ min: Date.now(), max: Date.now() + 365 * 24 * 60 * 60 * 1000 }),
     volume24h: fc.integer({ min: 0, max: 1000000 }),
+    liquidityScore: fc.integer({ min: 0, max: 10 }),
+    bidAskSpread: fc.float({ min: 0, max: 1 }),
+    currentProbability: fc.float({ min: 0, max: 1 }),
+    eventType: fc.constantFrom('election', 'court', 'policy', 'economic', 'geopolitical', 'other'),
+    volatilityRegime: fc.constantFrom('low', 'medium', 'high'),
     metadata: fc.record({
       ambiguityFlags: fc.array(fc.string(), { maxLength: 5 }),
-      keyCatalysts: fc.array(
-        fc.record({
-          event: fc.string(),
-          timestamp: fc.integer({ min: Date.now(), max: Date.now() + 86400000 * 30 }),
-        }),
-        { maxLength: 5 }
-      ),
+      keyCatalysts: fc.array(catalystGenerator, { maxLength: 3 }),
     }),
-  });
+  }) as fc.Arbitrary<MarketBriefingDocument>;
 
-/**
- * Generate random news articles
- */
-const newsArticlesGenerator = (): fc.Arbitrary<NewsArticle[]> =>
-  fc.array(
-    fc.record({
-      title: fc.string({ minLength: 10, maxLength: 100 }),
-      source: fc.string({ minLength: 5, maxLength: 30 }),
-      publishedAt: fc.integer({ min: Date.now() - 86400000, max: Date.now() }),
-      url: fc.webUrl(),
-      summary: fc.string({ minLength: 20, maxLength: 200 }),
-      sentiment: fc.constantFrom('positive', 'negative', 'neutral'),
-      relevanceScore: fc.double({ min: 0, max: 1, noNaN: true }),
+  // Generator for data source configurations (with unavailable sources)
+  const unavailableConfigGenerator = fc.record({
+    news: fc.record({
+      provider: fc.constant('none' as const),
+      cacheTTL: fc.integer({ min: 60, max: 3600 }),
+      maxArticles: fc.integer({ min: 1, max: 100 }),
     }),
-    { minLength: 0, maxLength: 20 }
-  );
+    polling: fc.record({
+      provider: fc.constant('none' as const),
+      cacheTTL: fc.integer({ min: 60, max: 7200 }),
+    }),
+    social: fc.record({
+      providers: fc.constant([] as ('twitter' | 'reddit')[]),
+      cacheTTL: fc.integer({ min: 60, max: 1800 }),
+      maxMentions: fc.integer({ min: 10, max: 500 }),
+    }),
+  }) as fc.Arbitrary<DataSourceConfig>;
 
-/**
- * Generate a data source configuration with specific TTL
- */
-const configWithTTLGenerator = (ttl: number): fc.Arbitrary<DataSourceConfig> =>
-  fc.constant({
-    news: {
-      provider: 'newsapi' as const,
-      apiKey: 'test-key',
-      cacheTTL: ttl,
-      maxArticles: 50,
-    },
-    polling: {
-      provider: '538' as const,
-      apiKey: 'test-key',
-      cacheTTL: 3600,
-    },
-    social: {
-      providers: ['twitter' as const, 'reddit' as const],
-      apiKeys: { twitter: 'test-key', reddit: 'test-key' },
-      cacheTTL: 300,
-      maxMentions: 1000,
-    },
-  });
-
-// ============================================================================
-// Property Tests
-// ============================================================================
-
-describe('Data Integration Layer - Property Tests', () => {
-  describe('Property 2: External data caching consistency', () => {
-    it('should return cached data without API call when within TTL window', async () => {
+  describe('Property 9: External data unavailability graceful degradation', () => {
+    it('should continue analysis when news data unavailable', async () => {
       await fc.assert(
         fc.asyncProperty(
-          marketGenerator(),
-          newsArticlesGenerator(),
-          configWithTTLGenerator(60), // 60 second TTL
-          async (market, articles, config) => {
-            const layer = createDataIntegrationLayer(config);
+          mbdGenerator,
+          unavailableConfigGenerator,
+          async (mbd, config) => {
+            const dataLayer = new DataIntegrationLayer(config);
 
-            // Mock the provider to return articles
-            const spy = vi.spyOn(layer as any, 'fetchNewsFromProvider');
-            spy.mockResolvedValue(articles);
+            // Fetch news should not throw
+            const articles = await dataLayer.fetchNews(mbd);
 
-            // First fetch - should call provider
-            const result1 = await layer.fetchNews(market, 24);
-            const callCount1 = spy.mock.calls.length;
-
-            // Second fetch immediately - should use cache
-            const result2 = await layer.fetchNews(market, 24);
-            const callCount2 = spy.mock.calls.length;
-
-            spy.mockRestore();
-
-            // Property: Second call should not increase call count
-            return callCount2 === callCount1 && JSON.stringify(result1) === JSON.stringify(result2);
+            // Should return empty array, not throw error
+            expect(Array.isArray(articles)).toBe(true);
+            expect(articles.length).toBe(0);
           }
         ),
         { numRuns: 100 }
       );
     });
 
-    it('should return same data for multiple cache hits within TTL', async () => {
+    it('should continue analysis when polling data unavailable', async () => {
       await fc.assert(
         fc.asyncProperty(
-          marketGenerator(),
-          newsArticlesGenerator(),
-          fc.integer({ min: 3, max: 10 }), // Number of fetches
-          async (market, articles, numFetches) => {
-            const config: DataSourceConfig = {
-              news: {
-                provider: 'newsapi',
-                apiKey: 'test-key',
-                cacheTTL: 60,
-                maxArticles: 50,
-              },
-              polling: {
-                provider: '538',
-                apiKey: 'test-key',
-                cacheTTL: 3600,
-              },
-              social: {
-                providers: ['twitter', 'reddit'],
-                apiKeys: { twitter: 'test-key', reddit: 'test-key' },
-                cacheTTL: 300,
-                maxMentions: 1000,
-              },
-            };
+          mbdGenerator,
+          unavailableConfigGenerator,
+          async (mbd, config) => {
+            const dataLayer = new DataIntegrationLayer(config);
 
-            const layer = createDataIntegrationLayer(config);
+            // Fetch polling should not throw
+            const polling = await dataLayer.fetchPollingData(mbd);
 
-            // Mock the provider
-            const spy = vi.spyOn(layer as any, 'fetchNewsFromProvider');
-            spy.mockResolvedValue(articles);
+            // Should return null, not throw error
+            expect(polling).toBeNull();
+          }
+        ),
+        { numRuns: 100 }
+      );
+    });
 
-            // Fetch multiple times
-            const results: NewsArticle[][] = [];
-            for (let i = 0; i < numFetches; i++) {
-              results.push(await layer.fetchNews(market, 24));
+    it('should continue analysis when social data unavailable', async () => {
+      await fc.assert(
+        fc.asyncProperty(
+          mbdGenerator,
+          unavailableConfigGenerator,
+          async (mbd, config) => {
+            const dataLayer = new DataIntegrationLayer(config);
+
+            // Fetch social should not throw
+            const sentiment = await dataLayer.fetchSocialSentiment(mbd);
+
+            // Should return null, not throw error
+            expect(sentiment).toBeNull();
+          }
+        ),
+        { numRuns: 100 }
+      );
+    });
+
+    it('should report data availability correctly when sources unavailable', async () => {
+      await fc.assert(
+        fc.asyncProperty(
+          unavailableConfigGenerator,
+          async (config) => {
+            const dataLayer = new DataIntegrationLayer(config);
+
+            // Check availability
+            const newsAvailable = await dataLayer.checkDataAvailability('news');
+            const pollingAvailable = await dataLayer.checkDataAvailability('polling');
+            const socialAvailable = await dataLayer.checkDataAvailability('social');
+
+            // All should be unavailable
+            expect(newsAvailable).toBe(false);
+            expect(pollingAvailable).toBe(false);
+            expect(socialAvailable).toBe(false);
+          }
+        ),
+        { numRuns: 100 }
+      );
+    });
+
+    it('should handle multiple concurrent requests when data unavailable', async () => {
+      await fc.assert(
+        fc.asyncProperty(
+          mbdGenerator,
+          unavailableConfigGenerator,
+          fc.integer({ min: 1, max: 10 }),
+          async (mbd, config, requestCount) => {
+            const dataLayer = new DataIntegrationLayer(config);
+
+            // Make multiple concurrent requests
+            const promises = [];
+            for (let i = 0; i < requestCount; i++) {
+              promises.push(dataLayer.fetchNews(mbd));
+              promises.push(dataLayer.fetchPollingData(mbd));
+              promises.push(dataLayer.fetchSocialSentiment(mbd));
             }
 
-            const callCount = spy.mock.calls.length;
-            spy.mockRestore();
+            // All should complete without throwing
+            const results = await Promise.all(promises);
 
-            // Property: Should only call provider once
-            if (callCount !== 1) return false;
-
-            // Property: All results should be identical
-            const firstResult = JSON.stringify(results[0]);
-            return results.every((result) => JSON.stringify(result) === firstResult);
-          }
-        ),
-        { numRuns: 100 }
-      );
-    });
-
-    it('should not make API call when returning cached data', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          marketGenerator(),
-          newsArticlesGenerator(),
-          async (market, articles) => {
-            const config: DataSourceConfig = {
-              news: {
-                provider: 'newsapi',
-                apiKey: 'test-key',
-                cacheTTL: 60,
-                maxArticles: 50,
-              },
-              polling: {
-                provider: '538',
-                apiKey: 'test-key',
-                cacheTTL: 3600,
-              },
-              social: {
-                providers: ['twitter', 'reddit'],
-                apiKeys: { twitter: 'test-key', reddit: 'test-key' },
-                cacheTTL: 300,
-                maxMentions: 1000,
-              },
-            };
-
-            const layer = createDataIntegrationLayer(config);
-
-            // Mock the provider
-            const spy = vi.spyOn(layer as any, 'fetchNewsFromProvider');
-            spy.mockResolvedValue(articles);
-
-            // First call
-            await layer.fetchNews(market, 24);
-
-            // Reset spy to track only subsequent calls
-            spy.mockClear();
-
-            // Second call - should use cache
-            await layer.fetchNews(market, 24);
-
-            const subsequentCalls = spy.mock.calls.length;
-            spy.mockRestore();
-
-            // Property: No API calls should be made for cached data
-            return subsequentCalls === 0;
-          }
-        ),
-        { numRuns: 100 }
-      );
-    });
-
-    it('should cache data separately for different markets', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          marketGenerator(),
-          marketGenerator(),
-          newsArticlesGenerator(),
-          newsArticlesGenerator(),
-          async (market1, market2, articles1, articles2) => {
-            // Ensure markets are different
-            if (market1.marketId === market2.marketId) {
-              market2 = { ...market2, marketId: market1.marketId + '_different' };
+            // All results should be valid (empty arrays or nulls)
+            for (const result of results) {
+              expect(result === null || Array.isArray(result)).toBe(true);
             }
-
-            const config: DataSourceConfig = {
-              news: {
-                provider: 'newsapi',
-                apiKey: 'test-key',
-                cacheTTL: 60,
-                maxArticles: 50,
-              },
-              polling: {
-                provider: '538',
-                apiKey: 'test-key',
-                cacheTTL: 3600,
-              },
-              social: {
-                providers: ['twitter', 'reddit'],
-                apiKeys: { twitter: 'test-key', reddit: 'test-key' },
-                cacheTTL: 300,
-                maxMentions: 1000,
-              },
-            };
-
-            const layer = createDataIntegrationLayer(config);
-
-            // Mock the provider to return different data for each market
-            const spy = vi.spyOn(layer as any, 'fetchNewsFromProvider');
-            let callIndex = 0;
-            spy.mockImplementation(async () => {
-              const result = callIndex === 0 ? articles1 : articles2;
-              callIndex++;
-              return result;
-            });
-
-            // Fetch for both markets
-            const result1 = await layer.fetchNews(market1, 24);
-            const result2 = await layer.fetchNews(market2, 24);
-
-            // Fetch again - should use cache
-            const result1Cached = await layer.fetchNews(market1, 24);
-            const result2Cached = await layer.fetchNews(market2, 24);
-
-            const callCount = spy.mock.calls.length;
-            spy.mockRestore();
-
-            // Property: Should call provider twice (once per market)
-            if (callCount !== 2) return false;
-
-            // Property: Cached results should match original results
-            return (
-              JSON.stringify(result1) === JSON.stringify(result1Cached) &&
-              JSON.stringify(result2) === JSON.stringify(result2Cached)
-            );
           }
         ),
-        { numRuns: 100 }
-      );
-    });
-
-    it('should preserve data integrity through cache operations', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          marketGenerator(),
-          newsArticlesGenerator(),
-          async (market, articles) => {
-            const config: DataSourceConfig = {
-              news: {
-                provider: 'newsapi',
-                apiKey: 'test-key',
-                cacheTTL: 60,
-                maxArticles: 50,
-              },
-              polling: {
-                provider: '538',
-                apiKey: 'test-key',
-                cacheTTL: 3600,
-              },
-              social: {
-                providers: ['twitter', 'reddit'],
-                apiKeys: { twitter: 'test-key', reddit: 'test-key' },
-                cacheTTL: 300,
-                maxMentions: 1000,
-              },
-            };
-
-            const layer = createDataIntegrationLayer(config);
-
-            // Mock the provider
-            const spy = vi.spyOn(layer as any, 'fetchNewsFromProvider');
-            spy.mockResolvedValue(articles);
-
-            // Fetch and cache
-            const originalResult = await layer.fetchNews(market, 24);
-
-            // Get from cache
-            const cachedResult = await layer.fetchNews(market, 24);
-
-            spy.mockRestore();
-
-            // Property: Cached data should be deep equal to original
-            // Check all properties of all articles
-            if (originalResult.length !== cachedResult.length) return false;
-
-            for (let i = 0; i < originalResult.length; i++) {
-              const orig = originalResult[i];
-              const cached = cachedResult[i];
-
-              if (
-                orig.title !== cached.title ||
-                orig.source !== cached.source ||
-                orig.publishedAt !== cached.publishedAt ||
-                orig.url !== cached.url ||
-                orig.summary !== cached.summary ||
-                orig.sentiment !== cached.sentiment ||
-                orig.relevanceScore !== cached.relevanceScore
-              ) {
-                return false;
-              }
-            }
-
-            return true;
-          }
-        ),
-        { numRuns: 100 }
+        { numRuns: 50 }
       );
     });
   });

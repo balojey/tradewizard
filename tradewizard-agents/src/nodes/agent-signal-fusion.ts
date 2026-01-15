@@ -207,6 +207,11 @@ function applyContextAdjustments(
  * 2. Context adjustments (confidence, data freshness, liquidity)
  * 3. Normalization to sum to 1.0
  *
+ * Error handling:
+ * - Falls back to equal weights if calculation fails
+ * - Ensures all weights are non-negative
+ * - Ensures weights sum to 1.0
+ *
  * @param signals - Array of agent signals
  * @param state - Current graph state
  * @param config - Engine configuration
@@ -217,32 +222,48 @@ function calculateDynamicWeights(
   state: GraphStateType,
   config: EngineConfig
 ): Record<string, number> {
-  const weights: Record<string, number> = {};
+  try {
+    const weights: Record<string, number> = {};
 
-  // Calculate raw weights for each agent
-  for (const signal of signals) {
-    const agentType = classifyAgentType(signal.agentName);
-    const baseWeight = getBaseWeight(agentType, config);
-    const adjustedWeight = applyContextAdjustments(signal, baseWeight, state, config);
-    weights[signal.agentName] = adjustedWeight;
-  }
-
-  // Normalize weights to sum to 1.0
-  const totalWeight = Object.values(weights).reduce((sum, w) => sum + w, 0);
-
-  if (totalWeight > 0) {
-    for (const agentName in weights) {
-      weights[agentName] = weights[agentName] / totalWeight;
+    // Calculate raw weights for each agent
+    for (const signal of signals) {
+      const agentType = classifyAgentType(signal.agentName);
+      const baseWeight = getBaseWeight(agentType, config);
+      const adjustedWeight = applyContextAdjustments(signal, baseWeight, state, config);
+      weights[signal.agentName] = Math.max(0, adjustedWeight); // Ensure non-negative
     }
-  } else {
-    // If all weights are zero, use equal weights
+
+    // Normalize weights to sum to 1.0
+    const totalWeight = Object.values(weights).reduce((sum, w) => sum + w, 0);
+
+    if (totalWeight > 0) {
+      for (const agentName in weights) {
+        weights[agentName] = weights[agentName] / totalWeight;
+      }
+    } else {
+      // If all weights are zero, use equal weights
+      console.warn('[SignalFusion] All weights are zero, falling back to equal weights');
+      const equalWeight = 1.0 / signals.length;
+      for (const signal of signals) {
+        weights[signal.agentName] = equalWeight;
+      }
+    }
+
+    return weights;
+  } catch (error) {
+    // If weight calculation fails, fall back to equal weights
+    console.error(
+      '[SignalFusion] Weight calculation failed, falling back to equal weights:',
+      error instanceof Error ? error.message : String(error)
+    );
+
     const equalWeight = 1.0 / signals.length;
+    const weights: Record<string, number> = {};
     for (const signal of signals) {
       weights[signal.agentName] = equalWeight;
     }
+    return weights;
   }
-
-  return weights;
 }
 
 /**
@@ -474,17 +495,38 @@ export async function agentSignalFusionNode(
     // Step 4: Calculate signal alignment
     const signalAlignment = calculateSignalAlignment(agentSignals);
 
+    // Check for extreme divergence (signals span full probability range)
+    const probabilities = agentSignals.map((s) => s.fairProbability);
+    const minProb = Math.min(...probabilities);
+    const maxProb = Math.max(...probabilities);
+    const probabilityRange = maxProb - minProb;
+    const extremeDivergence = probabilityRange > 0.7; // Signals span >70% of range
+
+    if (extremeDivergence) {
+      console.warn(
+        `[SignalFusion] Extreme signal divergence detected: range ${probabilityRange.toFixed(2)} (${minProb.toFixed(2)} to ${maxProb.toFixed(2)})`
+      );
+    }
+
     // Step 5: Assess data quality
     const dataQuality = assessDataQuality(agentSignals, state);
 
     // Step 6: Calculate fusion confidence
-    const confidence = calculateFusionConfidence(
+    let confidence = calculateFusionConfidence(
       agentSignals,
       weights,
       signalAlignment,
       dataQuality,
       config
     );
+
+    // Reduce confidence significantly if extreme divergence
+    if (extremeDivergence) {
+      confidence = confidence * 0.5; // 50% penalty for extreme divergence
+      console.warn(
+        `[SignalFusion] Confidence reduced to ${confidence.toFixed(2)} due to extreme divergence`
+      );
+    }
 
     // Count MVP vs advanced agents
     const mvpAgents = ['market_microstructure', 'probability_baseline', 'risk_assessment'];
@@ -503,6 +545,8 @@ export async function agentSignalFusionNode(
         mvpAgentCount,
         advancedAgentCount,
         dataQuality,
+        extremeDivergence,
+        probabilityRange,
       },
     };
 
@@ -522,6 +566,8 @@ export async function agentSignalFusionNode(
             signalAlignment,
             conflictCount: conflictingSignals.length,
             dataQuality,
+            extremeDivergence,
+            probabilityRange,
             weights,
             duration: Date.now() - startTime,
           },
@@ -529,6 +575,10 @@ export async function agentSignalFusionNode(
       ],
     };
   } catch (error) {
+    console.error(
+      '[SignalFusion] Signal fusion failed:',
+      error instanceof Error ? error.message : String(error)
+    );
     return {
       fusedSignal: null,
       auditLog: [
@@ -538,6 +588,7 @@ export async function agentSignalFusionNode(
           data: {
             success: false,
             error: error instanceof Error ? error.message : 'Unknown error',
+            errorStack: error instanceof Error ? error.stack : undefined,
             duration: Date.now() - startTime,
           },
         },
