@@ -77,8 +77,8 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
   - **Validates: Requirements 9.1, 9.2, 9.3, 9.4, 9.5**
 
 
-- [ ] 4. Build Event Intelligence Agents
-  - [ ] 4.1 Implement Breaking News Agent node
+- [x] 4. Build Event Intelligence Agents
+  - [x] 4.1 Implement Breaking News Agent node
     - Create agent node using existing agent factory pattern
     - Write system prompt for breaking news analysis
     - Implement BreakingNewsSignal schema with Zod
@@ -88,7 +88,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
     - Write signal to graph state
     - _Requirements: 1.1, 1.2_
 
-  - [ ] 4.2 Implement Event Impact Agent node
+  - [x] 4.2 Implement Event Impact Agent node
     - Create agent node using existing agent factory pattern
     - Write system prompt for event impact modeling
     - Implement EventImpactSignal schema with Zod
@@ -98,14 +98,14 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
     - Write signal to graph state
     - _Requirements: 1.3, 1.4_
 
-  - [ ] 4.3 Write unit tests for Event Intelligence Agents
+  - [x] 4.3 Write unit tests for Event Intelligence Agents
     - Test Breaking News Agent with sample news data
     - Test Event Impact Agent with historical data
     - Test signal structure and content
     - Test error handling
     - _Requirements: 1.1, 1.2, 1.3, 1.4_
 
-  - [ ] 4.4 Write property test for event intelligence relevance filtering
+  - [x] 4.4 Write property test for event intelligence relevance filtering
     - **Property 12: Event intelligence relevance filtering**
     - **Validates: Requirements 1.2**
 
