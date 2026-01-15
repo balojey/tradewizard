@@ -109,8 +109,8 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
     - **Property 12: Event intelligence relevance filtering**
     - **Validates: Requirements 1.2**
 
-- [ ] 5. Build Polling & Statistical Agents
-  - [ ] 5.1 Implement Polling Intelligence Agent node
+- [x] 5. Build Polling & Statistical Agents
+  - [x] 5.1 Implement Polling Intelligence Agent node
     - Create agent node using existing agent factory pattern
     - Write system prompt for polling analysis
     - Implement PollingIntelligenceSignal schema with Zod
@@ -121,7 +121,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
     - Write signal to graph state
     - _Requirements: 2.1, 2.2, 2.3_
 
-  - [ ] 5.2 Implement Historical Pattern Agent node
+  - [x] 5.2 Implement Historical Pattern Agent node
     - Create agent node using existing agent factory pattern
     - Write system prompt for historical pattern analysis
     - Implement HistoricalPatternSignal schema with Zod
@@ -131,7 +131,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
     - Write signal to graph state
     - _Requirements: 2.4, 2.5_
 
-  - [ ] 5.3 Write unit tests for Polling & Statistical Agents
+  - [x] 5.3 Write unit tests for Polling & Statistical Agents
     - Test Polling Intelligence Agent with sample polling data
     - Test bias adjustment logic
     - Test Historical Pattern Agent with historical data
@@ -139,7 +139,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
     - Test error handling when polling data unavailable
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
 
-  - [ ] 5.4 Write property test for polling bias adjustment
+  - [x] 5.4 Write property test for polling bias adjustment
     - **Property 11: Polling agent bias adjustment**
     - **Validates: Requirements 2.2**
 
