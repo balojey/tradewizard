@@ -31,7 +31,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
   - **Property 2: External data caching consistency**
   - **Validates: Requirements 7.2, 13.2**
 
-- [ ] 2. Extend graph state and configuration for advanced agents
+- [x] 2. Extend graph state and configuration for advanced agents
   - Extend GraphState with activeAgents, externalData, fusedSignal, riskPhilosophySignals fields
   - Add AdvancedEngineConfig interface with agent group toggles
   - Add external data source configuration (API keys, TTLs, providers)
@@ -42,7 +42,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
   - Implement configuration validation
   - _Requirements: 11.2, 12.1, 12.2, 12.3, 12.4, 12.5_
 
-- [ ] 2.1 Write unit tests for extended configuration
+- [x] 2.1 Write unit tests for extended configuration
   - Test configuration loading and validation
   - Test agent group enable/disable logic
   - Test external data source configuration
@@ -50,7 +50,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
   - Test configuration defaults
   - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5_
 
-- [ ] 2.2 Write property test for configuration validation
+- [x] 2.2 Write property test for configuration validation
   - **Property 16: Configuration validation**
   - **Validates: Requirements 12.5**
 

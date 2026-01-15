@@ -50,6 +50,61 @@ export const GraphState = Annotation.Root({
   ingestionError: Annotation<IngestionError | null>,
 
   // ============================================================================
+  // Dynamic Agent Selection (Advanced Agent League)
+  // ============================================================================
+
+  /**
+   * List of active agent names selected for this market analysis
+   */
+  activeAgents: Annotation<string[]>({
+    default: () => [],
+  }),
+
+  // ============================================================================
+  // External Data (Advanced Agent League)
+  // ============================================================================
+
+  /**
+   * External data fetched from news, polling, and social sources
+   */
+  externalData: Annotation<{
+    news?: Array<{
+      title: string;
+      source: string;
+      publishedAt: number;
+      url: string;
+      summary: string;
+      sentiment: 'positive' | 'negative' | 'neutral';
+      relevanceScore: number;
+    }>;
+    polling?: {
+      polls: Array<{
+        pollster: string;
+        date: number;
+        sampleSize: number;
+        yesPercentage: number;
+        noPercentage: number;
+        marginOfError: number;
+        methodology: string;
+      }>;
+      aggregatedProbability: number;
+      momentum: 'rising' | 'falling' | 'stable';
+      biasAdjustment: number;
+    };
+    social?: {
+      platforms: Record<string, {
+        volume: number;
+        sentiment: number;
+        viralScore: number;
+        topKeywords: string[];
+      }>;
+      overallSentiment: number;
+      narrativeVelocity: number;
+    };
+    dataFreshness: Record<string, number>;
+  } | null>,
+
+  // ============================================================================
   // Agent Signals Output
   // ============================================================================
 
@@ -68,6 +123,31 @@ export const GraphState = Annotation.Root({
     reducer: (current, update) => [...current, ...update],
     default: () => [],
   }),
+
+  // ============================================================================
+  // Agent Signal Fusion (Advanced Agent League)
+  // ============================================================================
+
+  /**
+   * Fused signal combining all agent signals with dynamic weighting
+   */
+  fusedSignal: Annotation<{
+    fairProbability: number;
+    confidence: number;
+    signalAlignment: number;
+    conflictingSignals: Array<{
+      agent1: string;
+      agent2: string;
+      disagreement: number;
+    }>;
+    contributingAgents: string[];
+    weights: Record<string, number>;
+    metadata: {
+      mvpAgentCount: number;
+      advancedAgentCount: number;
+      dataQuality: number;
+    };
+  } | null>,
 
   // ============================================================================
   // Thesis Construction Output
@@ -105,6 +185,89 @@ export const GraphState = Annotation.Root({
    * Error that occurred during consensus calculation (if any)
    */
   consensusError: Annotation<RecommendationError | null>,
+
+  // ============================================================================
+  // Risk Philosophy Signals (Advanced Agent League)
+  // ============================================================================
+
+  /**
+   * Risk philosophy agent signals (aggressive, conservative, neutral)
+   */
+  riskPhilosophySignals: Annotation<{
+    aggressive?: {
+      agentName: string;
+      timestamp: number;
+      confidence: number;
+      direction: 'YES' | 'NO' | 'NEUTRAL';
+      fairProbability: number;
+      keyDrivers: string[];
+      riskFactors: string[];
+      metadata: {
+        recommendedPositionSize: number;
+        kellyCriterion: number;
+        convictionLevel: 'extreme' | 'high' | 'moderate';
+        expectedReturn: number;
+        varianceWarning: string;
+      };
+    };
+    conservative?: {
+      agentName: string;
+      timestamp: number;
+      confidence: number;
+      direction: 'YES' | 'NO' | 'NEUTRAL';
+      fairProbability: number;
+      keyDrivers: string[];
+      riskFactors: string[];
+      metadata: {
+        recommendedPositionSize: number;
+        hedgingStrategy: string;
+        maxDrawdownTolerance: number;
+        stopLossLevel: number;
+        capitalPreservationScore: number;
+      };
+    };
+    neutral?: {
+      agentName: string;
+      timestamp: number;
+      confidence: number;
+      direction: 'YES' | 'NO' | 'NEUTRAL';
+      fairProbability: number;
+      keyDrivers: string[];
+      riskFactors: string[];
+      metadata: {
+        spreadOpportunities: Array<{
+          setup: string;
+          expectedReturn: number;
+          riskLevel: 'low' | 'medium';
+        }>;
+        pairedPositions: Array<{
+          long: string;
+          short: string;
+          netExposure: number;
+        }>;
+        arbitrageSetups: string[];
+      };
+    };
+  } | null>,
+
+  // ============================================================================
+  // Agent Performance Tracking (Advanced Agent League)
+  // ============================================================================
+
+  /**
+   * Performance metrics for each agent
+   */
+  agentPerformance: Annotation<Record<string, {
+    agentName: string;
+    totalAnalyses: number;
+    averageConfidence: number;
+    accuracyScore: number;
+    averageExecutionTime: number;
+    errorRate: number;
+    lastUpdated: number;
+  }>>({
+    default: () => ({}),
+  }),
 
   // ============================================================================
   // Final Recommendation
