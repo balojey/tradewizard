@@ -428,7 +428,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
   - **Property 10: Agent timeout isolation**
   - **Validates: Requirements 14.3**
 
-- [ ] 17. Add comprehensive observability and audit logging
+- [x] 17. Add comprehensive observability and audit logging
   - Add Opik tracing for all new nodes
   - Log agent selection decisions
   - Log external data fetching with freshness
@@ -438,14 +438,14 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
   - Ensure complete audit trail for advanced agent executions
   - _Requirements: 15.1, 15.2, 15.3, 15.4, 15.5_
 
-- [ ] 17.1 Write unit tests for observability
+- [x] 17.1 Write unit tests for observability
   - Test Opik trace creation for new nodes
   - Test audit log completeness
   - Test cost tracking accuracy
   - Test performance metric logging
   - _Requirements: 15.1, 15.2, 15.3, 15.4, 15.5_
 
-- [ ] 17.2 Write property test for audit trail completeness
+- [x] 17.2 Write property test for audit trail completeness
   - **Property 17: Audit trail completeness for advanced agents**
   - **Validates: Requirements 15.1, 15.2, 15.3, 15.4, 15.5**
 

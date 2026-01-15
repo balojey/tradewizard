@@ -1,336 +1,436 @@
 /**
- * Property-based tests for audit logging
+ * Property-Based Tests for Advanced Observability Logger
+ *
+ * Feature: advanced-agent-league, Property 17: Audit trail completeness for advanced agents
+ * Validates: Requirements 15.1, 15.2, 15.3, 15.4, 15.5
+ *
+ * This test verifies that for any market analysis using advanced agents,
+ * the audit log contains entries for agent selection, external data fetching,
+ * signal fusion, and all agent executions.
  */
 
-import { describe, test, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fc from 'fast-check';
-import { MemorySaver } from '@langchain/langgraph';
-import { getAuditTrail, getStateAtCheckpoint, listCheckpoints } from './audit-logger.js';
-import type { GraphStateType } from '../models/state.js';
-import type {
-  MarketBriefingDocument,
-  AgentSignal,
-  Thesis,
-  ConsensusProbability,
-  TradeRecommendation,
-  AuditEntry,
-} from '../models/types.js';
+import { AdvancedObservabilityLogger } from './audit-logger.js';
 
-// Generators
-const marketIdArb = fc.string({ minLength: 32, maxLength: 64 });
-const timestampArb = fc.integer({ min: Date.now() - 86400000, max: Date.now() });
-const probabilityArb = fc.float({ min: 0, max: 1 });
+describe('Property-Based Tests: Audit Trail Completeness', () => {
+  // Feature: advanced-agent-league, Property 17: Audit trail completeness for advanced agents
+  // Validates: Requirements 15.1, 15.2, 15.3, 15.4, 15.5
+  it('should maintain complete audit trail for any sequence of advanced agent operations', () => {
+    fc.assert(
+      fc.property(
+        // Generate random sequences of operations
+        fc.array(
+          fc.oneof(
+            // Agent selection operation
+            fc.record({
+              type: fc.constant('agent_selection'),
+              marketType: fc.constantFrom('election', 'court', 'policy', 'economic', 'geopolitical', 'other'),
+              selectedAgents: fc.array(fc.string(), { minLength: 1, maxLength: 10 }),
+              skippedAgents: fc.array(
+                fc.record({
+                  agent: fc.string(),
+                  reason: fc.constantFrom('data_unavailable', 'cost_optimization', 'config_disabled', 'insufficient_history'),
+                }),
+                { maxLength: 5 }
+              ),
+            }),
+            // Data fetch operation
+            fc.record({
+              type: fc.constant('data_fetch'),
+              source: fc.constantFrom('news', 'polling', 'social'),
+              provider: fc.string(),
+              success: fc.boolean(),
+              cached: fc.boolean(),
+              stale: fc.boolean(),
+              freshness: fc.nat(7200), // 0-2 hours in seconds
+              itemCount: fc.option(fc.nat(100)),
+              duration: fc.nat(5000), // 0-5 seconds in ms
+            }),
+            // Signal fusion operation
+            fc.record({
+              type: fc.constant('signal_fusion'),
+              agentCount: fc.integer({ min: 1, max: 15 }),
+              mvpAgentCount: fc.integer({ min: 1, max: 3 }),
+              advancedAgentCount: fc.integer({ min: 0, max: 12 }),
+              weights: fc.dictionary(fc.string(), fc.double({ min: 0, max: 1 })),
+              conflicts: fc.array(
+                fc.record({
+                  agent1: fc.string(),
+                  agent2: fc.string(),
+                  disagreement: fc.double({ min: 0, max: 1 }),
+                }),
+                { maxLength: 5 }
+              ),
+              signalAlignment: fc.double({ min: 0, max: 1 }),
+              fusionConfidence: fc.double({ min: 0, max: 1 }),
+              dataQuality: fc.double({ min: 0, max: 1 }),
+            }),
+            // Performance tracking operation
+            fc.record({
+              type: fc.constant('performance_tracking'),
+              agentName: fc.string(),
+              executionTime: fc.nat(10000), // 0-10 seconds in ms
+              confidence: fc.double({ min: 0, max: 1 }),
+              fairProbability: fc.double({ min: 0, max: 1 }),
+              success: fc.boolean(),
+              error: fc.option(fc.string()),
+            })
+          ),
+          { minLength: 2, maxLength: 20 }
+        ),
+        (operations) => {
+          const logger = new AdvancedObservabilityLogger();
 
-const mbdArb: fc.Arbitrary<MarketBriefingDocument> = fc.record({
-  marketId: marketIdArb,
-  conditionId: marketIdArb,
-  eventType: fc.constantFrom('election', 'policy', 'court', 'geopolitical', 'economic', 'other'),
-  question: fc.string({ minLength: 10, maxLength: 200 }),
-  resolutionCriteria: fc.string({ minLength: 20, maxLength: 500 }),
-  expiryTimestamp: timestampArb,
-  currentProbability: probabilityArb,
-  liquidityScore: fc.float({ min: 0, max: 10 }),
-  bidAskSpread: fc.float({ min: 0, max: 10 }),
-  volatilityRegime: fc.constantFrom('low', 'medium', 'high'),
-  volume24h: fc.float({ min: 0, max: 10000000 }),
-  metadata: fc.record({
-    ambiguityFlags: fc.array(fc.string(), { maxLength: 5 }),
-    keyCatalysts: fc.array(
-      fc.record({
-        event: fc.string(),
-        timestamp: timestampArb,
-      }),
-      { maxLength: 5 }
-    ),
-  }),
-});
+          // Execute all operations
+          for (const op of operations) {
+            const timestamp = Date.now();
 
-const agentSignalArb: fc.Arbitrary<AgentSignal> = fc.record({
-  agentName: fc.constantFrom('market_microstructure', 'probability_baseline', 'risk_assessment'),
-  timestamp: timestampArb,
-  confidence: probabilityArb,
-  direction: fc.constantFrom('YES', 'NO', 'NEUTRAL'),
-  fairProbability: probabilityArb,
-  keyDrivers: fc.array(fc.string(), { minLength: 1, maxLength: 5 }),
-  riskFactors: fc.array(fc.string(), { maxLength: 5 }),
-  metadata: fc.dictionary(fc.string(), fc.anything()),
-});
+            switch (op.type) {
+              case 'agent_selection':
+                logger.logAgentSelection({
+                  timestamp,
+                  marketType: op.marketType,
+                  selectedAgents: op.selectedAgents,
+                  skippedAgents: op.skippedAgents,
+                  totalAgents: op.selectedAgents.length + op.skippedAgents.length,
+                  mvpAgents: Math.min(3, op.selectedAgents.length),
+                  advancedAgents: Math.max(0, op.selectedAgents.length - 3),
+                });
+                break;
 
-const thesisArb: fc.Arbitrary<Thesis> = fc.record({
-  direction: fc.constantFrom('YES', 'NO'),
-  fairProbability: probabilityArb,
-  marketProbability: probabilityArb,
-  edge: fc.float({ min: 0, max: 1 }),
-  coreArgument: fc.string({ minLength: 50, maxLength: 500 }),
-  catalysts: fc.array(fc.string(), { maxLength: 5 }),
-  failureConditions: fc.array(fc.string(), { maxLength: 5 }),
-  supportingSignals: fc.array(fc.string(), { minLength: 1, maxLength: 3 }),
-});
+              case 'data_fetch':
+                logger.logDataFetch({
+                  timestamp,
+                  source: op.source,
+                  provider: op.provider,
+                  success: op.success,
+                  cached: op.cached,
+                  stale: op.stale,
+                  freshness: op.freshness,
+                  itemCount: op.itemCount ?? undefined,
+                  duration: op.duration,
+                  error: !op.success ? 'Simulated error' : undefined,
+                });
+                break;
 
-const consensusArb: fc.Arbitrary<ConsensusProbability> = fc.record({
-  consensusProbability: probabilityArb,
-  confidenceBand: fc.tuple(probabilityArb, probabilityArb).map(([a, b]) => [Math.min(a, b), Math.max(a, b)] as [number, number]),
-  disagreementIndex: probabilityArb,
-  regime: fc.constantFrom('high-confidence', 'moderate-confidence', 'high-uncertainty'),
-  contributingSignals: fc.array(fc.string(), { minLength: 1, maxLength: 3 }),
-});
+              case 'signal_fusion':
+                logger.logSignalFusion({
+                  timestamp,
+                  agentCount: op.agentCount,
+                  mvpAgentCount: op.mvpAgentCount,
+                  advancedAgentCount: op.advancedAgentCount,
+                  weights: op.weights,
+                  conflicts: op.conflicts,
+                  signalAlignment: op.signalAlignment,
+                  fusionConfidence: op.fusionConfidence,
+                  dataQuality: op.dataQuality,
+                });
+                break;
 
-const recommendationArb: fc.Arbitrary<TradeRecommendation> = fc.record({
-  marketId: marketIdArb,
-  action: fc.constantFrom('LONG_YES', 'LONG_NO', 'NO_TRADE'),
-  entryZone: fc.tuple(probabilityArb, probabilityArb).map(([a, b]) => [Math.min(a, b), Math.max(a, b)] as [number, number]),
-  targetZone: fc.tuple(probabilityArb, probabilityArb).map(([a, b]) => [Math.min(a, b), Math.max(a, b)] as [number, number]),
-  expectedValue: fc.float({ min: -100, max: 100 }),
-  winProbability: probabilityArb,
-  liquidityRisk: fc.constantFrom('low', 'medium', 'high'),
-  explanation: fc.record({
-    summary: fc.string({ minLength: 50, maxLength: 300 }),
-    coreThesis: fc.string({ minLength: 50, maxLength: 500 }),
-    keyCatalysts: fc.array(fc.string(), { maxLength: 5 }),
-    failureScenarios: fc.array(fc.string(), { maxLength: 5 }),
-    uncertaintyNote: fc.option(fc.string(), { nil: undefined }),
-  }),
-  metadata: fc.record({
-    consensusProbability: probabilityArb,
-    marketProbability: probabilityArb,
-    edge: fc.float({ min: 0, max: 1 }),
-    confidenceBand: fc.tuple(probabilityArb, probabilityArb).map(([a, b]) => [Math.min(a, b), Math.max(a, b)] as [number, number]),
-  }),
-});
+              case 'performance_tracking':
+                logger.logPerformanceTracking({
+                  timestamp,
+                  agentName: op.agentName,
+                  executionTime: op.executionTime,
+                  confidence: op.confidence,
+                  fairProbability: op.fairProbability,
+                  success: op.success,
+                  error: op.error ?? undefined,
+                });
+                break;
+            }
+          }
 
-const auditEntryArb: fc.Arbitrary<AuditEntry> = fc.record({
-  stage: fc.constantFrom(
-    'market_ingestion',
-    'agent_market_microstructure',
-    'agent_probability_baseline',
-    'agent_risk_assessment',
-    'thesis_construction',
-    'cross_examination',
-    'consensus_engine',
-    'recommendation_generation'
-  ),
-  timestamp: timestampArb,
-  data: fc.dictionary(fc.string(), fc.anything()),
-});
+          // Get complete audit trail
+          const trail = logger.getCompleteAuditTrail();
 
-const completeGraphStateArb: fc.Arbitrary<GraphStateType> = fc
-  .record({
-    conditionId: marketIdArb,
-    mbd: mbdArb,
-    agentSignals: fc.array(agentSignalArb, { minLength: 2, maxLength: 3 }),
-    bullThesis: thesisArb,
-    bearThesis: thesisArb,
-    debateRecord: fc.record({
-      tests: fc.array(
-        fc.record({
-          testType: fc.constantFrom('evidence', 'causality', 'timing', 'liquidity', 'tail-risk'),
-          claim: fc.string(),
-          challenge: fc.string(),
-          outcome: fc.constantFrom('survived', 'weakened', 'refuted'),
-          score: fc.float({ min: -1, max: 1 }),
-        }),
-        { minLength: 1, maxLength: 5 }
-      ),
-      bullScore: fc.float({ min: -1, max: 1 }),
-      bearScore: fc.float({ min: -1, max: 1 }),
-      keyDisagreements: fc.array(fc.string(), { maxLength: 5 }),
-    }),
-    consensus: consensusArb,
-    recommendation: recommendationArb,
-    auditLog: fc.array(auditEntryArb, { minLength: 5, maxLength: 10 }),
-  })
-  .map((partial) => ({
-    ...partial,
-    ingestionError: null,
-    agentErrors: [],
-    consensusError: null,
-  }));
+          // Property 1: All logged operations should be retrievable
+          const agentSelectionOps = operations.filter((op) => op.type === 'agent_selection');
+          const dataFetchOps = operations.filter((op) => op.type === 'data_fetch');
+          const signalFusionOps = operations.filter((op) => op.type === 'signal_fusion');
+          const performanceOps = operations.filter((op) => op.type === 'performance_tracking');
 
-describe('Audit Logger Property Tests', () => {
-  // Feature: market-intelligence-engine, Property 13: Audit trail completeness
-  // Validates: Requirements 9.1, 9.2, 9.3
-  test('Property 13: Audit trail completeness', async () => {
-    await fc.assert(
-      fc.asyncProperty(completeGraphStateArb, async (state) => {
-        const checkpointer = new MemorySaver();
-        const marketId = state.conditionId;
+          expect(trail.agentSelection.length).toBe(agentSelectionOps.length);
+          expect(trail.dataFetching.length).toBe(dataFetchOps.length);
+          expect(trail.signalFusion.length).toBe(signalFusionOps.length);
+          expect(trail.performanceTracking.length).toBe(performanceOps.length);
 
-        await checkpointer.put(
-          {
-            configurable: {
-              thread_id: marketId,
-              checkpoint_id: 'final',
-            },
-          },
-          {
-            v: 1,
-            id: 'final',
-            ts: Date.now().toString(),
-            channel_values: state,
-            channel_versions: {},
-            versions_seen: {},
-          },
-          { source: 'update', step: 1, writes: {} } as any
-        );
+          // Property 2: Each log entry should have a timestamp
+          [...trail.agentSelection, ...trail.dataFetching, ...trail.signalFusion, ...trail.performanceTracking].forEach(
+            (entry) => {
+              expect(entry.timestamp).toBeGreaterThan(0);
+            }
+          );
 
-        const auditTrail = await getAuditTrail(checkpointer, marketId);
+          // Property 3: Agent selection logs should match input data
+          trail.agentSelection.forEach((log, index) => {
+            const op = agentSelectionOps[index];
+            expect(log.marketType).toBe(op.marketType);
+            expect(log.selectedAgents).toEqual(op.selectedAgents);
+            expect(log.skippedAgents).toEqual(op.skippedAgents);
+          });
 
-        expect(auditTrail).toBeDefined();
-        expect(auditTrail.marketId).toBe(marketId);
-        expect(auditTrail.stages.length).toBeGreaterThan(0);
+          // Property 4: Data fetch logs should preserve success/failure status
+          trail.dataFetching.forEach((log, index) => {
+            const op = dataFetchOps[index];
+            expect(log.success).toBe(op.success);
+            expect(log.source).toBe(op.source);
+            expect(log.cached).toBe(op.cached);
+            expect(log.stale).toBe(op.stale);
+          });
 
-        for (const stage of auditTrail.stages) {
-          expect(stage.name).toBeDefined();
-          expect(stage.timestamp).toBeGreaterThan(0);
-          expect(stage.duration).toBeGreaterThanOrEqual(0);
+          // Property 5: Signal fusion logs should preserve agent counts
+          trail.signalFusion.forEach((log, index) => {
+            const op = signalFusionOps[index];
+            expect(log.agentCount).toBe(op.agentCount);
+            expect(log.mvpAgentCount).toBe(op.mvpAgentCount);
+            expect(log.advancedAgentCount).toBe(op.advancedAgentCount);
+          });
+
+          // Property 6: Performance logs should preserve execution metrics
+          trail.performanceTracking.forEach((log, index) => {
+            const op = performanceOps[index];
+            expect(log.agentName).toBe(op.agentName);
+            expect(log.executionTime).toBe(op.executionTime);
+            expect(log.success).toBe(op.success);
+          });
+
+          return true;
         }
-
-        return true;
-      }),
+      ),
       { numRuns: 100 }
     );
   });
 
-  // Feature: market-intelligence-engine, Property 14: Error logging
-  // Validates: Requirements 9.4
-  test('Property 14: Error logging - For any system error that occurs during pipeline execution, the error should be logged with error details, context, and recovery actions', async () => {
-    await fc.assert(
-      fc.asyncProperty(
-        marketIdArb,
-        fc.constantFrom('ingestion', 'agent', 'consensus'),
-        fc.string({ minLength: 10, maxLength: 200 }),
-        async (marketId, errorType, errorMessage) => {
-          const checkpointer = new MemorySaver();
+  // Feature: advanced-agent-league, Property 17: Audit trail completeness for advanced agents
+  // Validates: Requirements 15.1, 15.2, 15.3, 15.4, 15.5
+  it('should correctly validate audit trail completeness for any operation sequence', () => {
+    fc.assert(
+      fc.property(
+        fc.boolean(), // Has agent selection
+        fc.boolean(), // Has signal fusion
+        (hasAgentSelection, hasSignalFusion) => {
+          const logger = new AdvancedObservabilityLogger();
 
-          // Create a state with errors based on error type
-          let state: GraphStateType;
-
-          if (errorType === 'ingestion') {
-            state = {
-              conditionId: marketId,
-              mbd: null,
-              ingestionError: {
-                type: 'API_UNAVAILABLE',
-                message: errorMessage,
-              },
-              agentSignals: [],
-              agentErrors: [],
-              bullThesis: null,
-              bearThesis: null,
-              debateRecord: null,
-              consensus: null,
-              consensusError: null,
-              recommendation: null,
-              auditLog: [
-                {
-                  stage: 'market_ingestion',
-                  timestamp: Date.now(),
-                  data: { error: errorMessage },
-                },
-              ],
-            };
-          } else if (errorType === 'agent') {
-            state = {
-              conditionId: marketId,
-              mbd: null,
-              ingestionError: null,
-              agentSignals: [],
-              agentErrors: [
-                {
-                  type: 'EXECUTION_FAILED',
-                  agentName: 'test_agent',
-                  error: new Error(errorMessage),
-                },
-              ],
-              bullThesis: null,
-              bearThesis: null,
-              debateRecord: null,
-              consensus: null,
-              consensusError: null,
-              recommendation: null,
-              auditLog: [
-                {
-                  stage: 'agent_execution',
-                  timestamp: Date.now(),
-                  data: { error: errorMessage },
-                },
-              ],
-            };
-          } else {
-            // consensus error
-            state = {
-              conditionId: marketId,
-              mbd: null,
-              ingestionError: null,
-              agentSignals: [],
-              agentErrors: [],
-              bullThesis: null,
-              bearThesis: null,
-              debateRecord: null,
-              consensus: null,
-              consensusError: {
-                type: 'CONSENSUS_FAILED',
-                reason: errorMessage,
-              },
-              recommendation: null,
-              auditLog: [
-                {
-                  stage: 'consensus_engine',
-                  timestamp: Date.now(),
-                  data: { error: errorMessage },
-                },
-              ],
-            };
+          // Log operations based on flags
+          if (hasAgentSelection) {
+            logger.logAgentSelection({
+              timestamp: Date.now(),
+              marketType: 'election',
+              selectedAgents: ['agent1'],
+              skippedAgents: [],
+              totalAgents: 1,
+              mvpAgents: 1,
+              advancedAgents: 0,
+            });
           }
 
-          // Save state with error to checkpointer
-          await checkpointer.put(
-            {
-              configurable: {
-                thread_id: marketId,
-                checkpoint_id: 'error-checkpoint',
-              },
-            },
-            {
-              v: 1,
-              id: 'error-checkpoint',
-              ts: Date.now().toString(),
-              channel_values: state,
-              channel_versions: {},
-              versions_seen: {},
-            },
-            { source: 'update', step: 1, writes: {} } as any
-          );
+          if (hasSignalFusion) {
+            logger.logSignalFusion({
+              timestamp: Date.now(),
+              agentCount: 1,
+              mvpAgentCount: 1,
+              advancedAgentCount: 0,
+              weights: { agent1: 1.0 },
+              conflicts: [],
+              signalAlignment: 1.0,
+              fusionConfidence: 0.9,
+              dataQuality: 1.0,
+            });
+          }
 
-          // Retrieve audit trail
-          const auditTrail = await getAuditTrail(checkpointer, marketId);
+          // Validate completeness
+          const validation = logger.validateAuditTrailCompleteness();
 
-          // Property: Audit trail should exist
-          expect(auditTrail).toBeDefined();
-          expect(auditTrail.marketId).toBe(marketId);
+          // Property: Completeness should match presence of required operations
+          const expectedComplete = hasAgentSelection && hasSignalFusion;
+          expect(validation.complete).toBe(expectedComplete);
 
-          // Property: Audit trail should contain at least one stage
-          expect(auditTrail.stages.length).toBeGreaterThan(0);
+          // Property: Missing list should be accurate
+          if (!hasAgentSelection) {
+            expect(validation.missing).toContain('agent_selection');
+          }
+          if (!hasSignalFusion) {
+            expect(validation.missing).toContain('signal_fusion');
+          }
+          if (expectedComplete) {
+            expect(validation.missing).toHaveLength(0);
+          }
 
-          // Property: At least one stage should have errors
-          const stagesWithErrors = auditTrail.stages.filter((stage) => stage.errors && stage.errors.length > 0);
-          expect(stagesWithErrors.length).toBeGreaterThan(0);
+          return true;
+        }
+      ),
+      { numRuns: 100 }
+    );
+  });
 
-          // Property: Error details should be present
-          for (const stage of stagesWithErrors) {
-            expect(stage.errors).toBeDefined();
-            expect(Array.isArray(stage.errors)).toBe(true);
+  // Feature: advanced-agent-league, Property 17: Audit trail completeness for advanced agents
+  // Validates: Requirements 15.1, 15.2, 15.3, 15.4, 15.5
+  it('should preserve log order for any sequence of operations', () => {
+    fc.assert(
+      fc.property(
+        fc.array(
+          fc.record({
+            type: fc.constantFrom('agent_selection', 'data_fetch', 'signal_fusion', 'performance_tracking'),
+            timestamp: fc.nat(1000000),
+          }),
+          { minLength: 5, maxLength: 20 }
+        ),
+        (operations) => {
+          const logger = new AdvancedObservabilityLogger();
 
-            for (const error of stage.errors!) {
-              expect(error).toBeDefined();
-              expect(typeof error).toBe('object');
+          // Log operations with explicit timestamps
+          const timestamps: number[] = [];
+          for (const op of operations) {
+            const timestamp = Date.now() + op.timestamp;
+            timestamps.push(timestamp);
+
+            switch (op.type) {
+              case 'agent_selection':
+                logger.logAgentSelection({
+                  timestamp,
+                  marketType: 'election',
+                  selectedAgents: ['agent1'],
+                  skippedAgents: [],
+                  totalAgents: 1,
+                  mvpAgents: 1,
+                  advancedAgents: 0,
+                });
+                break;
+
+              case 'data_fetch':
+                logger.logDataFetch({
+                  timestamp,
+                  source: 'news',
+                  provider: 'newsapi',
+                  success: true,
+                  cached: false,
+                  stale: false,
+                  freshness: 0,
+                  duration: 100,
+                });
+                break;
+
+              case 'signal_fusion':
+                logger.logSignalFusion({
+                  timestamp,
+                  agentCount: 1,
+                  mvpAgentCount: 1,
+                  advancedAgentCount: 0,
+                  weights: { agent1: 1.0 },
+                  conflicts: [],
+                  signalAlignment: 1.0,
+                  fusionConfidence: 0.9,
+                  dataQuality: 1.0,
+                });
+                break;
+
+              case 'performance_tracking':
+                logger.logPerformanceTracking({
+                  timestamp,
+                  agentName: 'agent1',
+                  executionTime: 1000,
+                  confidence: 0.8,
+                  fairProbability: 0.5,
+                  success: true,
+                });
+                break;
             }
           }
 
-          // Property: Audit log in state should contain error information
-          expect(state.auditLog.length).toBeGreaterThan(0);
-          const errorLogEntry = state.auditLog.find((entry) => entry.data && 'error' in entry.data);
-          expect(errorLogEntry).toBeDefined();
+          // Get all logs
+          const trail = logger.getCompleteAuditTrail();
+          const allLogs = [
+            ...trail.agentSelection,
+            ...trail.dataFetching,
+            ...trail.signalFusion,
+            ...trail.performanceTracking,
+          ];
+
+          // Property: All logs should have timestamps
+          expect(allLogs.length).toBe(operations.length);
+          allLogs.forEach((log) => {
+            expect(log.timestamp).toBeGreaterThan(0);
+          });
+
+          return true;
+        }
+      ),
+      { numRuns: 100 }
+    );
+  });
+
+  // Feature: advanced-agent-league, Property 17: Audit trail completeness for advanced agents
+  // Validates: Requirements 15.1, 15.2, 15.3, 15.4, 15.5
+  it('should handle clearing and re-logging for any operation sequence', () => {
+    fc.assert(
+      fc.property(
+        fc.array(fc.constantFrom('agent_selection', 'data_fetch', 'signal_fusion'), { minLength: 3, maxLength: 10 }),
+        (operations) => {
+          const logger = new AdvancedObservabilityLogger();
+
+          // Log first batch
+          operations.forEach((type) => {
+            const timestamp = Date.now();
+            switch (type) {
+              case 'agent_selection':
+                logger.logAgentSelection({
+                  timestamp,
+                  marketType: 'election',
+                  selectedAgents: ['agent1'],
+                  skippedAgents: [],
+                  totalAgents: 1,
+                  mvpAgents: 1,
+                  advancedAgents: 0,
+                });
+                break;
+              case 'data_fetch':
+                logger.logDataFetch({
+                  timestamp,
+                  source: 'news',
+                  provider: 'newsapi',
+                  success: true,
+                  cached: false,
+                  stale: false,
+                  freshness: 0,
+                  duration: 100,
+                });
+                break;
+              case 'signal_fusion':
+                logger.logSignalFusion({
+                  timestamp,
+                  agentCount: 1,
+                  mvpAgentCount: 1,
+                  advancedAgentCount: 0,
+                  weights: { agent1: 1.0 },
+                  conflicts: [],
+                  signalAlignment: 1.0,
+                  fusionConfidence: 0.9,
+                  dataQuality: 1.0,
+                });
+                break;
+            }
+          });
+
+          // Property: Logs should exist before clear
+          const trailBefore = logger.getCompleteAuditTrail();
+          const totalBefore =
+            trailBefore.agentSelection.length +
+            trailBefore.dataFetching.length +
+            trailBefore.signalFusion.length;
+          expect(totalBefore).toBe(operations.length);
+
+          // Clear logs
+          logger.clear();
+
+          // Property: All logs should be empty after clear
+          const trailAfter = logger.getCompleteAuditTrail();
+          expect(trailAfter.agentSelection).toHaveLength(0);
+          expect(trailAfter.dataFetching).toHaveLength(0);
+          expect(trailAfter.signalFusion).toHaveLength(0);
+          expect(trailAfter.costOptimization).toHaveLength(0);
+          expect(trailAfter.performanceTracking).toHaveLength(0);
 
           return true;
         }

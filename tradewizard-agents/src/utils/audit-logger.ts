@@ -451,3 +451,260 @@ export class GraphExecutionLogger {
   }
 }
 
+// ============================================================================
+// Advanced Agent Observability Utilities
+// ============================================================================
+
+/**
+ * Agent selection decision log entry
+ */
+export interface AgentSelectionLog {
+  timestamp: number;
+  marketType: string;
+  selectedAgents: string[];
+  skippedAgents: Array<{
+    agent: string;
+    reason: 'data_unavailable' | 'cost_optimization' | 'config_disabled' | 'insufficient_history';
+  }>;
+  totalAgents: number;
+  mvpAgents: number;
+  advancedAgents: number;
+}
+
+/**
+ * External data fetch log entry
+ */
+export interface DataFetchLog {
+  timestamp: number;
+  source: 'news' | 'polling' | 'social';
+  provider: string;
+  success: boolean;
+  cached: boolean;
+  stale: boolean;
+  freshness: number; // Age in seconds
+  itemCount?: number;
+  error?: string;
+  duration: number; // milliseconds
+}
+
+/**
+ * Signal fusion log entry
+ */
+export interface SignalFusionLog {
+  timestamp: number;
+  agentCount: number;
+  mvpAgentCount: number;
+  advancedAgentCount: number;
+  weights: Record<string, number>;
+  conflicts: Array<{
+    agent1: string;
+    agent2: string;
+    disagreement: number;
+  }>;
+  signalAlignment: number;
+  fusionConfidence: number;
+  dataQuality: number;
+}
+
+/**
+ * Cost optimization log entry
+ */
+export interface CostOptimizationLog {
+  timestamp: number;
+  estimatedCost: number;
+  maxCost: number;
+  skippedAgents: string[];
+  totalAgents: number;
+  activeAgents: number;
+  costSavings: number;
+}
+
+/**
+ * Performance tracking log entry
+ */
+export interface PerformanceTrackingLog {
+  timestamp: number;
+  agentName: string;
+  executionTime: number;
+  confidence: number;
+  fairProbability: number;
+  success: boolean;
+  error?: string;
+}
+
+/**
+ * Advanced observability logger for the Advanced Agent League
+ *
+ * This logger provides specialized logging for:
+ * - Agent selection decisions
+ * - External data fetching with freshness tracking
+ * - Signal fusion process with weights and conflicts
+ * - Cost optimization decisions
+ * - Performance tracking updates
+ */
+export class AdvancedObservabilityLogger {
+  private agentSelectionLogs: AgentSelectionLog[] = [];
+  private dataFetchLogs: DataFetchLog[] = [];
+  private signalFusionLogs: SignalFusionLog[] = [];
+  private costOptimizationLogs: CostOptimizationLog[] = [];
+  private performanceTrackingLogs: PerformanceTrackingLog[] = [];
+
+  /**
+   * Log agent selection decision
+   */
+  logAgentSelection(log: AgentSelectionLog): void {
+    this.agentSelectionLogs.push(log);
+    console.info('[AgentSelection]', {
+      marketType: log.marketType,
+      selected: log.selectedAgents.length,
+      skipped: log.skippedAgents.length,
+      mvp: log.mvpAgents,
+      advanced: log.advancedAgents,
+    });
+  }
+
+  /**
+   * Log external data fetch
+   */
+  logDataFetch(log: DataFetchLog): void {
+    this.dataFetchLogs.push(log);
+    const status = log.success ? 'SUCCESS' : 'FAILED';
+    const cacheStatus = log.cached ? (log.stale ? 'STALE_CACHE' : 'CACHE_HIT') : 'FRESH';
+    console.info(`[DataFetch] ${log.source}/${log.provider} ${status} ${cacheStatus}`, {
+      freshness: `${log.freshness}s`,
+      items: log.itemCount,
+      duration: `${log.duration}ms`,
+    });
+  }
+
+  /**
+   * Log signal fusion process
+   */
+  logSignalFusion(log: SignalFusionLog): void {
+    this.signalFusionLogs.push(log);
+    console.info('[SignalFusion]', {
+      agents: log.agentCount,
+      mvp: log.mvpAgentCount,
+      advanced: log.advancedAgentCount,
+      alignment: log.signalAlignment.toFixed(2),
+      confidence: log.fusionConfidence.toFixed(2),
+      conflicts: log.conflicts.length,
+    });
+  }
+
+  /**
+   * Log cost optimization decision
+   */
+  logCostOptimization(log: CostOptimizationLog): void {
+    this.costOptimizationLogs.push(log);
+    console.info('[CostOptimization]', {
+      estimated: `$${log.estimatedCost.toFixed(3)}`,
+      max: `$${log.maxCost.toFixed(3)}`,
+      skipped: log.skippedAgents.length,
+      savings: `$${log.costSavings.toFixed(3)}`,
+    });
+  }
+
+  /**
+   * Log performance tracking update
+   */
+  logPerformanceTracking(log: PerformanceTrackingLog): void {
+    this.performanceTrackingLogs.push(log);
+    console.debug('[PerformanceTracking]', {
+      agent: log.agentName,
+      time: `${log.executionTime}ms`,
+      confidence: log.confidence.toFixed(2),
+      success: log.success,
+    });
+  }
+
+  /**
+   * Get all agent selection logs
+   */
+  getAgentSelectionLogs(): AgentSelectionLog[] {
+    return [...this.agentSelectionLogs];
+  }
+
+  /**
+   * Get all data fetch logs
+   */
+  getDataFetchLogs(): DataFetchLog[] {
+    return [...this.dataFetchLogs];
+  }
+
+  /**
+   * Get all signal fusion logs
+   */
+  getSignalFusionLogs(): SignalFusionLog[] {
+    return [...this.signalFusionLogs];
+  }
+
+  /**
+   * Get all cost optimization logs
+   */
+  getCostOptimizationLogs(): CostOptimizationLog[] {
+    return [...this.costOptimizationLogs];
+  }
+
+  /**
+   * Get all performance tracking logs
+   */
+  getPerformanceTrackingLogs(): PerformanceTrackingLog[] {
+    return [...this.performanceTrackingLogs];
+  }
+
+  /**
+   * Get complete audit trail for advanced agents
+   */
+  getCompleteAuditTrail() {
+    return {
+      agentSelection: this.agentSelectionLogs,
+      dataFetching: this.dataFetchLogs,
+      signalFusion: this.signalFusionLogs,
+      costOptimization: this.costOptimizationLogs,
+      performanceTracking: this.performanceTrackingLogs,
+    };
+  }
+
+  /**
+   * Clear all logs
+   */
+  clear(): void {
+    this.agentSelectionLogs = [];
+    this.dataFetchLogs = [];
+    this.signalFusionLogs = [];
+    this.costOptimizationLogs = [];
+    this.performanceTrackingLogs = [];
+  }
+
+  /**
+   * Validate audit trail completeness
+   *
+   * Checks that all required log entries are present for a complete audit trail.
+   * Returns true if audit trail is complete, false otherwise.
+   */
+  validateAuditTrailCompleteness(): {
+    complete: boolean;
+    missing: string[];
+  } {
+    const missing: string[] = [];
+
+    if (this.agentSelectionLogs.length === 0) {
+      missing.push('agent_selection');
+    }
+
+    if (this.signalFusionLogs.length === 0) {
+      missing.push('signal_fusion');
+    }
+
+    // Data fetching is optional (depends on agent selection)
+    // Cost optimization is optional (depends on configuration)
+    // Performance tracking is optional (depends on configuration)
+
+    return {
+      complete: missing.length === 0,
+      missing,
+    };
+  }
+}
+

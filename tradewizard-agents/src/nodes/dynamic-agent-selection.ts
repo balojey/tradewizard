@@ -12,6 +12,7 @@ import type { GraphStateType } from '../models/state.js';
 import type { EngineConfig } from '../config/index.js';
 import type { DataIntegrationLayer } from '../utils/data-integration.js';
 import type { EventType } from '../models/types.js';
+import type { AdvancedObservabilityLogger } from '../utils/audit-logger.js';
 import {
   applyCostOptimization,
   createCostOptimizationAuditEntry,

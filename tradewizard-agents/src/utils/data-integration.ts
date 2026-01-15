@@ -6,6 +6,7 @@
  */
 
 import type { MarketBriefingDocument } from '../models/types.js';
+import type { AdvancedObservabilityLogger } from './audit-logger.js';
 
 // ============================================================================
 // Data Schemas
@@ -187,7 +188,9 @@ export class DataIntegrationLayer {
   private pollingRateLimiter: TokenBucket;
   private socialRateLimiter: TokenBucket;
 
-  constructor(private config: DataSourceConfig) {
+  private observabilityLogger?: AdvancedObservabilityLogger;
+
+  constructor(private config: DataSourceConfig, observabilityLogger?: AdvancedObservabilityLogger) {
     // Initialize caches with configured TTLs
     this.newsCache = new DataCache(config.news.cacheTTL);
     this.pollingCache = new DataCache(config.polling.cacheTTL);
@@ -198,6 +201,12 @@ export class DataIntegrationLayer {
     this.newsRateLimiter = new TokenBucket(10, 0.001);
     // Polling APIs: typically more generous
     this.pollingRateLimiter = new TokenBucket(20, 0.01);
+    // Social APIs: varies by platform
+    this.socialRateLimiter = new TokenBucket(15, 0.005);
+
+    // Store observability logger
+    this.observabilityLogger = observabilityLogger;
+  }
     // Social APIs: varies by platform
     this.socialRateLimiter = new TokenBucket(15, 0.005);
   }
@@ -215,11 +224,24 @@ export class DataIntegrationLayer {
     market: MarketBriefingDocument,
     timeWindow: number = 24
   ): Promise<NewsArticle[]> {
+    const startTime = Date.now();
     const cacheKey = `news:${market.marketId}:${timeWindow}`;
 
     // Check cache first
     const cached = this.newsCache.get(cacheKey);
     if (cached && !cached.isStale) {
+      const duration = Date.now() - startTime;
+      this.observabilityLogger?.logDataFetch({
+        timestamp: Date.now(),
+        source: 'news',
+        provider: this.config.news.provider,
+        success: true,
+        cached: true,
+        stale: false,
+        freshness: (Date.now() - cached.timestamp) / 1000,
+        itemCount: cached.data.length,
+        duration,
+      });
       return cached.data;
     }
 
@@ -228,9 +250,34 @@ export class DataIntegrationLayer {
       console.warn('[DataIntegration] News API rate limit approached, using cached data');
       if (cached) {
         console.log('[DataIntegration] Returning stale cached news data');
+        const duration = Date.now() - startTime;
+        this.observabilityLogger?.logDataFetch({
+          timestamp: Date.now(),
+          source: 'news',
+          provider: this.config.news.provider,
+          success: true,
+          cached: true,
+          stale: true,
+          freshness: (Date.now() - cached.timestamp) / 1000,
+          itemCount: cached.data.length,
+          duration,
+        });
         return cached.data; // Return stale data
       }
       console.warn('[DataIntegration] No cached news data available');
+      const duration = Date.now() - startTime;
+      this.observabilityLogger?.logDataFetch({
+        timestamp: Date.now(),
+        source: 'news',
+        provider: this.config.news.provider,
+        success: false,
+        cached: false,
+        stale: false,
+        freshness: 0,
+        itemCount: 0,
+        error: 'Rate limit exceeded, no cached data available',
+        duration,
+      });
       return []; // No cached data available
     }
 
@@ -239,23 +286,86 @@ export class DataIntegrationLayer {
       console.warn('[DataIntegration] News provider not configured');
       if (cached) {
         console.log('[DataIntegration] Returning stale cached news data');
+        const duration = Date.now() - startTime;
+        this.observabilityLogger?.logDataFetch({
+          timestamp: Date.now(),
+          source: 'news',
+          provider: this.config.news.provider,
+          success: true,
+          cached: true,
+          stale: true,
+          freshness: (Date.now() - cached.timestamp) / 1000,
+          itemCount: cached.data.length,
+          duration,
+        });
         return cached.data;
       }
+      const duration = Date.now() - startTime;
+      this.observabilityLogger?.logDataFetch({
+        timestamp: Date.now(),
+        source: 'news',
+        provider: this.config.news.provider,
+        success: false,
+        cached: false,
+        stale: false,
+        freshness: 0,
+        itemCount: 0,
+        error: 'Provider not configured',
+        duration,
+      });
       return [];
     }
 
     try {
       const articles = await this.fetchNewsFromProvider(market, timeWindow);
       this.newsCache.set(cacheKey, articles);
+      const duration = Date.now() - startTime;
+      this.observabilityLogger?.logDataFetch({
+        timestamp: Date.now(),
+        source: 'news',
+        provider: this.config.news.provider,
+        success: true,
+        cached: false,
+        stale: false,
+        freshness: 0,
+        itemCount: articles.length,
+        duration,
+      });
       return articles;
     } catch (error) {
       console.error('[DataIntegration] Failed to fetch news:', error instanceof Error ? error.message : String(error));
       // Fallback to cached data if available
       if (cached) {
         console.log('[DataIntegration] Falling back to stale cached news data');
+        const duration = Date.now() - startTime;
+        this.observabilityLogger?.logDataFetch({
+          timestamp: Date.now(),
+          source: 'news',
+          provider: this.config.news.provider,
+          success: true,
+          cached: true,
+          stale: true,
+          freshness: (Date.now() - cached.timestamp) / 1000,
+          itemCount: cached.data.length,
+          error: error instanceof Error ? error.message : String(error),
+          duration,
+        });
         return cached.data;
       }
       console.warn('[DataIntegration] No fallback news data available');
+      const duration = Date.now() - startTime;
+      this.observabilityLogger?.logDataFetch({
+        timestamp: Date.now(),
+        source: 'news',
+        provider: this.config.news.provider,
+        success: false,
+        cached: false,
+        stale: false,
+        freshness: 0,
+        itemCount: 0,
+        error: error instanceof Error ? error.message : String(error),
+        duration,
+      });
       return [];
     }
   }
@@ -471,6 +581,9 @@ export class DataIntegrationLayer {
 /**
  * Create a data integration layer instance
  */
-export function createDataIntegrationLayer(config: DataSourceConfig): DataIntegrationLayer {
-  return new DataIntegrationLayer(config);
+export function createDataIntegrationLayer(
+  config: DataSourceConfig,
+  observabilityLogger?: AdvancedObservabilityLogger
+): DataIntegrationLayer {
+  return new DataIntegrationLayer(config, observabilityLogger);
 }
