@@ -207,9 +207,6 @@ export class DataIntegrationLayer {
     // Store observability logger
     this.observabilityLogger = observabilityLogger;
   }
-    // Social APIs: varies by platform
-    this.socialRateLimiter = new TokenBucket(15, 0.005);
-  }
 
   /**
    * Fetch news articles relevant to market

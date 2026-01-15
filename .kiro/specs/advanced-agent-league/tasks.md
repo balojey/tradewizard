@@ -449,7 +449,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
   - **Property 17: Audit trail completeness for advanced agents**
   - **Validates: Requirements 15.1, 15.2, 15.3, 15.4, 15.5**
 
-- [ ] 18. Write integration tests for full advanced agent workflow
+- [x] 18. Write integration tests for full advanced agent workflow
   - Test end-to-end with all agent groups enabled
   - Test with selective agent groups (budget configuration)
   - Test with MVP agents only (backward compatibility)
