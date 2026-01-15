@@ -318,14 +318,14 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
     - **Property 5: Risk philosophy signal completeness**
     - **Validates: Requirements 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7**
 
-- [ ] 11. Update thesis construction to use fused signals
+- [x] 11. Update thesis construction to use fused signals
   - Modify thesisConstructionNode to read fusedSignal from state
   - Use fused signal instead of raw agent signals for thesis generation
   - Maintain backward compatibility (fall back to raw signals if no fusion)
   - Update audit logging
   - _Requirements: 8.5, 11.2_
 
-- [ ] 11.1 Write unit tests for updated thesis construction
+- [x] 11.1 Write unit tests for updated thesis construction
   - Test thesis generation with fused signals
   - Test backward compatibility with raw signals
   - Test state updates

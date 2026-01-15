@@ -526,4 +526,166 @@ describe('Thesis Construction Node Unit Tests', () => {
     const auditEntry = result.auditLog![0];
     expect(auditEntry.data.weightedFairProbability).toBeCloseTo(expectedWeightedFairProb, 5);
   });
+
+  // Test: Thesis generation with fused signals
+  it('should use fused signal when available for thesis generation', async () => {
+    const thesisNode = createThesisConstructionNode(mockConfig);
+
+    const mockFusedSignal = {
+      fairProbability: 0.62,
+      confidence: 0.85,
+      signalAlignment: 0.9,
+      conflictingSignals: [],
+      contributingAgents: ['market_microstructure', 'probability_baseline', 'risk_assessment'],
+      weights: {
+        market_microstructure: 0.35,
+        probability_baseline: 0.35,
+        risk_assessment: 0.3,
+      },
+      metadata: {
+        mvpAgentCount: 3,
+        advancedAgentCount: 0,
+        dataQuality: 0.95,
+      },
+    };
+
+    const state: GraphStateType = {
+      conditionId: mockMBD.conditionId,
+      mbd: mockMBD,
+      ingestionError: null,
+      agentSignals: mockAgentSignals,
+      agentErrors: [],
+      fusedSignal: mockFusedSignal,
+      activeAgents: ['market_microstructure', 'probability_baseline', 'risk_assessment'],
+      externalData: null,
+      riskPhilosophySignals: null,
+      agentPerformance: {},
+      bullThesis: null,
+      bearThesis: null,
+      debateRecord: null,
+      consensus: null,
+      consensusError: null,
+      recommendation: null,
+      auditLog: [],
+    };
+
+    const result = await thesisNode(state);
+
+    // Should generate both theses
+    expect(result.bullThesis).toBeDefined();
+    expect(result.bearThesis).toBeDefined();
+
+    // Check audit log for fused signal usage
+    const auditEntry = result.auditLog![0];
+    expect(auditEntry.data.signalSource).toBe('fused');
+    expect(auditEntry.data.fusedSignalUsed).toBe(true);
+    expect(auditEntry.data.fusedSignalConfidence).toBe(0.85);
+    expect(auditEntry.data.weightedFairProbability).toBe(0.62);
+    expect(auditEntry.data.contributingAgents).toEqual(mockFusedSignal.contributingAgents);
+  });
+
+  // Test: Backward compatibility with raw signals
+  it('should fall back to raw agent signals when fused signal is not available', async () => {
+    const thesisNode = createThesisConstructionNode(mockConfig);
+
+    const state: GraphStateType = {
+      conditionId: mockMBD.conditionId,
+      mbd: mockMBD,
+      ingestionError: null,
+      agentSignals: mockAgentSignals,
+      agentErrors: [],
+      fusedSignal: null, // No fused signal
+      activeAgents: [],
+      externalData: null,
+      riskPhilosophySignals: null,
+      agentPerformance: {},
+      bullThesis: null,
+      bearThesis: null,
+      debateRecord: null,
+      consensus: null,
+      consensusError: null,
+      recommendation: null,
+      auditLog: [],
+    };
+
+    const result = await thesisNode(state);
+
+    // Should generate both theses
+    expect(result.bullThesis).toBeDefined();
+    expect(result.bearThesis).toBeDefined();
+
+    // Check audit log for raw signal usage
+    const auditEntry = result.auditLog![0];
+    expect(auditEntry.data.signalSource).toBe('raw');
+    expect(auditEntry.data.fusedSignalUsed).toBe(false);
+    expect(auditEntry.data.contributingAgents).toEqual(mockAgentSignals.map(s => s.agentName));
+
+    // Calculate expected weighted fair probability from raw signals
+    const totalWeight = mockAgentSignals.reduce((sum, s) => sum + s.confidence, 0);
+    const weightedSum = mockAgentSignals.reduce(
+      (sum, s) => sum + s.fairProbability * s.confidence,
+      0
+    );
+    const expectedWeightedFairProb = weightedSum / totalWeight;
+
+    expect(auditEntry.data.weightedFairProbability).toBeCloseTo(expectedWeightedFairProb, 5);
+  });
+
+  // Test: State updates with fused signal
+  it('should write theses to state when using fused signal', async () => {
+    const thesisNode = createThesisConstructionNode(mockConfig);
+
+    const mockFusedSignal = {
+      fairProbability: 0.68,
+      confidence: 0.88,
+      signalAlignment: 0.92,
+      conflictingSignals: [],
+      contributingAgents: ['market_microstructure', 'probability_baseline'],
+      weights: {
+        market_microstructure: 0.5,
+        probability_baseline: 0.5,
+      },
+      metadata: {
+        mvpAgentCount: 2,
+        advancedAgentCount: 0,
+        dataQuality: 0.9,
+      },
+    };
+
+    const state: GraphStateType = {
+      conditionId: mockMBD.conditionId,
+      mbd: mockMBD,
+      ingestionError: null,
+      agentSignals: mockAgentSignals,
+      agentErrors: [],
+      fusedSignal: mockFusedSignal,
+      activeAgents: ['market_microstructure', 'probability_baseline'],
+      externalData: null,
+      riskPhilosophySignals: null,
+      agentPerformance: {},
+      bullThesis: null,
+      bearThesis: null,
+      debateRecord: null,
+      consensus: null,
+      consensusError: null,
+      recommendation: null,
+      auditLog: [],
+    };
+
+    const result = await thesisNode(state);
+
+    // Verify state updates
+    expect(result.bullThesis).toBeDefined();
+    expect(result.bearThesis).toBeDefined();
+    expect(result.auditLog).toBeDefined();
+    expect(result.auditLog!.length).toBeGreaterThan(0);
+
+    // Verify audit log entry
+    const auditEntry = result.auditLog![0];
+    expect(auditEntry.stage).toBe('thesis_construction');
+    expect(auditEntry.timestamp).toBeGreaterThan(0);
+    expect(auditEntry.data.success).toBe(true);
+    expect(auditEntry.data.signalSource).toBe('fused');
+    expect(auditEntry.data.fusedSignalUsed).toBe(true);
+  });
 });

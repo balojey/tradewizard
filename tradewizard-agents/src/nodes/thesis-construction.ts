@@ -55,6 +55,33 @@ function calculateWeightedFairProbability(
 }
 
 /**
+ * Get fair probability from fused signal or fall back to agent signals
+ *
+ * @param state - Graph state
+ * @returns Fair probability and source indicator
+ */
+function getFairProbability(state: GraphStateType): {
+  fairProbability: number;
+  source: 'fused' | 'raw';
+  confidence?: number;
+} {
+  // Prefer fused signal if available
+  if (state.fusedSignal && isFinite(state.fusedSignal.fairProbability)) {
+    return {
+      fairProbability: state.fusedSignal.fairProbability,
+      source: 'fused',
+      confidence: state.fusedSignal.confidence,
+    };
+  }
+
+  // Fall back to raw agent signals (backward compatibility)
+  return {
+    fairProbability: calculateWeightedFairProbability(state.agentSignals),
+    source: 'raw',
+  };
+}
+
+/**
  * Create LLM instance for thesis generation
  *
  * In single-provider mode: use the configured LLM
@@ -214,8 +241,8 @@ export function createThesisConstructionNode(
     }
 
     try {
-      // Calculate weighted fair probability
-      const weightedFairProbability = calculateWeightedFairProbability(state.agentSignals);
+      // Get fair probability from fused signal or fall back to raw signals
+      const { fairProbability: weightedFairProbability, source, confidence } = getFairProbability(state);
       const marketProbability = state.mbd.currentProbability;
       
       // Validate market probability is finite
@@ -276,14 +303,27 @@ export function createThesisConstructionNode(
           liquidityScore: state.mbd.liquidityScore,
           volatilityRegime: state.mbd.volatilityRegime,
         },
-        agentSignals: state.agentSignals.map((signal) => ({
-          agentName: signal.agentName,
-          direction: signal.direction,
-          confidence: signal.confidence,
-          fairProbability: signal.fairProbability,
-          keyDrivers: signal.keyDrivers,
-          riskFactors: signal.riskFactors,
-        })),
+        // Include fused signal if available, otherwise use raw agent signals
+        ...(source === 'fused' && state.fusedSignal
+          ? {
+              fusedSignal: {
+                fairProbability: state.fusedSignal.fairProbability,
+                confidence: state.fusedSignal.confidence,
+                signalAlignment: state.fusedSignal.signalAlignment,
+                contributingAgents: state.fusedSignal.contributingAgents,
+                conflictingSignals: state.fusedSignal.conflictingSignals,
+              },
+            }
+          : {
+              agentSignals: state.agentSignals.map((signal) => ({
+                agentName: signal.agentName,
+                direction: signal.direction,
+                confidence: signal.confidence,
+                fairProbability: signal.fairProbability,
+                keyDrivers: signal.keyDrivers,
+                riskFactors: signal.riskFactors,
+              })),
+            }),
         weightedFairProbability,
         edge,
       };
@@ -347,6 +387,9 @@ export function createThesisConstructionNode(
             timestamp: Date.now(),
             data: {
               success: true,
+              signalSource: source,
+              fusedSignalUsed: source === 'fused',
+              fusedSignalConfidence: confidence,
               weightedFairProbability,
               marketProbability,
               edge,
@@ -354,6 +397,9 @@ export function createThesisConstructionNode(
               bullEdge: bullThesis.edge,
               bearEdge: bearThesis.edge,
               agentCount: state.agentSignals.length,
+              contributingAgents: source === 'fused' && state.fusedSignal
+                ? state.fusedSignal.contributingAgents
+                : state.agentSignals.map(s => s.agentName),
               duration: Date.now() - startTime,
             },
           },
