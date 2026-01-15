@@ -189,8 +189,8 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
     - **Property 14: Sentiment agent platform aggregation**
     - **Validates: Requirements 3.4**
 
-- [ ] 7. Build Price Action & Timing Agents
-  - [ ] 7.1 Implement Momentum Agent node
+- [x] 7. Build Price Action & Timing Agents
+  - [x] 7.1 Implement Momentum Agent node
     - Create agent node using existing agent factory pattern
     - Write system prompt for momentum analysis
     - Implement MomentumSignal schema with Zod
@@ -201,7 +201,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
     - Write signal to graph state
     - _Requirements: 4.1, 4.2_
 
-  - [ ] 7.2 Implement Mean Reversion Agent node
+  - [x] 7.2 Implement Mean Reversion Agent node
     - Create agent node using existing agent factory pattern
     - Write system prompt for mean reversion analysis
     - Implement MeanReversionSignal schema with Zod
@@ -212,14 +212,14 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
     - Write signal to graph state
     - _Requirements: 4.3, 4.4_
 
-  - [ ] 7.3 Write unit tests for Price Action Agents
+  - [x] 7.3 Write unit tests for Price Action Agents
     - Test Momentum Agent with sample price history
     - Test Mean Reversion Agent with overextended prices
     - Test signal structure and content
     - Test skipping when insufficient history
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
 
-  - [ ] 7.4 Write property test for price action activation condition
+  - [x] 7.4 Write property test for price action activation condition
     - **Property 13: Price action agent activation condition**
     - **Validates: Requirements 4.5**
 
