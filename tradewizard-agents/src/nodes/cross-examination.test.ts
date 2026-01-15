@@ -5,16 +5,44 @@
  * argument survival determination, and state updates.
  *
  * Requirements: 5.1, 5.2, 5.3, 5.4, 11.2
- *
- * NOTE: These tests require a valid LLM API key (Google Gemini) to be configured
- * in the .env file. Tests will skip gracefully if LLM calls fail.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createCrossExaminationNode } from './cross-examination.js';
 import type { GraphStateType } from '../models/state.js';
 import type { Thesis, MarketBriefingDocument } from '../models/types.js';
 import type { EngineConfig } from '../config/index.js';
+
+// Mock LangChain modules to avoid real API calls
+vi.mock('@langchain/google-genai', () => ({
+  ChatGoogleGenerativeAI: vi.fn().mockImplementation(function() {
+    return {
+      invoke: vi.fn().mockResolvedValue({
+        content: 'The claim is well-supported by evidence and survived scrutiny. The factual basis is strong.',
+      }),
+    };
+  }),
+}));
+
+vi.mock('@langchain/openai', () => ({
+  ChatOpenAI: vi.fn().mockImplementation(function() {
+    return {
+      invoke: vi.fn().mockResolvedValue({
+        content: 'The claim is well-supported by evidence and survived scrutiny. The factual basis is strong.',
+      }),
+    };
+  }),
+}));
+
+vi.mock('@langchain/anthropic', () => ({
+  ChatAnthropic: vi.fn().mockImplementation(function() {
+    return {
+      invoke: vi.fn().mockResolvedValue({
+        content: 'The claim is well-supported by evidence and survived scrutiny. The factual basis is strong.',
+      }),
+    };
+  }),
+}));
 
 // Mock configuration for testing
 const mockConfig: EngineConfig = {
@@ -51,6 +79,77 @@ const mockConfig: EngineConfig = {
   logging: {
     level: 'info',
     auditTrailRetentionDays: 30,
+  },
+  advancedAgents: {
+    eventIntelligence: {
+      enabled: false,
+      breakingNews: true,
+      eventImpact: true,
+    },
+    pollingStatistical: {
+      enabled: false,
+      pollingIntelligence: true,
+      historicalPattern: true,
+    },
+    sentimentNarrative: {
+      enabled: false,
+      mediaSentiment: true,
+      socialSentiment: true,
+      narrativeVelocity: true,
+    },
+    priceAction: {
+      enabled: false,
+      momentum: true,
+      meanReversion: true,
+      minVolumeThreshold: 1000,
+    },
+    eventScenario: {
+      enabled: false,
+      catalyst: true,
+      tailRisk: true,
+    },
+    riskPhilosophy: {
+      enabled: false,
+      aggressive: true,
+      conservative: true,
+      neutral: true,
+    },
+  },
+  externalData: {
+    news: {
+      provider: 'none',
+      cacheTTL: 900,
+      maxArticles: 20,
+    },
+    polling: {
+      provider: 'none',
+      cacheTTL: 3600,
+    },
+    social: {
+      providers: [],
+      cacheTTL: 300,
+      maxMentions: 100,
+    },
+  },
+  signalFusion: {
+    baseWeights: {
+      'market_microstructure': 1.0,
+      'probability_baseline': 1.0,
+      'risk_assessment': 1.0,
+    },
+    contextAdjustments: true,
+    conflictThreshold: 0.20,
+    alignmentBonus: 0.20,
+  },
+  costOptimization: {
+    maxCostPerAnalysis: 2.0,
+    skipLowImpactAgents: false,
+    batchLLMRequests: true,
+  },
+  performanceTracking: {
+    enabled: false,
+    evaluateOnResolution: true,
+    minSampleSize: 10,
   },
 };
 
@@ -134,12 +233,6 @@ describe('Cross-Examination Node', () => {
 
       const result = await crossExaminationNode(state as GraphStateType);
 
-      // If LLM call fails, skip this test
-      if (result.consensusError) {
-        console.log('Skipping test due to LLM error:', result.consensusError);
-        return;
-      }
-
       expect(result.debateRecord).toBeDefined();
       expect(result.debateRecord?.tests).toBeDefined();
       expect(result.debateRecord?.tests.length).toBeGreaterThan(0);
@@ -200,9 +293,6 @@ describe('Cross-Examination Node', () => {
 
       const result = await crossExaminationNode(state as GraphStateType);
 
-      // Skip if LLM call fails
-      if (result.consensusError) return;
-
       const evidenceTests = result.debateRecord?.tests.filter(
         (test) => test.testType === 'evidence'
       );
@@ -222,9 +312,6 @@ describe('Cross-Examination Node', () => {
       };
 
       const result = await crossExaminationNode(state as GraphStateType);
-
-      // Skip if LLM call fails
-      if (result.consensusError) return;
 
       const causalityTests = result.debateRecord?.tests.filter(
         (test) => test.testType === 'causality'
@@ -246,9 +333,6 @@ describe('Cross-Examination Node', () => {
 
       const result = await crossExaminationNode(state as GraphStateType);
 
-      // Skip if LLM call fails
-      if (result.consensusError) return;
-
       const timingTests = result.debateRecord?.tests.filter(
         (test) => test.testType === 'timing'
       );
@@ -269,9 +353,6 @@ describe('Cross-Examination Node', () => {
 
       const result = await crossExaminationNode(state as GraphStateType);
 
-      // Skip if LLM call fails
-      if (result.consensusError) return;
-
       const liquidityTests = result.debateRecord?.tests.filter(
         (test) => test.testType === 'liquidity'
       );
@@ -291,9 +372,6 @@ describe('Cross-Examination Node', () => {
       };
 
       const result = await crossExaminationNode(state as GraphStateType);
-
-      // Skip if LLM call fails
-      if (result.consensusError) return;
 
       const tailRiskTests = result.debateRecord?.tests.filter(
         (test) => test.testType === 'tail-risk'
@@ -316,9 +394,6 @@ describe('Cross-Examination Node', () => {
       };
 
       const result = await crossExaminationNode(state as GraphStateType);
-
-      // Skip if LLM call fails
-      if (result.consensusError) return;
 
       expect(result.debateRecord?.bullScore).toBeDefined();
       expect(result.debateRecord?.bearScore).toBeDefined();
@@ -364,9 +439,6 @@ describe('Cross-Examination Node', () => {
 
       const result = await crossExaminationNode(state as GraphStateType);
 
-      // Skip if LLM call fails
-      if (result.consensusError) return;
-
       result.debateRecord?.tests.forEach((test) => {
         expect(['survived', 'weakened', 'refuted']).toContain(test.outcome);
       });
@@ -384,9 +456,6 @@ describe('Cross-Examination Node', () => {
       };
 
       const result = await crossExaminationNode(state as GraphStateType);
-
-      // Skip if LLM call fails
-      if (result.consensusError) return;
 
       expect(result.debateRecord?.keyDisagreements).toBeDefined();
       expect(Array.isArray(result.debateRecord?.keyDisagreements)).toBe(true);
@@ -414,9 +483,6 @@ describe('Cross-Examination Node', () => {
       };
 
       const result = await crossExaminationNode(state as GraphStateType);
-
-      // Skip if LLM call fails
-      if (result.consensusError) return;
 
       const hasProbDisagreement = result.debateRecord?.keyDisagreements.some((d) =>
         d.includes('probability disagreement')
@@ -461,9 +527,6 @@ describe('Cross-Examination Node', () => {
       };
 
       const result = await crossExaminationNode(state as GraphStateType);
-
-      // Skip if LLM call fails
-      if (result.consensusError) return;
 
       expect(result.auditLog).toBeDefined();
       expect(result.auditLog!.length).toBeGreaterThan(0);
@@ -523,9 +586,6 @@ describe('Cross-Examination Node', () => {
 
       const result = await crossExaminationNode(state as GraphStateType);
 
-      // Skip if LLM call fails
-      if (result.consensusError) return;
-
       // Should still execute but with weakened timing/liquidity tests
       expect(result.debateRecord).toBeDefined();
       expect(result.debateRecord?.tests).toBeDefined();
@@ -553,9 +613,6 @@ describe('Cross-Examination Node', () => {
 
       const result = await crossExaminationNode(state as GraphStateType);
 
-      // Skip if LLM call fails
-      if (result.consensusError) return;
-
       expect(result.debateRecord).toBeDefined();
       expect(result.debateRecord?.tests).toBeDefined();
     });
@@ -581,9 +638,6 @@ describe('Cross-Examination Node', () => {
       };
 
       const result = await crossExaminationNode(state as GraphStateType);
-
-      // Skip if LLM call fails
-      if (result.consensusError) return;
 
       expect(result.debateRecord).toBeDefined();
       expect(result.debateRecord?.tests).toBeDefined();
