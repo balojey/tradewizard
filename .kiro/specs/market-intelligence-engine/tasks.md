@@ -287,7 +287,7 @@
 - [x] 13. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 14. Create CLI interface for testing with Opik integration
+- [x] 14. Create CLI interface for testing with Opik integration
   - Build simple CLI to analyze markets by condition ID
   - Display formatted trade recommendations
   - Show debug information and graph state
@@ -301,7 +301,7 @@
   - Add option to query historical traces from Opik by market ID
   - _Requirements: All, 11.5, 11.6, 11.8, 11.9, 11.10_
 
-- [ ] 14.1 Write end-to-end tests using CLI
+- [x] 14.1 Write end-to-end tests using CLI
   - Test CLI with real Polymarket API calls (integration test)
   - Verify output formatting
   - Test error handling in CLI
@@ -310,7 +310,7 @@
   - Test graph visualization output
   - _Requirements: All, 11.9, 11.10_
 
-- [ ] 15. Documentation and deployment preparation
+- [-] 15. Documentation and deployment preparation
   - Write README with setup instructions
   - Document LangGraph workflow architecture with diagram
   - Document GraphState schema and data flow
