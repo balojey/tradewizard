@@ -384,7 +384,7 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
   - **Property 15: Agent signal schema consistency**
   - **Validates: Requirements 11.3**
 
-- [ ] 15. Implement cost optimization
+- [x] 15. Implement cost optimization
   - Add cost estimation before agent activation
   - Implement agent skipping when cost threshold exceeded
   - Prioritize MVP and high-value agents
@@ -392,14 +392,14 @@ This implementation plan expands the Market Intelligence Engine with 10+ special
   - Log cost optimization decisions
   - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5_
 
-- [ ] 15.1 Write unit tests for cost optimization
+- [x] 15.1 Write unit tests for cost optimization
   - Test cost estimation accuracy
   - Test agent skipping logic
   - Test agent prioritization
   - Test cost tracking integration
   - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5_
 
-- [ ] 15.2 Write property test for cost threshold enforcement
+- [x] 15.2 Write property test for cost threshold enforcement
   - **Property 8: Cost optimization threshold enforcement**
   - **Validates: Requirements 13.3, 13.4**
 

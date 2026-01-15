@@ -12,6 +12,10 @@ import type { GraphStateType } from '../models/state.js';
 import type { EngineConfig } from '../config/index.js';
 import type { DataIntegrationLayer } from '../utils/data-integration.js';
 import type { EventType } from '../models/types.js';
+import {
+  applyCostOptimization,
+  createCostOptimizationAuditEntry,
+} from '../utils/cost-optimization.js';
 
 /**
  * Agent name constants
@@ -114,15 +118,16 @@ export async function dynamicAgentSelectionNode(
   // Step 4: Cost Optimization Filtering
   // ============================================================================
 
-  const costOptimizedAgents = applyCostOptimization(
-    dataAvailableAgents,
-    config,
-    activeAgents.length
-  );
-  selectionDecisions.cost_optimization = `After cost optimization: ${costOptimizedAgents.join(', ')}`;
+  const costOptimizationResult = applyCostOptimization(dataAvailableAgents, config);
+  
+  selectionDecisions.cost_optimization = 
+    `Budget: $${costOptimizationResult.maxCost.toFixed(2)}, ` +
+    `Estimated: $${costOptimizationResult.estimatedCost.toFixed(2)}, ` +
+    `Selected: ${costOptimizationResult.selectedAgents.length}, ` +
+    `Skipped: ${costOptimizationResult.skippedAgents.length}`;
 
-  // Add filtered agents to active list
-  activeAgents.push(...costOptimizedAgents);
+  // Add cost-optimized agents to active list
+  activeAgents.push(...costOptimizationResult.selectedAgents);
 
   // ============================================================================
   // Return State Update
@@ -143,6 +148,7 @@ export async function dynamicAgentSelectionNode(
           mvpAgentCount: MVP_AGENTS.length,
           advancedAgentCount: activeAgents.length - MVP_AGENTS.length,
           selectionDecisions,
+          costOptimization: createCostOptimizationAuditEntry(costOptimizationResult),
           duration: Date.now() - startTime,
         },
       },
@@ -349,70 +355,6 @@ async function filterByDataAvailability(
   }
 
   return filtered;
-}
-
-/**
- * Apply cost optimization filtering
- *
- * Skips low-impact agents if cost optimization is enabled and budget is constrained.
- *
- * @param agents - Candidate agent names
- * @param config - Engine configuration
- * @param mvpAgentCount - Number of MVP agents already active
- * @returns Filtered agent names
- */
-function applyCostOptimization(
-  agents: string[],
-  config: EngineConfig,
-  mvpAgentCount: number
-): string[] {
-  // If cost optimization is disabled, return all agents
-  if (!config.costOptimization.skipLowImpactAgents) {
-    return agents;
-  }
-
-  // Estimate cost per agent (rough estimate: $0.10 per agent)
-  const costPerAgent = 0.1;
-  const currentCost = mvpAgentCount * costPerAgent;
-  const maxCost = config.costOptimization.maxCostPerAnalysis;
-  const remainingBudget = maxCost - currentCost;
-  const maxAdditionalAgents = Math.floor(remainingBudget / costPerAgent);
-
-  // If we can afford all agents, return them all
-  if (agents.length <= maxAdditionalAgents) {
-    return agents;
-  }
-
-  // Otherwise, prioritize high-impact agents
-  const priorityOrder = [
-    // High priority: Event intelligence and polling
-    'breaking_news',
-    'event_impact',
-    'polling_intelligence',
-    // Medium priority: Catalysts and historical patterns
-    'catalyst',
-    'historical_pattern',
-    // Lower priority: Sentiment and price action
-    'media_sentiment',
-    'social_sentiment',
-    'momentum',
-    'mean_reversion',
-    // Lowest priority: Narrative velocity and tail risk
-    'narrative_velocity',
-    'tail_risk',
-  ];
-
-  // Sort agents by priority
-  const sortedAgents = agents.sort((a, b) => {
-    const aIndex = priorityOrder.indexOf(a);
-    const bIndex = priorityOrder.indexOf(b);
-    const aPriority = aIndex === -1 ? 999 : aIndex;
-    const bPriority = bIndex === -1 ? 999 : bIndex;
-    return aPriority - bPriority;
-  });
-
-  // Return top N agents within budget
-  return sortedAgents.slice(0, maxAdditionalAgents);
 }
 
 /**

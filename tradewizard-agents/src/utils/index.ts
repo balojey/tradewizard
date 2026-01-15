@@ -34,4 +34,13 @@ export {
   type AgentPerformanceMetrics,
   type MarketResolution,
 } from './performance-tracking.js';
+export {
+  estimateAgentCost,
+  getAgentPriority,
+  filterAgentsByCost,
+  applyCostOptimization,
+  createCostOptimizationAuditEntry,
+  trackAgentCost,
+  AgentPriority,
+} from './cost-optimization.js';
 
