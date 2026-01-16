@@ -8,6 +8,7 @@
 import type { SupabaseClientManager } from './supabase-client.js';
 import type { TablesInsert, TablesUpdate, Json } from './types.js';
 import type { TradeRecommendation, AgentSignal } from '../models/types.js';
+import { retryDatabaseOperation } from '../utils/retry-logic.js';
 
 /**
  * Market data for database storage
@@ -94,8 +95,9 @@ export class DatabasePersistenceImpl implements DatabasePersistence {
    * Store or update a market
    */
   async upsertMarket(market: MarketData): Promise<string> {
-    try {
-      const client = this.clientManager.getClient();
+    return retryDatabaseOperation(async () => {
+      try {
+        const client = this.clientManager.getClient();
 
       // Check if market exists
       const { data: existing, error: selectError } = await client
@@ -171,6 +173,7 @@ export class DatabasePersistenceImpl implements DatabasePersistence {
       console.error('[DatabasePersistence] upsertMarket failed:', error);
       throw error;
     }
+    }, 'upsertMarket');
   }
 
   /**
@@ -180,8 +183,9 @@ export class DatabasePersistenceImpl implements DatabasePersistence {
     marketId: string,
     recommendation: TradeRecommendation
   ): Promise<string> {
-    try {
-      const client = this.clientManager.getClient();
+    return retryDatabaseOperation(async () => {
+      try {
+        const client = this.clientManager.getClient();
 
       const insertData: TablesInsert<'recommendations'> = {
         market_id: marketId,
@@ -216,6 +220,7 @@ export class DatabasePersistenceImpl implements DatabasePersistence {
       console.error('[DatabasePersistence] storeRecommendation failed:', error);
       throw error;
     }
+    }, 'storeRecommendation');
   }
 
   /**
@@ -226,8 +231,9 @@ export class DatabasePersistenceImpl implements DatabasePersistence {
     recommendationId: string,
     signals: AgentSignal[]
   ): Promise<void> {
-    try {
-      const client = this.clientManager.getClient();
+    return retryDatabaseOperation(async () => {
+      try {
+        const client = this.clientManager.getClient();
 
       const insertData: TablesInsert<'agent_signals'>[] = signals.map((signal) => ({
         market_id: marketId,
@@ -253,14 +259,16 @@ export class DatabasePersistenceImpl implements DatabasePersistence {
       console.error('[DatabasePersistence] storeAgentSignals failed:', error);
       throw error;
     }
+    }, 'storeAgentSignals');
   }
 
   /**
    * Record analysis history
    */
   async recordAnalysis(marketId: string, analysis: AnalysisRecord): Promise<void> {
-    try {
-      const client = this.clientManager.getClient();
+    return retryDatabaseOperation(async () => {
+      try {
+        const client = this.clientManager.getClient();
 
       const insertData: TablesInsert<'analysis_history'> = {
         market_id: marketId,
@@ -284,14 +292,16 @@ export class DatabasePersistenceImpl implements DatabasePersistence {
       console.error('[DatabasePersistence] recordAnalysis failed:', error);
       throw error;
     }
+    }, 'recordAnalysis');
   }
 
   /**
    * Get markets needing update
    */
   async getMarketsForUpdate(updateIntervalMs: number): Promise<MarketData[]> {
-    try {
-      const client = this.clientManager.getClient();
+    return retryDatabaseOperation(async () => {
+      try {
+        const client = this.clientManager.getClient();
 
       // Calculate cutoff timestamp
       const cutoffTime = new Date(Date.now() - updateIntervalMs).toISOString();
@@ -327,14 +337,16 @@ export class DatabasePersistenceImpl implements DatabasePersistence {
       console.error('[DatabasePersistence] getMarketsForUpdate failed:', error);
       throw error;
     }
+    }, 'getMarketsForUpdate');
   }
 
   /**
    * Mark market as resolved
    */
   async markMarketResolved(marketId: string, outcome: string): Promise<void> {
-    try {
-      const client = this.clientManager.getClient();
+    return retryDatabaseOperation(async () => {
+      try {
+        const client = this.clientManager.getClient();
 
       const updateData: TablesUpdate<'markets'> = {
         status: 'resolved',
@@ -354,14 +366,16 @@ export class DatabasePersistenceImpl implements DatabasePersistence {
       console.error('[DatabasePersistence] markMarketResolved failed:', error);
       throw error;
     }
+    }, 'markMarketResolved');
   }
 
   /**
    * Get latest recommendation for a market
    */
   async getLatestRecommendation(marketId: string): Promise<TradeRecommendation | null> {
-    try {
-      const client = this.clientManager.getClient();
+    return retryDatabaseOperation(async () => {
+      try {
+        const client = this.clientManager.getClient();
 
       const { data, error } = await client
         .from('recommendations')
@@ -422,6 +436,7 @@ export class DatabasePersistenceImpl implements DatabasePersistence {
       console.error('[DatabasePersistence] getLatestRecommendation failed:', error);
       throw error;
     }
+    }, 'getLatestRecommendation');
   }
 
   /**

@@ -7,6 +7,7 @@
 
 import type { MarketBriefingDocument } from '../models/types.js';
 import type { AdvancedObservabilityLogger } from './audit-logger.js';
+import { retryApiCall, CircuitBreaker } from './retry-logic.js';
 
 // ============================================================================
 // Data Schemas
@@ -188,6 +189,10 @@ export class DataIntegrationLayer {
   private pollingRateLimiter: TokenBucket;
   private socialRateLimiter: TokenBucket;
 
+  private newsCircuitBreaker: CircuitBreaker;
+  private pollingCircuitBreaker: CircuitBreaker;
+  private socialCircuitBreaker: CircuitBreaker;
+
   private observabilityLogger?: AdvancedObservabilityLogger;
 
   constructor(private config: DataSourceConfig, observabilityLogger?: AdvancedObservabilityLogger) {
@@ -203,6 +208,31 @@ export class DataIntegrationLayer {
     this.pollingRateLimiter = new TokenBucket(20, 0.01);
     // Social APIs: varies by platform
     this.socialRateLimiter = new TokenBucket(15, 0.005);
+
+    // Initialize circuit breakers for each data source
+    this.newsCircuitBreaker = new CircuitBreaker({
+      failureThreshold: 5,
+      resetTimeoutMs: 60000,
+      onStateChange: (oldState, newState) => {
+        console.log(`[DataIntegration] News circuit breaker: ${oldState} -> ${newState}`);
+      },
+    });
+
+    this.pollingCircuitBreaker = new CircuitBreaker({
+      failureThreshold: 5,
+      resetTimeoutMs: 60000,
+      onStateChange: (oldState, newState) => {
+        console.log(`[DataIntegration] Polling circuit breaker: ${oldState} -> ${newState}`);
+      },
+    });
+
+    this.socialCircuitBreaker = new CircuitBreaker({
+      failureThreshold: 5,
+      resetTimeoutMs: 60000,
+      onStateChange: (oldState, newState) => {
+        console.log(`[DataIntegration] Social circuit breaker: ${oldState} -> ${newState}`);
+      },
+    });
 
     // Store observability logger
     this.observabilityLogger = observabilityLogger;
@@ -314,7 +344,12 @@ export class DataIntegrationLayer {
     }
 
     try {
-      const articles = await this.fetchNewsFromProvider(market, timeWindow);
+      const articles = await this.newsCircuitBreaker.execute(async () => {
+        return await retryApiCall(
+          async () => await this.fetchNewsFromProvider(market, timeWindow),
+          `News fetch for ${market.marketId}`
+        );
+      });
       this.newsCache.set(cacheKey, articles);
       const duration = Date.now() - startTime;
       this.observabilityLogger?.logDataFetch({
@@ -407,7 +442,12 @@ export class DataIntegrationLayer {
     }
 
     try {
-      const pollingData = await this.fetchPollingFromProvider(market);
+      const pollingData = await this.pollingCircuitBreaker.execute(async () => {
+        return await retryApiCall(
+          async () => await this.fetchPollingFromProvider(market),
+          `Polling fetch for ${market.marketId}`
+        );
+      });
       if (pollingData) {
         this.pollingCache.set(cacheKey, pollingData);
       }
@@ -466,7 +506,12 @@ export class DataIntegrationLayer {
     }
 
     try {
-      const sentiment = await this.fetchSocialFromProvider(market, platforms);
+      const sentiment = await this.socialCircuitBreaker.execute(async () => {
+        return await retryApiCall(
+          async () => await this.fetchSocialFromProvider(market, platforms),
+          `Social sentiment fetch for ${market.marketId}`
+        );
+      });
       if (sentiment) {
         this.socialCache.set(cacheKey, sentiment);
       }

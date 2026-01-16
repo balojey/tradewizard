@@ -93,3 +93,20 @@ export {
   type AnalysisCycleMetrics,
   type AgentCycleMetrics,
 } from './opik-integration.js';
+export {
+  withRetry,
+  calculateBackoffDelay,
+  withTimeout,
+  sleep,
+  CircuitBreaker,
+  isNetworkError,
+  isRateLimitError,
+  isServerError,
+  isClientError,
+  isRetryableError,
+  retryApiCall,
+  retryDatabaseOperation,
+  type RetryOptions,
+  type CircuitState,
+  type CircuitBreakerOptions,
+} from './retry-logic.js';
