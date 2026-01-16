@@ -6,6 +6,7 @@
  */
 
 import { StateGraph, END, MemorySaver } from '@langchain/langgraph';
+import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import { OpikCallbackHandler } from 'opik-langchain';
 import { GraphState, type GraphStateType } from './models/state.js';
 import type { EngineConfig } from './config/index.js';
@@ -13,6 +14,8 @@ import type { PolymarketClient } from './utils/polymarket-client.js';
 import type { TradeRecommendation } from './models/types.js';
 import { GraphExecutionLogger } from './utils/audit-logger.js';
 import { createDataIntegrationLayer } from './utils/data-integration.js';
+import { createPostgresCheckpointer } from './database/postgres-checkpointer.js';
+import type { SupabaseClientManager } from './database/supabase-client.js';
 import {
   createMarketIngestionNode,
   createAgentNodes,
@@ -44,9 +47,14 @@ import {
  *
  * @param config - Engine configuration
  * @param polymarketClient - Polymarket API client
+ * @param supabaseManager - Optional Supabase client manager for PostgreSQL checkpointing
  * @returns Compiled and traced LangGraph application
  */
-export function createWorkflow(config: EngineConfig, polymarketClient: PolymarketClient) {
+export async function createWorkflow(
+  config: EngineConfig,
+  polymarketClient: PolymarketClient,
+  supabaseManager?: SupabaseClientManager
+) {
   // Create data integration layer for external data sources
   const dataLayer = createDataIntegrationLayer(config.externalData);
 
@@ -214,7 +222,7 @@ export function createWorkflow(config: EngineConfig, polymarketClient: Polymarke
     .addEdge('recommendation_generation', END);
 
   // Create checkpointer based on configuration
-  const checkpointer = createCheckpointer(config);
+  const checkpointer = await createCheckpointer(config, supabaseManager);
 
   // Compile the graph with checkpointer
   const app = workflow.compile({
@@ -238,9 +246,13 @@ export function createWorkflow(config: EngineConfig, polymarketClient: Polymarke
  * Create checkpointer based on configuration
  *
  * @param config - Engine configuration
+ * @param supabaseManager - Optional Supabase client manager for PostgreSQL checkpointing
  * @returns Checkpointer instance
  */
-function createCheckpointer(config: EngineConfig) {
+async function createCheckpointer(
+  config: EngineConfig,
+  supabaseManager?: SupabaseClientManager
+): Promise<BaseCheckpointSaver> {
   switch (config.langgraph.checkpointer) {
     case 'memory':
       return new MemorySaver();
@@ -248,8 +260,12 @@ function createCheckpointer(config: EngineConfig) {
       // TODO: Implement SqliteSaver when needed
       throw new Error('SqliteSaver not yet implemented');
     case 'postgres':
-      // TODO: Implement PostgresSaver when needed
-      throw new Error('PostgresSaver not yet implemented');
+      if (!supabaseManager) {
+        throw new Error(
+          'PostgreSQL checkpointer requires Supabase client manager. Pass supabaseManager to createWorkflow().'
+        );
+      }
+      return await createPostgresCheckpointer(supabaseManager);
     default:
       return new MemorySaver();
   }
@@ -262,10 +278,14 @@ function createCheckpointer(config: EngineConfig) {
  * to retrieve audit trails and inspect graph state.
  *
  * @param config - Engine configuration
+ * @param supabaseManager - Optional Supabase client manager for PostgreSQL checkpointing
  * @returns Checkpointer instance
  */
-export function getCheckpointer(config: EngineConfig) {
-  return createCheckpointer(config);
+export async function getCheckpointer(
+  config: EngineConfig,
+  supabaseManager?: SupabaseClientManager
+): Promise<BaseCheckpointSaver> {
+  return await createCheckpointer(config, supabaseManager);
 }
 
 /**
@@ -277,19 +297,21 @@ export function getCheckpointer(config: EngineConfig) {
  * @param conditionId - Polymarket condition ID to analyze
  * @param config - Engine configuration
  * @param polymarketClient - Polymarket API client
+ * @param supabaseManager - Optional Supabase client manager for PostgreSQL checkpointing
  * @returns Trade recommendation
  */
 export async function analyzeMarket(
   conditionId: string,
   config: EngineConfig,
-  polymarketClient: PolymarketClient
+  polymarketClient: PolymarketClient,
+  supabaseManager?: SupabaseClientManager
 ): Promise<TradeRecommendation | null> {
   // Create structured logger for this execution
   const logger = new GraphExecutionLogger();
   logger.info('workflow', 'Starting market analysis', { conditionId });
 
   // Create the workflow
-  const { app, opikHandler } = createWorkflow(config, polymarketClient);
+  const { app, opikHandler } = await createWorkflow(config, polymarketClient, supabaseManager);
 
   try {
     // Execute the workflow with thread_id for checkpointing and tracing

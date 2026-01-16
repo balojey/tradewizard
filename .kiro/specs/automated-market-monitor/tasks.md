@@ -48,7 +48,7 @@ This implementation plan creates a production-ready background service that cont
   - **Property 3: Database persistence completeness**
   - **Validates: Requirements 5.2, 5.3, 5.4**
 
-- [-] 3. Integrate LangGraph with PostgreSQL checkpointer
+- [x] 3. Integrate LangGraph with PostgreSQL checkpointer
   - Install @langchain/langgraph-checkpoint-postgres
   - Create PostgreSQL checkpointer configuration
   - Modify Market Intelligence Engine to use PostgreSQL checkpointer
@@ -56,7 +56,7 @@ This implementation plan creates a production-ready background service that cont
   - Test workflow resumption from checkpoint
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-- [ ] 3.1 Write unit tests for LangGraph checkpointing
+- [x] 3.1 Write unit tests for LangGraph checkpointing
   - Test checkpoint creation in PostgreSQL
   - Test checkpoint retrieval
   - Test workflow resumption

@@ -6,6 +6,7 @@
  * - TypeScript types generated from Supabase schema
  * - Connection health checks
  * - Database persistence layer for market analysis data
+ * - PostgreSQL checkpointer for LangGraph workflows
  */
 
 export {
@@ -27,3 +28,11 @@ export {
 } from './persistence.js';
 
 export type { MarketData as MarketDataType, AnalysisRecord as AnalysisRecordType } from './persistence.js';
+
+export {
+  createPostgresCheckpointer,
+  createPostgresCheckpointerWithConfig,
+  PostgresCheckpointerConfig,
+} from './postgres-checkpointer.js';
+
+export type { PostgresCheckpointerConfig as PostgresCheckpointerConfigType } from './postgres-checkpointer.js';
