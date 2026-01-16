@@ -9,6 +9,9 @@ dist/
 # Environment variables
 .env
 .env.local
+.env.production
+.env.staging
+.env.monitor
 
 # IDE
 .vscode/
@@ -21,6 +24,7 @@ dist/
 logs/
 *.log
 npm-debug.log*
+pm2-*.log
 
 # Testing
 coverage/
@@ -31,3 +35,14 @@ Thumbs.db
 
 # Opik local data
 .opik/
+
+# Docker
+docker-compose.override.yml
+.dockerignore
+
+# PM2
+.pm2/
+pids/
+*.pid
+*.seed
+*.pid.lock
