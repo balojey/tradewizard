@@ -8,12 +8,16 @@
  * Requirements: 13.1, 13.2, 13.3
  */
 
+import { config } from 'dotenv';
 import { spawn, exec } from 'node:child_process';
 import { promisify } from 'node:util';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as http from 'node:http';
+
+// Load .env file
+config();
 
 const execAsync = promisify(exec);
 
@@ -158,6 +162,18 @@ async function httpRequest(url: string, options: { method?: string; body?: any }
  */
 async function startMonitor(): Promise<void> {
   console.log('Starting Automated Market Monitor...');
+  console.log();
+  
+  // Validate environment variables first
+  const { validateMonitorEnv, printValidationResult } = await import('./utils/env-validator.js');
+  const validationResult = validateMonitorEnv();
+  printValidationResult(validationResult);
+  
+  if (!validationResult.valid) {
+    console.error('✗ Cannot start monitor: environment validation failed');
+    console.error('  Please fix the errors above and try again');
+    process.exit(1);
+  }
   
   // Check if already running
   const status = await isMonitorRunning();

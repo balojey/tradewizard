@@ -13,6 +13,7 @@ npm run monitor:start
 ```
 
 The command will:
+- **Validate environment variables** (see [Environment Validation](docs/ENVIRONMENT_VALIDATION.md))
 - Check if the monitor is already running
 - Attempt to start via PM2 if available (recommended)
 - Fall back to background process if PM2 is not installed
@@ -22,6 +23,8 @@ The command will:
 ```bash
 npm install -g pm2
 ```
+
+**Environment Validation**: The start command automatically validates all required environment variables before starting the monitor. If validation fails, the monitor will not start and you'll see clear error messages about what's missing or invalid.
 
 ### Stop Monitor
 
@@ -76,6 +79,29 @@ This command is useful for:
 - Automated health monitoring
 - Integration with monitoring tools
 - CI/CD health checks
+
+### Validate Environment
+
+Validate environment variables without starting the monitor.
+
+```bash
+npm run validate:env
+```
+
+The command will:
+- Check all required environment variables are present
+- Validate URL formats and numeric values
+- Check LLM provider configuration
+- Display warnings for optional but recommended variables
+- Exit with error code 1 if validation fails
+
+This command is useful for:
+- Checking configuration before deployment
+- CI/CD pipeline validation
+- Troubleshooting configuration issues
+- Verifying .env file setup
+
+See [Environment Validation Documentation](docs/ENVIRONMENT_VALIDATION.md) for detailed information about required variables and validation rules.
 
 ### Trigger Manual Analysis
 

@@ -8,6 +8,7 @@
  * Requirements: 7.1, 7.2, 7.3, 7.4
  */
 
+import { config as loadEnv } from 'dotenv';
 import { config } from './config/index.js';
 import { createSupabaseClientManager } from './database/supabase-client.js';
 import { createDatabasePersistence } from './database/persistence.js';
@@ -16,6 +17,10 @@ import { createMarketDiscoveryEngine } from './utils/market-discovery.js';
 import { createPolymarketClient } from './utils/polymarket-client.js';
 import { createMonitorService } from './utils/monitor-service.js';
 import { createHealthCheckServer } from './utils/health-check-server.js';
+import { validateMonitorEnvOrExit } from './utils/env-validator.js';
+
+// Load .env file
+loadEnv();
 
 // ============================================================================
 // Global State
@@ -34,6 +39,9 @@ async function main(): Promise<void> {
   console.log('Automated Market Monitor');
   console.log('='.repeat(80));
   console.log();
+
+  // Validate environment variables before starting
+  validateMonitorEnvOrExit();
 
   try {
     // Initialize all components
