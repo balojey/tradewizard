@@ -84,3 +84,12 @@ export {
   type LogContext,
   type ErrorContext,
 } from './logger.js';
+export {
+  OpikMonitorIntegration,
+  createOpikMonitorIntegration,
+  formatCycleMetrics,
+  formatAggregateMetrics,
+  type OpikSpanMetadata,
+  type AnalysisCycleMetrics,
+  type AgentCycleMetrics,
+} from './opik-integration.js';

@@ -271,7 +271,7 @@ This implementation plan creates a production-ready background service that cont
   - Test error logging with context
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5_
 
-- [ ] 14. Integrate with Opik for observability
+- [x] 14. Integrate with Opik for observability
   - Ensure Opik tracing is enabled for all analysis workflows
   - Add custom Opik spans for monitor operations
   - Track costs per analysis cycle
@@ -279,7 +279,7 @@ This implementation plan creates a production-ready background service that cont
   - Add Opik dashboard links to logs
   - _Requirements: 9.6_
 
-- [ ] 14.1 Write unit tests for Opik integration
+- [x] 14.1 Write unit tests for Opik integration
   - Test Opik span creation
   - Test cost tracking
   - Test performance tracking

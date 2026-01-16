@@ -15,6 +15,12 @@ import type { PolymarketClient } from './polymarket-client.js';
 import type { TradeRecommendation, AgentSignal } from '../models/types.js';
 import { analyzeMarket } from '../workflow.js';
 import { createScheduler } from './scheduler.js';
+import {
+  createOpikMonitorIntegration,
+  type OpikMonitorIntegration,
+  formatCycleMetrics,
+  formatAggregateMetrics,
+} from './opik-integration.js';
 
 // ============================================================================
 // Types
@@ -74,6 +80,15 @@ export interface MonitorService {
    * Manually trigger analysis for a specific market
    */
   analyzeMarket(conditionId: string): Promise<TradeRecommendation>;
+
+  /**
+   * Get Opik integration metrics
+   */
+  getOpikMetrics(): {
+    currentCycle: any;
+    cycleHistory: any[];
+    aggregateMetrics: any;
+  };
 }
 
 // ============================================================================
@@ -86,6 +101,7 @@ export class AutomatedMarketMonitor implements MonitorService {
   private startTime: Date | null = null;
   private lastDatabaseCheck: Date = new Date();
   private isDatabaseConnected: boolean = false;
+  private opikIntegration: OpikMonitorIntegration;
 
   constructor(
     private config: EngineConfig,
@@ -97,6 +113,9 @@ export class AutomatedMarketMonitor implements MonitorService {
   ) {
     // Create scheduler with bound analysis cycle function
     this.scheduler = this.createScheduler();
+    
+    // Create Opik integration
+    this.opikIntegration = createOpikMonitorIntegration(config);
   }
 
   private scheduler: Scheduler;
@@ -113,6 +132,9 @@ export class AutomatedMarketMonitor implements MonitorService {
 
       // Set up signal handlers for graceful shutdown
       this.setupSignalHandlers();
+
+      // Log Opik dashboard link
+      this.opikIntegration.logDashboardLink();
 
       console.log('[MonitorService] Initialization complete');
     } catch (error) {
@@ -156,6 +178,10 @@ export class AutomatedMarketMonitor implements MonitorService {
     // Stop scheduler (waits for current cycle to complete)
     await this.scheduler.stop();
 
+    // Log final aggregate metrics
+    const aggregateMetrics = this.opikIntegration.getAggregateMetrics();
+    console.log('[MonitorService] Final aggregate metrics:\n' + formatAggregateMetrics(aggregateMetrics));
+
     console.log('[MonitorService] Monitor stopped');
   }
 
@@ -198,6 +224,17 @@ export class AutomatedMarketMonitor implements MonitorService {
   }
 
   /**
+   * Get Opik integration metrics
+   */
+  getOpikMetrics() {
+    return {
+      currentCycle: this.opikIntegration.getCurrentCycleMetrics(),
+      cycleHistory: this.opikIntegration.getCycleHistory(),
+      aggregateMetrics: this.opikIntegration.getAggregateMetrics(),
+    };
+  }
+
+  /**
    * Manually trigger analysis for a specific market
    */
   async analyzeMarket(conditionId: string): Promise<TradeRecommendation> {
@@ -228,11 +265,20 @@ export class AutomatedMarketMonitor implements MonitorService {
       this.lastAnalysisTime = new Date();
 
       const duration = Date.now() - startTime;
+      
+      // Record analysis in Opik integration
+      this.opikIntegration.recordAnalysis(conditionId, duration, cost, true, agentSignals);
+
       console.log(`[MonitorService] Market analyzed successfully in ${duration}ms`);
 
       return recommendation;
     } catch (error) {
       const duration = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      // Record failed analysis in Opik integration
+      this.opikIntegration.recordAnalysis(conditionId, duration, 0, false, [], errorMessage);
+      
       console.error(`[MonitorService] Market analysis failed after ${duration}ms:`, error);
       throw error;
     }
@@ -255,6 +301,9 @@ export class AutomatedMarketMonitor implements MonitorService {
   async discoverAndAnalyze(): Promise<void> {
     console.log('[MonitorService] Starting discovery and analysis cycle');
 
+    // Start tracking cycle in Opik
+    this.opikIntegration.startCycle();
+
     try {
       // Get recommended market count based on quota
       const maxMarkets = this.quotaManager.getRecommendedMarketCount();
@@ -263,6 +312,9 @@ export class AutomatedMarketMonitor implements MonitorService {
       // Discover markets
       const markets = await this.discovery.discoverMarkets(maxMarkets);
       console.log(`[MonitorService] Discovered ${markets.length} markets for analysis`);
+      
+      // Record discovery in Opik
+      this.opikIntegration.recordDiscovery(markets.length);
 
       // Analyze each market
       for (const market of markets) {
@@ -277,8 +329,23 @@ export class AutomatedMarketMonitor implements MonitorService {
       // Update existing markets
       await this.updateExistingMarkets();
 
+      // End cycle and log metrics
+      const cycleMetrics = this.opikIntegration.endCycle();
+      if (cycleMetrics) {
+        console.log('[MonitorService] Cycle metrics:\n' + formatCycleMetrics(cycleMetrics));
+        
+        // Log aggregate metrics every 10 cycles
+        if (this.opikIntegration.getCycleHistory().length % 10 === 0) {
+          const aggregateMetrics = this.opikIntegration.getAggregateMetrics();
+          console.log('[MonitorService] Aggregate metrics:\n' + formatAggregateMetrics(aggregateMetrics));
+        }
+      }
+
       console.log('[MonitorService] Discovery and analysis cycle complete');
     } catch (error) {
+      // End cycle even on error
+      this.opikIntegration.endCycle();
+      
       console.error('[MonitorService] Discovery and analysis cycle failed:', error);
       throw error;
     }
@@ -300,6 +367,9 @@ export class AutomatedMarketMonitor implements MonitorService {
       for (const market of markets) {
         try {
           await this.analyzeMarket(market.conditionId);
+          
+          // Record update in Opik
+          this.opikIntegration.recordUpdate(market.conditionId);
         } catch (error) {
           console.error(`[MonitorService] Failed to update market ${market.conditionId}:`, error);
           // Continue with next market (error isolation)
