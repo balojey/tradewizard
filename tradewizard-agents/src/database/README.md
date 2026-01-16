@@ -30,12 +30,19 @@ SUPABASE_SERVICE_ROLE_KEY=your_service_role_key  # Optional, for admin operation
 
 ### 3. Database Migrations
 
-The database schema is managed using Supabase CLI migrations. Migrations are located in `supabase/migrations/`.
+The database schema is managed using SQL migration files with a tracking system. See [MIGRATIONS.md](./MIGRATIONS.md) for complete documentation.
 
-#### Push migrations to remote database:
+#### Quick Start:
 
 ```bash
+# Check migration status
+npm run migrate:status
+
+# Push migrations to remote database (recommended)
 npx supabase db push
+
+# Or run migration tracking script
+npm run migrate
 ```
 
 #### Generate TypeScript types from remote schema:
@@ -47,8 +54,16 @@ npx supabase gen types typescript --linked > src/database/types.ts
 #### Create a new migration:
 
 ```bash
-npx supabase migration new migration_name
+# Generate timestamp
+TIMESTAMP=$(date +%Y%m%d%H%M%S)
+
+# Create migration file
+touch supabase/migrations/${TIMESTAMP}_your_migration_name.sql
 ```
+
+For detailed migration documentation, see:
+- [MIGRATIONS.md](./MIGRATIONS.md) - Complete migration guide
+- [supabase/migrations/README.md](../../supabase/migrations/README.md) - Quick reference
 
 ## Usage
 

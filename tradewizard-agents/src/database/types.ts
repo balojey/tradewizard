@@ -218,6 +218,27 @@ export type Database = {
         }
         Relationships: []
       }
+      migration_lock: {
+        Row: {
+          id: number
+          is_locked: boolean
+          locked_at: string | null
+          locked_by: string | null
+        }
+        Insert: {
+          id?: number
+          is_locked?: boolean
+          locked_at?: string | null
+          locked_by?: string | null
+        }
+        Update: {
+          id?: number
+          is_locked?: boolean
+          locked_at?: string | null
+          locked_by?: string | null
+        }
+        Relationships: []
+      }
       recommendations: {
         Row: {
           catalysts: Json | null
@@ -283,12 +304,50 @@ export type Database = {
           },
         ]
       }
+      schema_migrations: {
+        Row: {
+          applied_at: string | null
+          checksum: string | null
+          error_message: string | null
+          execution_time_ms: number | null
+          id: number
+          name: string
+          success: boolean
+          version: string
+        }
+        Insert: {
+          applied_at?: string | null
+          checksum?: string | null
+          error_message?: string | null
+          execution_time_ms?: number | null
+          id?: number
+          name: string
+          success?: boolean
+          version: string
+        }
+        Update: {
+          applied_at?: string | null
+          checksum?: string | null
+          error_message?: string | null
+          execution_time_ms?: number | null
+          id?: number
+          name?: string
+          success?: boolean
+          version?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      acquire_migration_lock: { Args: { locker: string }; Returns: boolean }
+      is_migration_applied: {
+        Args: { migration_version: string }
+        Returns: boolean
+      }
+      release_migration_lock: { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
