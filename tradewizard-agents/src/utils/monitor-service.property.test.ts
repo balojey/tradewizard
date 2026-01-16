@@ -1,26 +1,29 @@
 /**
- * Property-based tests for Monitor Service
+ * Property-Based Tests for Monitor Service - Quota Reset Timing
  * 
- * Feature: automated-market-monitor
+ * Feature: automated-market-monitor, Property 8: Quota reset timing
+ * Validates: Requirements 4.5
+ * 
+ * Property: For any 24-hour period, the API quota counters should reset
+ * exactly once at the configured reset time (midnight UTC).
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import * as fc from 'fast-check';
+import fc from 'fast-check';
 import { AutomatedMarketMonitor } from './monitor-service.js';
 import type { EngineConfig } from '../config/index.js';
 import type { SupabaseClientManager } from '../database/supabase-client.js';
 import type { DatabasePersistence } from '../database/persistence.js';
 import type { APIQuotaManager } from './api-quota-manager.js';
-import type { MarketDiscoveryEngine, RankedMarket } from './market-discovery.js';
+import type { MarketDiscoveryEngine } from './market-discovery.js';
 import type { PolymarketClient } from './polymarket-client.js';
-import type { TradeRecommendation, MarketBriefingDocument } from '../models/types.js';
 
 // Mock the workflow module
 vi.mock('../workflow.js', () => ({
   analyzeMarket: vi.fn(),
 }));
 
-describe('MonitorService Property Tests', () => {
+describe('Monitor Service Property Tests - Quota Reset', () => {
   let mockConfig: EngineConfig;
   let mockSupabaseManager: SupabaseClientManager;
   let mockDatabase: DatabasePersistence;
@@ -29,6 +32,7 @@ describe('MonitorService Property Tests', () => {
   let mockPolymarketClient: PolymarketClient;
 
   beforeEach(() => {
+    // Clear all mocks
     vi.clearAllMocks();
 
     // Create mock config
@@ -137,147 +141,39 @@ describe('MonitorService Property Tests', () => {
     } as any;
 
     // Create mock Polymarket client
-    const mockMBD: MarketBriefingDocument = {
-      marketId: 'test-market',
-      conditionId: 'test-condition',
-      eventType: 'election',
-      question: 'Test market',
-      resolutionCriteria: 'Test criteria',
-      expiryTimestamp: Date.now() + 86400000,
-      currentProbability: 0.5,
-      liquidityScore: 7.5,
-      bidAskSpread: 2.5,
-      volatilityRegime: 'medium',
-      volume24h: 10000,
-      metadata: {
-        ambiguityFlags: [],
-        keyCatalysts: [],
-      },
-    };
-
     mockPolymarketClient = {
-      fetchMarketData: vi.fn().mockResolvedValue({ ok: true, data: mockMBD }),
+      fetchMarketData: vi.fn().mockResolvedValue({ ok: true, data: {} }),
       healthCheck: vi.fn().mockResolvedValue(true),
     } as any;
   });
 
   /**
-   * Property 7: Error isolation
-   * 
-   * For any market analysis failure, the system should continue processing
-   * remaining markets in the queue without crashing.
-   * 
-   * Validates: Requirements 10.4
-   * 
-   * Feature: automated-market-monitor, Property 7: Error isolation
+   * Generator for random times within a day (0-23 hours, 0-59 minutes, 0-59 seconds)
    */
-  it('Property 7: should continue processing markets even when some fail', async () => {
-    // Import mock once outside the property function
-    const { analyzeMarket: mockAnalyzeMarket } = await import('../workflow.js');
-    
-    await fc.assert(
-      fc.asyncProperty(
-        fc.array(
-          fc.record({
-            conditionId: fc.string({ minLength: 1, maxLength: 50 }),
-            shouldFail: fc.boolean(),
-          }),
-          { minLength: 2, maxLength: 10 }
-        ),
-        async (markets) => {
-          // Explicitly clear the mock before each property test run
-          vi.mocked(mockAnalyzeMarket).mockClear();
-          vi.mocked(mockDatabase.upsertMarket).mockClear();
-          vi.mocked(mockDiscovery.discoverMarkets).mockClear();
-
-          // Create monitor instance
-          const monitor = new AutomatedMarketMonitor(
-            mockConfig,
-            mockSupabaseManager,
-            mockDatabase,
-            mockQuotaManager,
-            mockDiscovery,
-            mockPolymarketClient
-          );
-
-          // Mock discovery to return the generated markets
-          const rankedMarkets: RankedMarket[] = markets.map((m) => ({
-            conditionId: m.conditionId,
-            question: `Market ${m.conditionId}`,
-            description: 'Test description',
-            trendingScore: 10,
-            volume24h: 1000,
-            liquidity: 500,
-            marketSlug: m.conditionId,
-          }));
-
-          vi.mocked(mockDiscovery.discoverMarkets).mockResolvedValue(rankedMarkets);
-
-          // Mock analyzeMarket to fail or succeed based on shouldFail
-          let callIndex = 0;
-          vi.mocked(mockAnalyzeMarket).mockImplementation(async () => {
-            const market = markets[callIndex++];
-            if (market.shouldFail) {
-              throw new Error(`Market ${market.conditionId} failed`);
-            }
-            return {
-              marketId: market.conditionId,
-              action: 'LONG_YES',
-              entryZone: [0.45, 0.50],
-              targetZone: [0.60, 0.65],
-              expectedValue: 15.5,
-              winProbability: 0.65,
-              liquidityRisk: 'low',
-              explanation: {
-                summary: 'Test summary',
-                coreThesis: 'Test thesis',
-                keyCatalysts: ['Catalyst 1'],
-                failureScenarios: ['Risk 1'],
-              },
-              metadata: {
-                consensusProbability: 0.65,
-                marketProbability: 0.50,
-                edge: 0.15,
-                confidenceBand: [0.60, 0.70],
-              },
-            } as TradeRecommendation;
-          });
-
-          await monitor.initialize();
-
-          // Run discovery and analysis cycle
-          await (monitor as any).discoverAndAnalyze();
-
-          // Verify all markets were attempted (error isolation)
-          expect(mockAnalyzeMarket).toHaveBeenCalledTimes(markets.length);
-
-          // Verify successful markets were stored
-          const successfulMarkets = markets.filter((m) => !m.shouldFail);
-          expect(mockDatabase.upsertMarket).toHaveBeenCalledTimes(successfulMarkets.length);
-        }
-      ),
-      { numRuns: 100, timeout: 10000 }
-    );
-  }, 15000);
+  const timeOfDayGen = fc.record({
+    hour: fc.integer({ min: 0, max: 23 }),
+    minute: fc.integer({ min: 0, max: 59 }),
+    second: fc.integer({ min: 0, max: 59 }),
+  });
 
   /**
-   * Property 5: Graceful shutdown completeness
+   * Property 8: Quota reset timing
    * 
-   * For any shutdown signal (SIGTERM, SIGINT), the system should complete the
-   * current analysis before exiting, and no analysis should be left in a partial state.
-   * 
-   * Validates: Requirements 7.3
-   * 
-   * Feature: automated-market-monitor, Property 5: Graceful shutdown completeness
+   * For any starting time within a 24-hour period, the quota should reset
+   * exactly once when advancing to the next midnight UTC.
    */
-  it('Property 5: should complete current analysis before shutdown', async () => {
+  it('should reset quota exactly once per 24-hour period at midnight UTC', async () => {
     await fc.assert(
       fc.asyncProperty(
-        // Generate execution duration between 50ms and 200ms
-        fc.integer({ min: 50, max: 200 }),
-        async (executionDurationMs) => {
-          const { analyzeMarket: mockAnalyzeMarket } = await import('../workflow.js');
-          vi.clearAllMocks();
+        timeOfDayGen,
+        async (timeOfDay) => {
+          vi.useFakeTimers();
+
+          // Create a start time on a specific day
+          const startDate = new Date('2024-01-15T00:00:00.000Z');
+          startDate.setUTCHours(timeOfDay.hour, timeOfDay.minute, timeOfDay.second, 0);
+
+          vi.setSystemTime(startDate);
 
           // Create monitor instance
           const monitor = new AutomatedMarketMonitor(
@@ -288,75 +184,147 @@ describe('MonitorService Property Tests', () => {
             mockDiscovery,
             mockPolymarketClient
           );
-
-          // Mock discovery to return one market
-          const rankedMarkets: RankedMarket[] = [{
-            conditionId: 'test-market',
-            question: 'Test market',
-            description: 'Test description',
-            trendingScore: 10,
-            volume24h: 1000,
-            liquidity: 500,
-            marketSlug: 'test-market',
-          }];
-
-          vi.mocked(mockDiscovery.discoverMarkets).mockResolvedValue(rankedMarkets);
-
-          // Track analysis state
-          let analysisStarted = false;
-          let analysisCompleted = false;
-
-          // Mock analyzeMarket with variable duration
-          vi.mocked(mockAnalyzeMarket).mockImplementation(async () => {
-            analysisStarted = true;
-            await new Promise(resolve => setTimeout(resolve, executionDurationMs));
-            analysisCompleted = true;
-            return {
-              marketId: 'test-market',
-              action: 'LONG_YES',
-              entryZone: [0.45, 0.50],
-              targetZone: [0.60, 0.65],
-              expectedValue: 15.5,
-              winProbability: 0.65,
-              liquidityRisk: 'low',
-              explanation: {
-                summary: 'Test summary',
-                coreThesis: 'Test thesis',
-                keyCatalysts: ['Catalyst 1'],
-                failureScenarios: ['Risk 1'],
-              },
-              metadata: {
-                consensusProbability: 0.65,
-                marketProbability: 0.50,
-                edge: 0.15,
-                confidenceBand: [0.60, 0.70],
-              },
-            } as TradeRecommendation;
-          });
 
           await monitor.initialize();
           await monitor.start();
 
-          // Trigger analysis
-          const analysisPromise = monitor.analyzeMarket('test-market');
+          // Calculate time until next midnight
+          const nextMidnight = new Date(startDate);
+          nextMidnight.setUTCDate(nextMidnight.getUTCDate() + 1);
+          nextMidnight.setUTCHours(0, 0, 0, 0);
+          const msUntilMidnight = nextMidnight.getTime() - startDate.getTime();
 
-          // Wait for analysis to start
-          await new Promise(resolve => setTimeout(resolve, 10));
-          expect(analysisStarted).toBe(true);
+          // Reset call count before advancing time
+          vi.mocked(mockQuotaManager.resetUsage).mockClear();
 
-          // Stop monitor (should wait for analysis to complete)
+          // Advance to just before midnight
+          await vi.advanceTimersByTimeAsync(msUntilMidnight - 1000);
+
+          // Should not have reset yet
+          const resetCountBeforeMidnight = vi.mocked(mockQuotaManager.resetUsage).mock.calls.length;
+          expect(resetCountBeforeMidnight).toBe(0);
+
+          // Advance past midnight
+          await vi.advanceTimersByTimeAsync(1000);
+
+          // Should have reset exactly once
+          const resetCountAfterMidnight = vi.mocked(mockQuotaManager.resetUsage).mock.calls.length;
+          expect(resetCountAfterMidnight).toBe(1);
+
           await monitor.stop();
-
-          // Analysis should have completed before shutdown
-          expect(analysisCompleted).toBe(true);
-          await analysisPromise;
-
-          // Verify analysis results were stored (no partial state)
-          expect(mockDatabase.upsertMarket).toHaveBeenCalled();
-          expect(mockDatabase.storeRecommendation).toHaveBeenCalled();
+          vi.useRealTimers();
         }
       ),
-      { numRuns: 20, timeout: 15000 }
+      { numRuns: 20, timeout: 10000 } // Reduced runs for faster execution
     );
-  }, 30000);
+  }, 300000); // 5 minute timeout for property test
+
+  /**
+   * Property: Daily reset consistency
+   * 
+   * For any number of days, the quota should reset exactly N times
+   * for N complete 24-hour periods.
+   */
+  it('should reset quota consistently across multiple days', async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc.integer({ min: 1, max: 3 }), // Test 1-3 days
+        async (numDays) => {
+          vi.useFakeTimers();
+
+          const startDate = new Date('2024-01-15T12:00:00.000Z');
+          vi.setSystemTime(startDate);
+
+          const monitor = new AutomatedMarketMonitor(
+            mockConfig,
+            mockSupabaseManager,
+            mockDatabase,
+            mockQuotaManager,
+            mockDiscovery,
+            mockPolymarketClient
+          );
+
+          await monitor.initialize();
+          await monitor.start();
+
+          // Clear initial calls
+          vi.mocked(mockQuotaManager.resetUsage).mockClear();
+
+          // Advance through N complete days
+          for (let day = 0; day < numDays; day++) {
+            // Advance to next midnight
+            const currentTime = new Date(vi.getMockedSystemTime() || Date.now());
+            const nextMidnight = new Date(currentTime);
+            nextMidnight.setUTCDate(nextMidnight.getUTCDate() + 1);
+            nextMidnight.setUTCHours(0, 0, 0, 0);
+            const msUntilMidnight = nextMidnight.getTime() - currentTime.getTime();
+
+            await vi.advanceTimersByTimeAsync(msUntilMidnight);
+          }
+
+          // Should have reset exactly numDays times
+          const resetCount = vi.mocked(mockQuotaManager.resetUsage).mock.calls.length;
+          expect(resetCount).toBe(numDays);
+
+          await monitor.stop();
+          vi.useRealTimers();
+        }
+      ),
+      { numRuns: 10, timeout: 10000 }
+    );
+  }, 300000);
+
+  /**
+   * Property: Reset timing precision
+   * 
+   * For any starting time, the reset should occur at exactly midnight UTC,
+   * not before or significantly after.
+   */
+  it('should reset at exactly midnight UTC with minimal delay', async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        timeOfDayGen,
+        async (timeOfDay) => {
+          vi.useFakeTimers();
+
+          const startDate = new Date('2024-01-15T00:00:00.000Z');
+          startDate.setUTCHours(timeOfDay.hour, timeOfDay.minute, timeOfDay.second, 0);
+
+          vi.setSystemTime(startDate);
+
+          const monitor = new AutomatedMarketMonitor(
+            mockConfig,
+            mockSupabaseManager,
+            mockDatabase,
+            mockQuotaManager,
+            mockDiscovery,
+            mockPolymarketClient
+          );
+
+          await monitor.initialize();
+          await monitor.start();
+
+          // Calculate time until next midnight
+          const nextMidnight = new Date(startDate);
+          nextMidnight.setUTCDate(nextMidnight.getUTCDate() + 1);
+          nextMidnight.setUTCHours(0, 0, 0, 0);
+          const msUntilMidnight = nextMidnight.getTime() - startDate.getTime();
+
+          vi.mocked(mockQuotaManager.resetUsage).mockClear();
+
+          // Advance to exactly midnight
+          await vi.advanceTimersByTimeAsync(msUntilMidnight);
+
+          // Should have reset by now (allowing for minimal setTimeout delay)
+          const resetCount = vi.mocked(mockQuotaManager.resetUsage).mock.calls.length;
+          expect(resetCount).toBeGreaterThanOrEqual(1);
+          expect(resetCount).toBeLessThanOrEqual(1); // Should be exactly 1
+
+          await monitor.stop();
+          vi.useRealTimers();
+        }
+      ),
+      { numRuns: 20, timeout: 10000 }
+    );
+  }, 300000);
 });

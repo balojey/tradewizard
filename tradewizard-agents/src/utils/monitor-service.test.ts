@@ -535,4 +535,119 @@ describe('MonitorService', () => {
       await analysisPromise;
     });
   });
+
+  describe('quota reset', () => {
+    it('should schedule quota reset at midnight UTC', async () => {
+      vi.useFakeTimers();
+      const now = new Date('2024-01-15T18:30:00.000Z');
+      vi.setSystemTime(now);
+
+      await monitor.initialize();
+      await monitor.start();
+
+      // Quota should not be reset immediately
+      expect(mockQuotaManager.resetUsage).not.toHaveBeenCalled();
+
+      // Fast forward to just before midnight
+      const tomorrow = new Date('2024-01-16T00:00:00.000Z');
+      const msUntilMidnight = tomorrow.getTime() - now.getTime();
+      await vi.advanceTimersByTimeAsync(msUntilMidnight - 1000);
+
+      // Still should not have reset
+      expect(mockQuotaManager.resetUsage).not.toHaveBeenCalled();
+
+      // Fast forward past midnight
+      await vi.advanceTimersByTimeAsync(1000);
+
+      // Should have reset once
+      expect(mockQuotaManager.resetUsage).toHaveBeenCalledTimes(1);
+
+      await monitor.stop();
+      vi.useRealTimers();
+    }, 60000);
+
+    it('should reset quota daily after initial reset', async () => {
+      vi.useFakeTimers();
+      const now = new Date('2024-01-15T18:30:00.000Z');
+      vi.setSystemTime(now);
+
+      await monitor.initialize();
+      await monitor.start();
+
+      // Fast forward to first midnight
+      const tomorrow = new Date('2024-01-16T00:00:00.000Z');
+      const msUntilMidnight = tomorrow.getTime() - now.getTime();
+      await vi.advanceTimersByTimeAsync(msUntilMidnight);
+
+      expect(mockQuotaManager.resetUsage).toHaveBeenCalledTimes(1);
+
+      // Fast forward 24 hours to next midnight
+      await vi.advanceTimersByTimeAsync(24 * 60 * 60 * 1000);
+
+      expect(mockQuotaManager.resetUsage).toHaveBeenCalledTimes(2);
+
+      // Fast forward another 24 hours
+      await vi.advanceTimersByTimeAsync(24 * 60 * 60 * 1000);
+
+      expect(mockQuotaManager.resetUsage).toHaveBeenCalledTimes(3);
+
+      await monitor.stop();
+      vi.useRealTimers();
+    }, 60000);
+
+    it('should log quota reset events', async () => {
+      const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      vi.useFakeTimers();
+      const now = new Date('2024-01-15T18:30:00.000Z');
+      vi.setSystemTime(now);
+
+      await monitor.initialize();
+      await monitor.start();
+
+      // Fast forward to midnight
+      const tomorrow = new Date('2024-01-16T00:00:00.000Z');
+      const msUntilMidnight = tomorrow.getTime() - now.getTime();
+      await vi.advanceTimersByTimeAsync(msUntilMidnight);
+
+      // Should have logged the reset
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Daily quota reset executed')
+      );
+
+      await monitor.stop();
+      vi.useRealTimers();
+      consoleLogSpy.mockRestore();
+    }, 60000);
+
+    it('should calculate correct time until midnight UTC', async () => {
+      vi.useFakeTimers();
+      
+      // Test at noon - should reset at next midnight
+      const now = new Date('2024-01-15T12:00:00.000Z');
+      const expectedMidnight = new Date('2024-01-16T00:00:00.000Z');
+      vi.setSystemTime(now);
+
+      const testMonitor = new AutomatedMarketMonitor(
+        mockConfig,
+        mockSupabaseManager,
+        mockDatabase,
+        mockQuotaManager,
+        mockDiscovery,
+        mockPolymarketClient
+      );
+
+      await testMonitor.initialize();
+      await testMonitor.start();
+
+      // Fast forward to expected midnight
+      const msUntilMidnight = expectedMidnight.getTime() - now.getTime();
+      await vi.advanceTimersByTimeAsync(msUntilMidnight);
+
+      // Should have reset
+      expect(mockQuotaManager.resetUsage).toHaveBeenCalled();
+
+      await testMonitor.stop();
+      vi.useRealTimers();
+    }, 60000);
+  });
 });
