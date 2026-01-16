@@ -382,7 +382,7 @@ This implementation plan creates a production-ready background service that cont
   - Test outcome storage
   - _Requirements: 3.5, 11.3_
 
-- [ ] 24. Create CLI commands for monitor management
+- [x] 24. Create CLI commands for monitor management
   - Add `npm run monitor:start` command
   - Add `npm run monitor:stop` command
   - Add `npm run monitor:status` command

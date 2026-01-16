@@ -646,6 +646,28 @@ pm2 reload tradewizard-monitor
 
 **Best for**: Development, testing, debugging
 
+#### CLI Commands
+
+The monitor includes a comprehensive CLI for management. See [CLI-MONITOR.md](CLI-MONITOR.md) for full documentation.
+
+Quick reference:
+```bash
+# Start the monitor
+npm run monitor:start
+
+# Check status
+npm run monitor:status
+
+# Get health check
+npm run monitor:health
+
+# Stop the monitor
+npm run monitor:stop
+
+# Trigger manual analysis
+npm run monitor:trigger <conditionId>
+```
+
 #### Start the Monitor
 
 ```bash
