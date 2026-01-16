@@ -1497,10 +1497,22 @@ For issues and questions:
 - Check GitHub issues
 - Contact support team
 
+## Production Deployment
+
+For production deployments, see the comprehensive production deployment guides:
+
+- [Production Deployment Guide](./docs/PRODUCTION_DEPLOYMENT.md) - Complete production setup
+- [Runbook](./docs/RUNBOOK.md) - Common operations and troubleshooting
+- [Incident Response Plan](./docs/INCIDENT_RESPONSE.md) - Handling production incidents
+- [Rollback Procedure](./docs/ROLLBACK_PROCEDURE.md) - Rolling back deployments
+- [Monitoring and Alerts](./docs/MONITORING_ALERTS.md) - Monitoring and alerting setup
+- [Log Aggregation](./docs/LOG_AGGREGATION.md) - Log aggregation configuration
+
 ## Additional Resources
 
 - [Market Intelligence Engine Documentation](./README.md)
 - [CLI Documentation](./CLI.md)
+- [Monitor CLI Documentation](./CLI-MONITOR.md)
 - [Supabase Documentation](https://supabase.com/docs)
 - [LangGraph Documentation](https://langchain-ai.github.io/langgraph/)
 - [Opik Documentation](https://www.comet.com/docs/opik/)
