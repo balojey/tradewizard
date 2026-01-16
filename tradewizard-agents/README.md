@@ -549,6 +549,35 @@ npm test -- --coverage
 - Property test coverage: 100% of correctness properties
 - Integration test coverage: All external API interactions
 
+### End-to-End Testing
+
+For the Automated Market Monitor service, comprehensive E2E testing is available:
+
+```bash
+# Run E2E test suite once
+npm run test:e2e
+
+# Run continuous 48-hour monitoring
+npm run test:e2e:continuous
+```
+
+**E2E Testing Documentation:**
+- **Quick Start**: `docs/E2E_QUICK_START.md` - 15-minute setup and testing
+- **Full Guide**: `docs/E2E_TESTING_GUIDE.md` - Comprehensive 13-test guide
+- **Deployment Checklist**: `docs/E2E_DEPLOYMENT_CHECKLIST.md` - Complete deployment checklist
+- **Test Summary**: `docs/E2E_TEST_SUMMARY.md` - Overview of E2E testing implementation
+
+The E2E tests verify:
+- ✅ Market discovery and analysis
+- ✅ Scheduled execution
+- ✅ Data persistence in Supabase
+- ✅ API quota management
+- ✅ Graceful shutdown and restart
+- ✅ Health check accuracy
+- ✅ Manual triggers
+- ✅ Error recovery
+- ✅ 48-hour continuous operation
+
 ## Deployment
 
 ### Node.js Deployment

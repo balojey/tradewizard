@@ -13,6 +13,8 @@
     "test:watch": "vitest",
     "test:performance": "vitest run src/monitor.performance.test.ts",
     "test:24h": "tsx scripts/run-24h-test.ts",
+    "test:e2e": "tsx scripts/e2e-test.ts",
+    "test:e2e:continuous": "tsx scripts/e2e-test.ts continuous",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\"",
