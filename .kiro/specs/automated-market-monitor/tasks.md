@@ -204,7 +204,7 @@ This implementation plan creates a production-ready background service that cont
   - **Property 10: Configuration validation**
   - **Validates: Requirements 8.3**
 
-- [ ] 10. Implement manual trigger support
+- [x] 10. Implement manual trigger support
   - Add POST /trigger endpoint to health check server
   - Accept market condition ID in request body
   - Validate request parameters
@@ -213,7 +213,7 @@ This implementation plan creates a production-ready background service that cont
   - Add authentication for manual triggers (optional)
   - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5_
 
-- [ ] 10.1 Write unit tests for manual triggers
+- [x] 10.1 Write unit tests for manual triggers
   - Test manual trigger endpoint
   - Test request validation
   - Test queuing logic
