@@ -1,0 +1,538 @@
+/**
+ * Unit tests for Monitor Service
+ */
+
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { AutomatedMarketMonitor, type MonitorService } from './monitor-service.js';
+import type { EngineConfig } from '../config/index.js';
+import type { SupabaseClientManager } from '../database/supabase-client.js';
+import type { DatabasePersistence, MarketData } from '../database/persistence.js';
+import type { APIQuotaManager } from './api-quota-manager.js';
+import type { MarketDiscoveryEngine, RankedMarket } from './market-discovery.js';
+import type { PolymarketClient } from './polymarket-client.js';
+import type { TradeRecommendation, MarketBriefingDocument } from '../models/types.js';
+
+// Mock the workflow module
+vi.mock('../workflow.js', () => ({
+  analyzeMarket: vi.fn(),
+}));
+
+describe('MonitorService', () => {
+  let monitor: MonitorService;
+  let mockConfig: EngineConfig;
+  let mockSupabaseManager: SupabaseClientManager;
+  let mockDatabase: DatabasePersistence;
+  let mockQuotaManager: APIQuotaManager;
+  let mockDiscovery: MarketDiscoveryEngine;
+  let mockPolymarketClient: PolymarketClient;
+
+  beforeEach(() => {
+    // Clear all mocks
+    vi.clearAllMocks();
+
+    // Create mock config
+    mockConfig = {
+      polymarket: {
+        gammaApiUrl: 'https://gamma-api.polymarket.com',
+        clobApiUrl: 'https://clob.polymarket.com',
+        rateLimitBuffer: 80,
+      },
+      langgraph: {
+        checkpointer: 'memory',
+        recursionLimit: 25,
+        streamMode: 'values',
+      },
+      opik: {
+        projectName: 'test-project',
+        trackCosts: true,
+        tags: [],
+      },
+      llm: {
+        openai: {
+          apiKey: 'test-key',
+          defaultModel: 'gpt-4',
+        },
+      },
+      agents: {
+        timeoutMs: 10000,
+        minAgentsRequired: 2,
+      },
+      consensus: {
+        minEdgeThreshold: 0.05,
+        highDisagreementThreshold: 0.15,
+      },
+      logging: {
+        level: 'info',
+        auditTrailRetentionDays: 30,
+      },
+      advancedAgents: {
+        eventIntelligence: { enabled: false, breakingNews: true, eventImpact: true },
+        pollingStatistical: { enabled: false, pollingIntelligence: true, historicalPattern: true },
+        sentimentNarrative: { enabled: false, mediaSentiment: true, socialSentiment: true, narrativeVelocity: true },
+        priceAction: { enabled: false, momentum: true, meanReversion: true, minVolumeThreshold: 1000 },
+        eventScenario: { enabled: false, catalyst: true, tailRisk: true },
+        riskPhilosophy: { enabled: false, aggressive: true, conservative: true, neutral: true },
+      },
+      externalData: {
+        news: { provider: 'none', cacheTTL: 900, maxArticles: 20 },
+        polling: { provider: 'none', cacheTTL: 3600 },
+        social: { providers: [], cacheTTL: 300, maxMentions: 100 },
+      },
+      signalFusion: {
+        baseWeights: {},
+        contextAdjustments: true,
+        conflictThreshold: 0.2,
+        alignmentBonus: 0.2,
+      },
+      costOptimization: {
+        maxCostPerAnalysis: 2.0,
+        skipLowImpactAgents: false,
+        batchLLMRequests: true,
+      },
+      performanceTracking: {
+        enabled: false,
+        evaluateOnResolution: true,
+        minSampleSize: 10,
+      },
+    } as EngineConfig;
+
+    // Create mock Supabase manager
+    mockSupabaseManager = {
+      getClient: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+          }),
+        }),
+      }),
+    } as any;
+
+    // Create mock database
+    mockDatabase = {
+      upsertMarket: vi.fn().mockResolvedValue('market-id-123'),
+      storeRecommendation: vi.fn().mockResolvedValue('rec-id-123'),
+      storeAgentSignals: vi.fn().mockResolvedValue(undefined),
+      recordAnalysis: vi.fn().mockResolvedValue(undefined),
+      getMarketsForUpdate: vi.fn().mockResolvedValue([]),
+      markMarketResolved: vi.fn().mockResolvedValue(undefined),
+      getLatestRecommendation: vi.fn().mockResolvedValue(null),
+    } as any;
+
+    // Create mock quota manager
+    mockQuotaManager = {
+      canMakeRequest: vi.fn().mockReturnValue(true),
+      recordUsage: vi.fn(),
+      getUsage: vi.fn().mockReturnValue(0),
+      resetUsage: vi.fn(),
+      getRecommendedMarketCount: vi.fn().mockReturnValue(3),
+      getQuotaLimit: vi.fn().mockReturnValue(100),
+    } as any;
+
+    // Create mock discovery engine
+    mockDiscovery = {
+      discoverMarkets: vi.fn().mockResolvedValue([
+        {
+          conditionId: 'test-condition-1',
+          question: 'Test market 1',
+          description: 'Test description',
+          trendingScore: 10.5,
+          volume24h: 10000,
+          liquidity: 5000,
+          marketSlug: 'test-market-1',
+        },
+      ] as RankedMarket[]),
+      fetchPoliticalMarkets: vi.fn().mockResolvedValue([]),
+      rankMarkets: vi.fn().mockReturnValue([]),
+    } as any;
+
+    // Create mock Polymarket client
+    const mockMBD: MarketBriefingDocument = {
+      marketId: 'test-market',
+      conditionId: 'test-condition-1',
+      eventType: 'election',
+      question: 'Test market 1',
+      resolutionCriteria: 'Test criteria',
+      expiryTimestamp: Date.now() + 86400000,
+      currentProbability: 0.5,
+      liquidityScore: 7.5,
+      bidAskSpread: 2.5,
+      volatilityRegime: 'medium',
+      volume24h: 10000,
+      metadata: {
+        ambiguityFlags: [],
+        keyCatalysts: [],
+      },
+    };
+
+    mockPolymarketClient = {
+      fetchMarketData: vi.fn().mockResolvedValue({ ok: true, data: mockMBD }),
+      healthCheck: vi.fn().mockResolvedValue(true),
+    } as any;
+
+    // Create monitor instance
+    monitor = new AutomatedMarketMonitor(
+      mockConfig,
+      mockSupabaseManager,
+      mockDatabase,
+      mockQuotaManager,
+      mockDiscovery,
+      mockPolymarketClient
+    );
+  });
+
+  describe('initialization', () => {
+    it('should initialize successfully', async () => {
+      await expect(monitor.initialize()).resolves.not.toThrow();
+    });
+
+    it('should check database connection during initialization', async () => {
+      await monitor.initialize();
+      expect(mockSupabaseManager.getClient).toHaveBeenCalled();
+    });
+  });
+
+  describe('start and stop', () => {
+    it('should start the monitor', async () => {
+      await monitor.initialize();
+      await monitor.start();
+
+      const health = monitor.getHealth();
+      expect(health.scheduler.running).toBe(true);
+    });
+
+    it('should stop the monitor gracefully', async () => {
+      await monitor.initialize();
+      await monitor.start();
+      await monitor.stop();
+
+      const health = monitor.getHealth();
+      expect(health.scheduler.running).toBe(false);
+    });
+
+    it('should not start if already running', async () => {
+      await monitor.initialize();
+      await monitor.start();
+      await monitor.start(); // Second start should be ignored
+
+      const health = monitor.getHealth();
+      expect(health.scheduler.running).toBe(true);
+    });
+  });
+
+  describe('analyzeMarket', () => {
+    it('should analyze a market successfully', async () => {
+      const { analyzeMarket: mockAnalyzeMarket } = await import('../workflow.js');
+      const mockRecommendation: TradeRecommendation = {
+        marketId: 'test-market',
+        action: 'LONG_YES',
+        entryZone: [0.45, 0.50],
+        targetZone: [0.60, 0.65],
+        expectedValue: 15.5,
+        winProbability: 0.65,
+        liquidityRisk: 'low',
+        explanation: {
+          summary: 'Test summary',
+          coreThesis: 'Test thesis',
+          keyCatalysts: ['Catalyst 1'],
+          failureScenarios: ['Risk 1'],
+        },
+        metadata: {
+          consensusProbability: 0.65,
+          marketProbability: 0.50,
+          edge: 0.15,
+          confidenceBand: [0.60, 0.70],
+        },
+      };
+
+      vi.mocked(mockAnalyzeMarket).mockResolvedValue(mockRecommendation);
+
+      await monitor.initialize();
+      const result = await monitor.analyzeMarket('test-condition-1');
+
+      expect(result).toEqual(mockRecommendation);
+      expect(mockAnalyzeMarket).toHaveBeenCalledWith(
+        'test-condition-1',
+        mockConfig,
+        mockPolymarketClient,
+        mockSupabaseManager
+      );
+    });
+
+    it('should store analysis results in database', async () => {
+      const { analyzeMarket: mockAnalyzeMarket } = await import('../workflow.js');
+      const mockRecommendation: TradeRecommendation = {
+        marketId: 'test-market',
+        action: 'LONG_YES',
+        entryZone: [0.45, 0.50],
+        targetZone: [0.60, 0.65],
+        expectedValue: 15.5,
+        winProbability: 0.65,
+        liquidityRisk: 'low',
+        explanation: {
+          summary: 'Test summary',
+          coreThesis: 'Test thesis',
+          keyCatalysts: ['Catalyst 1'],
+          failureScenarios: ['Risk 1'],
+        },
+        metadata: {
+          consensusProbability: 0.65,
+          marketProbability: 0.50,
+          edge: 0.15,
+          confidenceBand: [0.60, 0.70],
+        },
+      };
+
+      vi.mocked(mockAnalyzeMarket).mockResolvedValue(mockRecommendation);
+
+      await monitor.initialize();
+      await monitor.analyzeMarket('test-condition-1');
+
+      expect(mockDatabase.upsertMarket).toHaveBeenCalled();
+      expect(mockDatabase.storeRecommendation).toHaveBeenCalled();
+      expect(mockDatabase.recordAnalysis).toHaveBeenCalled();
+    });
+
+    it('should handle analysis errors', async () => {
+      const { analyzeMarket: mockAnalyzeMarket } = await import('../workflow.js');
+      vi.mocked(mockAnalyzeMarket).mockRejectedValue(new Error('Analysis failed'));
+
+      await monitor.initialize();
+      await expect(monitor.analyzeMarket('test-condition-1')).rejects.toThrow('Analysis failed');
+    });
+  });
+
+  describe('discoverAndAnalyze', () => {
+    it('should discover and analyze markets', async () => {
+      const { analyzeMarket: mockAnalyzeMarket } = await import('../workflow.js');
+      const mockRecommendation: TradeRecommendation = {
+        marketId: 'test-market',
+        action: 'LONG_YES',
+        entryZone: [0.45, 0.50],
+        targetZone: [0.60, 0.65],
+        expectedValue: 15.5,
+        winProbability: 0.65,
+        liquidityRisk: 'low',
+        explanation: {
+          summary: 'Test summary',
+          coreThesis: 'Test thesis',
+          keyCatalysts: ['Catalyst 1'],
+          failureScenarios: ['Risk 1'],
+        },
+        metadata: {
+          consensusProbability: 0.65,
+          marketProbability: 0.50,
+          edge: 0.15,
+          confidenceBand: [0.60, 0.70],
+        },
+      };
+
+      vi.mocked(mockAnalyzeMarket).mockResolvedValue(mockRecommendation);
+
+      await monitor.initialize();
+      await (monitor as any).discoverAndAnalyze();
+
+      expect(mockDiscovery.discoverMarkets).toHaveBeenCalledWith(3);
+      expect(mockAnalyzeMarket).toHaveBeenCalled();
+    });
+
+    it('should continue on individual market failure (error isolation)', async () => {
+      const { analyzeMarket: mockAnalyzeMarket } = await import('../workflow.js');
+      
+      // Mock discovery to return 2 markets
+      vi.mocked(mockDiscovery.discoverMarkets).mockResolvedValue([
+        {
+          conditionId: 'market-1',
+          question: 'Market 1',
+          description: 'Desc 1',
+          trendingScore: 10,
+          volume24h: 1000,
+          liquidity: 500,
+          marketSlug: 'market-1',
+        },
+        {
+          conditionId: 'market-2',
+          question: 'Market 2',
+          description: 'Desc 2',
+          trendingScore: 9,
+          volume24h: 900,
+          liquidity: 450,
+          marketSlug: 'market-2',
+        },
+      ]);
+
+      // First market fails, second succeeds
+      vi.mocked(mockAnalyzeMarket)
+        .mockRejectedValueOnce(new Error('Market 1 failed'))
+        .mockResolvedValueOnce({
+          marketId: 'market-2',
+          action: 'LONG_YES',
+          entryZone: [0.45, 0.50],
+          targetZone: [0.60, 0.65],
+          expectedValue: 15.5,
+          winProbability: 0.65,
+          liquidityRisk: 'low',
+          explanation: {
+            summary: 'Test summary',
+            coreThesis: 'Test thesis',
+            keyCatalysts: ['Catalyst 1'],
+            failureScenarios: ['Risk 1'],
+          },
+          metadata: {
+            consensusProbability: 0.65,
+            marketProbability: 0.50,
+            edge: 0.15,
+            confidenceBand: [0.60, 0.70],
+          },
+        });
+
+      await monitor.initialize();
+      await (monitor as any).discoverAndAnalyze();
+
+      // Both markets should have been attempted
+      expect(mockAnalyzeMarket).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('updateExistingMarkets', () => {
+    it('should update existing markets', async () => {
+      const { analyzeMarket: mockAnalyzeMarket } = await import('../workflow.js');
+      const mockRecommendation: TradeRecommendation = {
+        marketId: 'test-market',
+        action: 'LONG_YES',
+        entryZone: [0.45, 0.50],
+        targetZone: [0.60, 0.65],
+        expectedValue: 15.5,
+        winProbability: 0.65,
+        liquidityRisk: 'low',
+        explanation: {
+          summary: 'Test summary',
+          coreThesis: 'Test thesis',
+          keyCatalysts: ['Catalyst 1'],
+          failureScenarios: ['Risk 1'],
+        },
+        metadata: {
+          consensusProbability: 0.65,
+          marketProbability: 0.50,
+          edge: 0.15,
+          confidenceBand: [0.60, 0.70],
+        },
+      };
+
+      vi.mocked(mockAnalyzeMarket).mockResolvedValue(mockRecommendation);
+
+      const marketsToUpdate: MarketData[] = [
+        {
+          conditionId: 'old-market-1',
+          question: 'Old market',
+          eventType: 'election',
+        },
+      ];
+
+      vi.mocked(mockDatabase.getMarketsForUpdate).mockResolvedValue(marketsToUpdate);
+
+      await monitor.initialize();
+      await (monitor as any).updateExistingMarkets();
+
+      expect(mockDatabase.getMarketsForUpdate).toHaveBeenCalled();
+      expect(mockAnalyzeMarket).toHaveBeenCalledWith(
+        'old-market-1',
+        mockConfig,
+        mockPolymarketClient,
+        mockSupabaseManager
+      );
+    });
+  });
+
+  describe('getHealth', () => {
+    it('should return health status', async () => {
+      await monitor.initialize();
+      const health = monitor.getHealth();
+
+      expect(health).toHaveProperty('status');
+      expect(health).toHaveProperty('timestamp');
+      expect(health).toHaveProperty('uptime');
+      expect(health).toHaveProperty('database');
+      expect(health).toHaveProperty('scheduler');
+      expect(health).toHaveProperty('quota');
+    });
+
+    it('should report unhealthy when database is disconnected', async () => {
+      // Mock database connection failure
+      vi.mocked(mockSupabaseManager.getClient).mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue({ data: null, error: new Error('Connection failed') }),
+          }),
+        }),
+      } as any);
+
+      await monitor.initialize();
+      const health = monitor.getHealth();
+
+      expect(health.status).toBe('unhealthy');
+      expect(health.database.connected).toBe(false);
+    });
+
+    it('should report degraded when scheduler is not running', async () => {
+      await monitor.initialize();
+      await monitor.start();
+      await monitor.stop();
+
+      const health = monitor.getHealth();
+      expect(health.status).toBe('degraded');
+    });
+  });
+
+  describe('graceful shutdown', () => {
+    it('should complete current analysis before shutdown', async () => {
+      const { analyzeMarket: mockAnalyzeMarket } = await import('../workflow.js');
+      
+      let analysisStarted = false;
+      let analysisCompleted = false;
+
+      vi.mocked(mockAnalyzeMarket).mockImplementation(async () => {
+        analysisStarted = true;
+        await new Promise(resolve => setTimeout(resolve, 100));
+        analysisCompleted = true;
+        return {
+          marketId: 'test-market',
+          action: 'LONG_YES',
+          entryZone: [0.45, 0.50],
+          targetZone: [0.60, 0.65],
+          expectedValue: 15.5,
+          winProbability: 0.65,
+          liquidityRisk: 'low',
+          explanation: {
+            summary: 'Test summary',
+            coreThesis: 'Test thesis',
+            keyCatalysts: ['Catalyst 1'],
+            failureScenarios: ['Risk 1'],
+          },
+          metadata: {
+            consensusProbability: 0.65,
+            marketProbability: 0.50,
+            edge: 0.15,
+            confidenceBand: [0.60, 0.70],
+          },
+        };
+      });
+
+      await monitor.initialize();
+      await monitor.start();
+
+      // Trigger analysis
+      const analysisPromise = monitor.analyzeMarket('test-condition-1');
+
+      // Wait for analysis to start
+      await new Promise(resolve => setTimeout(resolve, 10));
+      expect(analysisStarted).toBe(true);
+
+      // Stop monitor (should wait for analysis to complete)
+      await monitor.stop();
+
+      // Analysis should have completed
+      expect(analysisCompleted).toBe(true);
+      await analysisPromise;
+    });
+  });
+});

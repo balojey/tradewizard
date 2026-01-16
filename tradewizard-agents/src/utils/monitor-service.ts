@@ -1,0 +1,468 @@
+/**
+ * Automated Market Monitor Service
+ *
+ * Main service orchestrator that continuously monitors prediction markets,
+ * schedules analysis workflows, and persists results to Supabase PostgreSQL.
+ */
+
+import type { EngineConfig } from '../config/index.js';
+import type { SupabaseClientManager } from '../database/supabase-client.js';
+import type { DatabasePersistence } from '../database/persistence.js';
+import type { Scheduler } from './scheduler.js';
+import type { APIQuotaManager } from './api-quota-manager.js';
+import type { MarketDiscoveryEngine } from './market-discovery.js';
+import type { PolymarketClient } from './polymarket-client.js';
+import type { TradeRecommendation, AgentSignal } from '../models/types.js';
+import { analyzeMarket } from '../workflow.js';
+import { createScheduler } from './scheduler.js';
+
+// ============================================================================
+// Types
+// ============================================================================
+
+/**
+ * Health status for the monitor service
+ */
+export interface HealthStatus {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  timestamp: string;
+  uptime: number;
+  lastAnalysis: string | null;
+  nextScheduledRun: string | null;
+  database: {
+    connected: boolean;
+    lastCheck: string;
+  };
+  scheduler: {
+    running: boolean;
+    executing: boolean;
+  };
+  quota: {
+    newsapi: { used: number; limit: number };
+    twitter: { used: number; limit: number };
+    reddit: { used: number; limit: number };
+    recommendedMarkets: number;
+  };
+}
+
+// ============================================================================
+// Monitor Service Interface
+// ============================================================================
+
+export interface MonitorService {
+  /**
+   * Initialize the monitor service
+   */
+  initialize(): Promise<void>;
+
+  /**
+   * Start the monitor
+   */
+  start(): Promise<void>;
+
+  /**
+   * Stop the monitor gracefully
+   */
+  stop(): Promise<void>;
+
+  /**
+   * Get service health status
+   */
+  getHealth(): HealthStatus;
+
+  /**
+   * Manually trigger analysis for a specific market
+   */
+  analyzeMarket(conditionId: string): Promise<TradeRecommendation>;
+}
+
+// ============================================================================
+// Monitor Service Implementation
+// ============================================================================
+
+export class AutomatedMarketMonitor implements MonitorService {
+  private isRunning: boolean = false;
+  private lastAnalysisTime: Date | null = null;
+  private startTime: Date | null = null;
+  private lastDatabaseCheck: Date = new Date();
+  private isDatabaseConnected: boolean = false;
+
+  constructor(
+    private config: EngineConfig,
+    private supabaseManager: SupabaseClientManager,
+    private database: DatabasePersistence,
+    private quotaManager: APIQuotaManager,
+    private discovery: MarketDiscoveryEngine,
+    private polymarketClient: PolymarketClient
+  ) {
+    // Create scheduler with bound analysis cycle function
+    this.scheduler = this.createScheduler();
+  }
+
+  private scheduler: Scheduler;
+
+  /**
+   * Initialize the monitor service
+   */
+  async initialize(): Promise<void> {
+    console.log('[MonitorService] Initializing...');
+
+    try {
+      // Test database connection
+      await this.checkDatabaseConnection();
+
+      // Set up signal handlers for graceful shutdown
+      this.setupSignalHandlers();
+
+      console.log('[MonitorService] Initialization complete');
+    } catch (error) {
+      console.error('[MonitorService] Initialization failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Start the monitor
+   */
+  async start(): Promise<void> {
+    if (this.isRunning) {
+      console.warn('[MonitorService] Already running');
+      return;
+    }
+
+    console.log('[MonitorService] Starting monitor service...');
+    this.isRunning = true;
+    this.startTime = new Date();
+
+    // Start scheduler with configured interval
+    const intervalHours = parseInt(process.env.ANALYSIS_INTERVAL_HOURS || '24', 10);
+    const intervalMs = intervalHours * 60 * 60 * 1000;
+
+    this.scheduler.start(intervalMs);
+
+    // Start daily quota reset scheduler
+    this.startQuotaResetScheduler();
+
+    console.log(`[MonitorService] Monitor started with ${intervalHours}h interval`);
+  }
+
+  /**
+   * Stop the monitor gracefully
+   */
+  async stop(): Promise<void> {
+    console.log('[MonitorService] Stopping monitor gracefully...');
+    this.isRunning = false;
+
+    // Stop scheduler (waits for current cycle to complete)
+    await this.scheduler.stop();
+
+    console.log('[MonitorService] Monitor stopped');
+  }
+
+  /**
+   * Get service health status
+   */
+  getHealth(): HealthStatus {
+    const uptime = this.startTime ? (Date.now() - this.startTime.getTime()) / 1000 : 0;
+
+    return {
+      status: this.calculateHealthStatus(),
+      timestamp: new Date().toISOString(),
+      uptime,
+      lastAnalysis: this.lastAnalysisTime?.toISOString() || null,
+      nextScheduledRun: this.scheduler.getNextRun()?.toISOString() || null,
+      database: {
+        connected: this.isDatabaseConnected,
+        lastCheck: this.lastDatabaseCheck.toISOString(),
+      },
+      scheduler: {
+        running: this.scheduler.isRunning(),
+        executing: (this.scheduler as any).isExecutingCycle?.() || false,
+      },
+      quota: {
+        newsapi: {
+          used: this.quotaManager.getUsage('newsapi'),
+          limit: (this.quotaManager as any).getQuotaLimit('newsapi'),
+        },
+        twitter: {
+          used: this.quotaManager.getUsage('twitter'),
+          limit: (this.quotaManager as any).getQuotaLimit('twitter'),
+        },
+        reddit: {
+          used: this.quotaManager.getUsage('reddit'),
+          limit: (this.quotaManager as any).getQuotaLimit('reddit'),
+        },
+        recommendedMarkets: this.quotaManager.getRecommendedMarketCount(),
+      },
+    };
+  }
+
+  /**
+   * Manually trigger analysis for a specific market
+   */
+  async analyzeMarket(conditionId: string): Promise<TradeRecommendation> {
+    console.log(`[MonitorService] Analyzing market: ${conditionId}`);
+    const startTime = Date.now();
+
+    try {
+      // Run Market Intelligence Engine
+      const recommendation = await analyzeMarket(
+        conditionId,
+        this.config,
+        this.polymarketClient,
+        this.supabaseManager
+      );
+
+      if (!recommendation) {
+        throw new Error('Analysis returned null recommendation');
+      }
+
+      // Extract agent signals from workflow state (simplified - would need to retrieve from checkpointer)
+      const agentSignals: AgentSignal[] = [];
+      const cost = 0; // Would need to track from Opik
+
+      // Store results in database
+      await this.storeAnalysisResults(conditionId, recommendation, agentSignals, cost, startTime);
+
+      // Update last analysis time
+      this.lastAnalysisTime = new Date();
+
+      const duration = Date.now() - startTime;
+      console.log(`[MonitorService] Market analyzed successfully in ${duration}ms`);
+
+      return recommendation;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      console.error(`[MonitorService] Market analysis failed after ${duration}ms:`, error);
+      throw error;
+    }
+  }
+
+  // ==========================================================================
+  // Private Methods
+  // ==========================================================================
+
+  /**
+   * Create scheduler with analysis cycle function
+   */
+  private createScheduler(): Scheduler {
+    return createScheduler(() => this.discoverAndAnalyze());
+  }
+
+  /**
+   * Discovery and analysis cycle
+   */
+  async discoverAndAnalyze(): Promise<void> {
+    console.log('[MonitorService] Starting discovery and analysis cycle');
+
+    try {
+      // Get recommended market count based on quota
+      const maxMarkets = this.quotaManager.getRecommendedMarketCount();
+      console.log(`[MonitorService] Quota allows ${maxMarkets} markets`);
+
+      // Discover markets
+      const markets = await this.discovery.discoverMarkets(maxMarkets);
+      console.log(`[MonitorService] Discovered ${markets.length} markets for analysis`);
+
+      // Analyze each market
+      for (const market of markets) {
+        try {
+          await this.analyzeMarket(market.conditionId);
+        } catch (error) {
+          console.error(`[MonitorService] Failed to analyze market ${market.conditionId}:`, error);
+          // Continue with next market (error isolation)
+        }
+      }
+
+      // Update existing markets
+      await this.updateExistingMarkets();
+
+      console.log('[MonitorService] Discovery and analysis cycle complete');
+    } catch (error) {
+      console.error('[MonitorService] Discovery and analysis cycle failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update existing markets
+   */
+  async updateExistingMarkets(): Promise<void> {
+    console.log('[MonitorService] Updating existing markets');
+
+    try {
+      const updateIntervalHours = parseInt(process.env.UPDATE_INTERVAL_HOURS || '24', 10);
+      const updateIntervalMs = updateIntervalHours * 60 * 60 * 1000;
+
+      const markets = await this.database.getMarketsForUpdate(updateIntervalMs);
+      console.log(`[MonitorService] Found ${markets.length} markets for update`);
+
+      for (const market of markets) {
+        try {
+          await this.analyzeMarket(market.conditionId);
+        } catch (error) {
+          console.error(`[MonitorService] Failed to update market ${market.conditionId}:`, error);
+          // Continue with next market (error isolation)
+        }
+      }
+    } catch (error) {
+      console.error('[MonitorService] Update existing markets failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Store analysis results in database
+   */
+  private async storeAnalysisResults(
+    conditionId: string,
+    recommendation: TradeRecommendation,
+    agentSignals: AgentSignal[],
+    cost: number,
+    startTime: number
+  ): Promise<void> {
+    try {
+      // Fetch market data from Polymarket
+      const marketDataResult = await this.polymarketClient.fetchMarketData(conditionId);
+
+      if (!marketDataResult.ok) {
+        throw new Error(`Failed to fetch market data: ${marketDataResult.error.type}`);
+      }
+
+      const mbd = marketDataResult.data;
+
+      // Store market
+      const marketId = await this.database.upsertMarket({
+        conditionId,
+        question: mbd.question,
+        description: mbd.resolutionCriteria,
+        eventType: mbd.eventType,
+        marketProbability: mbd.currentProbability,
+        volume24h: mbd.volume24h,
+        liquidity: mbd.liquidityScore,
+        status: 'active',
+      });
+
+      // Store recommendation
+      const recommendationId = await this.database.storeRecommendation(marketId, recommendation);
+
+      // Store agent signals
+      if (agentSignals.length > 0) {
+        await this.database.storeAgentSignals(marketId, recommendationId, agentSignals);
+      }
+
+      // Record analysis
+      await this.database.recordAnalysis(marketId, {
+        type: 'initial',
+        status: 'success',
+        durationMs: Date.now() - startTime,
+        costUsd: cost,
+        agentsUsed: agentSignals.map((s) => s.agentName),
+      });
+
+      console.log('[MonitorService] Analysis results stored successfully');
+    } catch (error) {
+      console.error('[MonitorService] Failed to store analysis results:', error);
+      // Don't throw - we want to continue even if storage fails
+    }
+  }
+
+  /**
+   * Check database connection
+   */
+  private async checkDatabaseConnection(): Promise<void> {
+    try {
+      const client = this.supabaseManager.getClient();
+      const { error } = await client.from('markets').select('id').limit(1);
+
+      this.isDatabaseConnected = !error;
+      this.lastDatabaseCheck = new Date();
+
+      if (error) {
+        console.error('[MonitorService] Database connection check failed:', error);
+      } else {
+        console.log('[MonitorService] Database connection OK');
+      }
+    } catch (error) {
+      this.isDatabaseConnected = false;
+      this.lastDatabaseCheck = new Date();
+      console.error('[MonitorService] Database connection check failed:', error);
+    }
+  }
+
+  /**
+   * Calculate overall health status
+   */
+  private calculateHealthStatus(): 'healthy' | 'degraded' | 'unhealthy' {
+    if (!this.isDatabaseConnected) {
+      return 'unhealthy';
+    }
+
+    if (!this.scheduler.isRunning()) {
+      return 'degraded';
+    }
+
+    return 'healthy';
+  }
+
+  /**
+   * Set up signal handlers for graceful shutdown
+   */
+  private setupSignalHandlers(): void {
+    const handleShutdown = async (signal: string) => {
+      console.log(`[MonitorService] Received ${signal}, shutting down gracefully...`);
+      await this.stop();
+      process.exit(0);
+    };
+
+    process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+    process.on('SIGINT', () => handleShutdown('SIGINT'));
+  }
+
+  /**
+   * Start daily quota reset scheduler
+   */
+  private startQuotaResetScheduler(): void {
+    // Calculate time until next midnight UTC
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    tomorrow.setUTCHours(0, 0, 0, 0);
+    const msUntilMidnight = tomorrow.getTime() - now.getTime();
+
+    // Schedule first reset at midnight
+    setTimeout(() => {
+      this.quotaManager.resetUsage();
+      console.log('[MonitorService] Daily quota reset executed');
+
+      // Schedule recurring resets every 24 hours
+      setInterval(() => {
+        this.quotaManager.resetUsage();
+        console.log('[MonitorService] Daily quota reset executed');
+      }, 24 * 60 * 60 * 1000);
+    }, msUntilMidnight);
+
+    console.log(`[MonitorService] Quota reset scheduled for ${tomorrow.toISOString()}`);
+  }
+}
+
+/**
+ * Create a monitor service instance
+ */
+export function createMonitorService(
+  config: EngineConfig,
+  supabaseManager: SupabaseClientManager,
+  database: DatabasePersistence,
+  quotaManager: APIQuotaManager,
+  discovery: MarketDiscoveryEngine,
+  polymarketClient: PolymarketClient
+): MonitorService {
+  return new AutomatedMarketMonitor(
+    config,
+    supabaseManager,
+    database,
+    quotaManager,
+    discovery,
+    polymarketClient
+  );
+}

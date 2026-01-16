@@ -62,4 +62,10 @@ export {
   type Scheduler,
   type AnalysisCycleFunction,
 } from './scheduler.js';
+export {
+  AutomatedMarketMonitor,
+  createMonitorService,
+  type MonitorService,
+  type HealthStatus,
+} from './monitor-service.js';
 
