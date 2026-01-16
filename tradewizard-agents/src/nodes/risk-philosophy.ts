@@ -363,9 +363,33 @@ export function createRiskPhilosophyAgentNodes(config: EngineConfig): {
   conservativeAgent: (state: GraphStateType) => Promise<Partial<GraphStateType>>;
   neutralAgent: (state: GraphStateType) => Promise<Partial<GraphStateType>>;
 } {
+  // Check if risk philosophy agents are enabled
+  // If advancedAgents is not defined, default to enabled for backward compatibility
+  const isEnabled = config.advancedAgents?.riskPhilosophy?.enabled ?? true;
+  
+  // If disabled, return no-op functions that just pass through state
+  if (!isEnabled) {
+    const noOpAgent = async (state: GraphStateType): Promise<Partial<GraphStateType>> => {
+      return {}; // Return empty partial state (no changes)
+    };
+    
+    return {
+      aggressiveAgent: noOpAgent,
+      conservativeAgent: noOpAgent,
+      neutralAgent: noOpAgent,
+    };
+  }
+  
+  // If enabled, create the actual agent nodes (check individual agent flags)
   return {
-    aggressiveAgent: createAggressiveAgentNode(config),
-    conservativeAgent: createConservativeAgentNode(config),
-    neutralAgent: createNeutralAgentNode(config),
+    aggressiveAgent: (config.advancedAgents?.riskPhilosophy?.aggressive ?? true)
+      ? createAggressiveAgentNode(config)
+      : async (state: GraphStateType) => ({}),
+    conservativeAgent: (config.advancedAgents?.riskPhilosophy?.conservative ?? true)
+      ? createConservativeAgentNode(config)
+      : async (state: GraphStateType) => ({}),
+    neutralAgent: (config.advancedAgents?.riskPhilosophy?.neutral ?? true)
+      ? createNeutralAgentNode(config)
+      : async (state: GraphStateType) => ({}),
   };
 }

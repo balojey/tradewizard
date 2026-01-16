@@ -213,7 +213,7 @@ describe('Risk Philosophy Signal Completeness Property Tests', () => {
         tailRisk: true,
       },
       riskPhilosophy: {
-        enabled: false,
+        enabled: true,
         aggressive: true,
         conservative: true,
         neutral: true,
