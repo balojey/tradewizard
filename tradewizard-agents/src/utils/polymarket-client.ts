@@ -177,6 +177,87 @@ export class PolymarketClient {
   }
 
   /**
+   * Check if a market is resolved
+   * @param conditionId - Polymarket condition ID
+   * @returns Resolution status and outcome if resolved
+   */
+  async checkMarketResolution(
+    conditionId: string
+  ): Promise<
+    | { resolved: false }
+    | { resolved: true; outcome: string; resolvedAt: number }
+  > {
+    // Check circuit breaker
+    if (!this.canMakeRequest()) {
+      return { resolved: false };
+    }
+
+    // Wait for rate limit
+    await this.waitForRateLimit();
+
+    try {
+      // Fetch market data with retry logic
+      const marketData = await this.fetchWithRetry<GammaMarketData>(
+        `${this.gammaApiUrl}/markets/${conditionId}`,
+        3
+      );
+
+      // Check if market has a closed/resolved status
+      // Polymarket markets are resolved when they have a definitive outcome
+      const closed = (marketData as any).closed === true || (marketData as any).closed === 'true';
+      const resolved = (marketData as any).resolved === true || (marketData as any).resolved === 'true';
+      const active = (marketData as any).active;
+      
+      // Check if market is closed/resolved
+      // Market is resolved if: closed=true, resolved=true, or active=false (but not active=true)
+      const isResolved = closed || resolved || (active !== undefined && active === false);
+      
+      if (isResolved) {
+        // Determine the outcome based on outcome prices
+        // If YES price is 1.0 or very close, market resolved YES
+        // If NO price is 1.0 or very close, market resolved NO
+        const yesPrice = parseFloat(marketData.outcome_prices[0] || '0');
+        const noPrice = parseFloat(marketData.outcome_prices[1] || '0');
+        
+        let outcome = 'UNKNOWN';
+        if (yesPrice >= 0.99) {
+          outcome = 'YES';
+        } else if (noPrice >= 0.99) {
+          outcome = 'NO';
+        } else if (yesPrice >= 0.95) {
+          outcome = 'YES';
+        } else if (noPrice >= 0.95) {
+          outcome = 'NO';
+        }
+
+        // Get resolution timestamp (use end_date_iso or current time)
+        const resolvedAt = marketData.end_date_iso
+          ? new Date(marketData.end_date_iso).getTime()
+          : Date.now();
+
+        // Reset circuit breaker on success
+        this.onSuccess();
+
+        return {
+          resolved: true,
+          outcome,
+          resolvedAt,
+        };
+      }
+
+      // Market is still active
+      this.onSuccess();
+      return { resolved: false };
+    } catch (error) {
+      // Record failure for circuit breaker
+      this.onFailure();
+
+      // On error, assume market is not resolved
+      return { resolved: false };
+    }
+  }
+
+  /**
    * Health check endpoint
    * @returns true if APIs are reachable, false otherwise
    */

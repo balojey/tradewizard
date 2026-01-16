@@ -167,6 +167,7 @@ describe('MonitorService', () => {
     mockPolymarketClient = {
       fetchMarketData: vi.fn().mockResolvedValue({ ok: true, data: mockMBD }),
       healthCheck: vi.fn().mockResolvedValue(true),
+      checkMarketResolution: vi.fn().mockResolvedValue({ resolved: false }),
     } as any;
 
     // Create monitor instance
@@ -649,5 +650,282 @@ describe('MonitorService', () => {
       await testMonitor.stop();
       vi.useRealTimers();
     }, 60000);
+  });
+
+  describe('market resolution detection', () => {
+    it('should detect and mark resolved markets during update', async () => {
+      const { analyzeMarket: mockAnalyzeMarket } = await import('../workflow.js');
+      
+      // Mock markets for update
+      const marketsForUpdate: MarketData[] = [
+        {
+          conditionId: 'resolved-market',
+          question: 'Resolved market?',
+          eventType: 'election',
+          status: 'active',
+        },
+        {
+          conditionId: 'active-market',
+          question: 'Active market?',
+          eventType: 'election',
+          status: 'active',
+        },
+      ];
+
+      vi.mocked(mockDatabase.getMarketsForUpdate).mockResolvedValue(marketsForUpdate);
+
+      // Mock Polymarket client to return resolved for first market, active for second
+      vi.mocked(mockPolymarketClient.checkMarketResolution as any)
+        .mockResolvedValueOnce({ resolved: true, outcome: 'YES', resolvedAt: Date.now() })
+        .mockResolvedValueOnce({ resolved: false });
+
+      // Mock Supabase client to return market ID
+      vi.mocked(mockSupabaseManager.getClient).mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({
+                data: { id: 'market-uuid-123' },
+                error: null,
+              }),
+            }),
+            limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+          }),
+        }),
+      } as any);
+
+      // Mock analyzeMarket for the active market
+      vi.mocked(mockAnalyzeMarket).mockResolvedValue({
+        marketId: 'active-market',
+        action: 'LONG_YES',
+        entryZone: [0.45, 0.50],
+        targetZone: [0.60, 0.65],
+        expectedValue: 15.5,
+        winProbability: 0.65,
+        liquidityRisk: 'low',
+        explanation: {
+          summary: 'Test summary',
+          coreThesis: 'Test thesis',
+          keyCatalysts: ['Catalyst 1'],
+          failureScenarios: ['Risk 1'],
+        },
+        metadata: {
+          consensusProbability: 0.65,
+          marketProbability: 0.50,
+          edge: 0.15,
+          confidenceBand: [0.60, 0.70],
+        },
+      });
+
+      await monitor.initialize();
+      await (monitor as any).updateExistingMarkets();
+
+      // Should have checked resolution for both markets
+      expect(mockPolymarketClient.checkMarketResolution).toHaveBeenCalledTimes(2);
+      
+      // Should have marked first market as resolved
+      expect(mockDatabase.markMarketResolved).toHaveBeenCalledWith('market-uuid-123', 'YES');
+      
+      // Should have analyzed only the active market (not the resolved one)
+      expect(mockAnalyzeMarket).toHaveBeenCalledTimes(1);
+      expect(mockAnalyzeMarket).toHaveBeenCalledWith(
+        'active-market',
+        mockConfig,
+        mockPolymarketClient,
+        mockSupabaseManager
+      );
+    });
+
+    it('should log resolution events', async () => {
+      const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      
+      const marketsForUpdate: MarketData[] = [
+        {
+          conditionId: 'resolved-market',
+          question: 'Resolved market?',
+          eventType: 'election',
+          status: 'active',
+        },
+      ];
+
+      vi.mocked(mockDatabase.getMarketsForUpdate).mockResolvedValue(marketsForUpdate);
+      vi.mocked(mockPolymarketClient.checkMarketResolution as any).mockResolvedValue({
+        resolved: true,
+        outcome: 'NO',
+        resolvedAt: Date.now(),
+      });
+
+      vi.mocked(mockSupabaseManager.getClient).mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({
+                data: { id: 'market-uuid-456' },
+                error: null,
+              }),
+            }),
+            limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+          }),
+        }),
+      } as any);
+
+      await monitor.initialize();
+      await (monitor as any).updateExistingMarkets();
+
+      // Should log resolution detection
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[MonitorService] Market resolved-market is resolved with outcome: NO')
+      );
+      
+      // Should log marking as resolved
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[MonitorService] Market resolved-market marked as resolved')
+      );
+
+      consoleLogSpy.mockRestore();
+    });
+
+    it('should continue updating other markets if resolution check fails', async () => {
+      const { analyzeMarket: mockAnalyzeMarket } = await import('../workflow.js');
+      
+      const marketsForUpdate: MarketData[] = [
+        {
+          conditionId: 'error-market',
+          question: 'Error market?',
+          eventType: 'election',
+          status: 'active',
+        },
+        {
+          conditionId: 'good-market',
+          question: 'Good market?',
+          eventType: 'election',
+          status: 'active',
+        },
+      ];
+
+      vi.mocked(mockDatabase.getMarketsForUpdate).mockResolvedValue(marketsForUpdate);
+
+      // First market resolution check fails, second succeeds
+      vi.mocked(mockPolymarketClient.checkMarketResolution as any)
+        .mockRejectedValueOnce(new Error('API error'))
+        .mockResolvedValueOnce({ resolved: false });
+
+      vi.mocked(mockAnalyzeMarket).mockResolvedValue({
+        marketId: 'good-market',
+        action: 'LONG_YES',
+        entryZone: [0.45, 0.50],
+        targetZone: [0.60, 0.65],
+        expectedValue: 15.5,
+        winProbability: 0.65,
+        liquidityRisk: 'low',
+        explanation: {
+          summary: 'Test summary',
+          coreThesis: 'Test thesis',
+          keyCatalysts: ['Catalyst 1'],
+          failureScenarios: ['Risk 1'],
+        },
+        metadata: {
+          consensusProbability: 0.65,
+          marketProbability: 0.50,
+          edge: 0.15,
+          confidenceBand: [0.60, 0.70],
+        },
+      });
+
+      await monitor.initialize();
+      await (monitor as any).updateExistingMarkets();
+
+      // Should have attempted both markets
+      expect(mockPolymarketClient.checkMarketResolution).toHaveBeenCalledTimes(2);
+      
+      // Should have analyzed the second market despite first failing
+      expect(mockAnalyzeMarket).toHaveBeenCalledTimes(1);
+    });
+
+    it('should skip analysis for resolved markets', async () => {
+      const { analyzeMarket: mockAnalyzeMarket } = await import('../workflow.js');
+      
+      const marketsForUpdate: MarketData[] = [
+        {
+          conditionId: 'resolved-market-1',
+          question: 'Resolved market 1?',
+          eventType: 'election',
+          status: 'active',
+        },
+        {
+          conditionId: 'resolved-market-2',
+          question: 'Resolved market 2?',
+          eventType: 'election',
+          status: 'active',
+        },
+      ];
+
+      vi.mocked(mockDatabase.getMarketsForUpdate).mockResolvedValue(marketsForUpdate);
+
+      // Both markets are resolved
+      vi.mocked(mockPolymarketClient.checkMarketResolution as any)
+        .mockResolvedValueOnce({ resolved: true, outcome: 'YES', resolvedAt: Date.now() })
+        .mockResolvedValueOnce({ resolved: true, outcome: 'NO', resolvedAt: Date.now() });
+
+      vi.mocked(mockSupabaseManager.getClient).mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              single: vi.fn()
+                .mockResolvedValueOnce({ data: { id: 'market-uuid-1' }, error: null })
+                .mockResolvedValueOnce({ data: { id: 'market-uuid-2' }, error: null }),
+            }),
+            limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+          }),
+        }),
+      } as any);
+
+      await monitor.initialize();
+      await (monitor as any).updateExistingMarkets();
+
+      // Should have marked both as resolved
+      expect(mockDatabase.markMarketResolved).toHaveBeenCalledTimes(2);
+      
+      // Should NOT have analyzed any markets
+      expect(mockAnalyzeMarket).not.toHaveBeenCalled();
+    });
+
+    it('should store resolution outcome correctly', async () => {
+      const marketsForUpdate: MarketData[] = [
+        {
+          conditionId: 'test-market',
+          question: 'Test market?',
+          eventType: 'election',
+          status: 'active',
+        },
+      ];
+
+      vi.mocked(mockDatabase.getMarketsForUpdate).mockResolvedValue(marketsForUpdate);
+      vi.mocked(mockPolymarketClient.checkMarketResolution as any).mockResolvedValue({
+        resolved: true,
+        outcome: 'YES',
+        resolvedAt: 1234567890,
+      });
+
+      vi.mocked(mockSupabaseManager.getClient).mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({
+                data: { id: 'market-uuid-789' },
+                error: null,
+              }),
+            }),
+            limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+          }),
+        }),
+      } as any);
+
+      await monitor.initialize();
+      await (monitor as any).updateExistingMarkets();
+
+      // Should store the exact outcome
+      expect(mockDatabase.markMarketResolved).toHaveBeenCalledWith('market-uuid-789', 'YES');
+    });
   });
 });

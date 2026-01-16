@@ -428,4 +428,190 @@ describe('PolymarketClient', () => {
       }
     });
   });
+
+  describe('checkMarketResolution', () => {
+    it('should detect resolved market with YES outcome', async () => {
+      const mockMarketData = {
+        condition_id: 'test-123',
+        question: 'Test question',
+        description: 'Test',
+        end_date_iso: '2024-12-31T23:59:59Z',
+        game_start_time: '2024-01-01T00:00:00Z',
+        question_id: 'q123',
+        market_slug: 'test',
+        outcomes: ['YES', 'NO'],
+        outcome_prices: ['1.0', '0.0'],
+        volume: '100000',
+        liquidity: '50000',
+        closed: true,
+      };
+
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockMarketData,
+      });
+
+      const result = await client.checkMarketResolution('test-123');
+
+      expect(result.resolved).toBe(true);
+      if (result.resolved) {
+        expect(result.outcome).toBe('YES');
+        expect(result.resolvedAt).toBeDefined();
+      }
+    });
+
+    it('should detect resolved market with NO outcome', async () => {
+      const mockMarketData = {
+        condition_id: 'test-123',
+        question: 'Test question',
+        description: 'Test',
+        end_date_iso: '2024-12-31T23:59:59Z',
+        game_start_time: '2024-01-01T00:00:00Z',
+        question_id: 'q123',
+        market_slug: 'test',
+        outcomes: ['YES', 'NO'],
+        outcome_prices: ['0.0', '1.0'],
+        volume: '100000',
+        liquidity: '50000',
+        resolved: true,
+      };
+
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockMarketData,
+      });
+
+      const result = await client.checkMarketResolution('test-123');
+
+      expect(result.resolved).toBe(true);
+      if (result.resolved) {
+        expect(result.outcome).toBe('NO');
+        expect(result.resolvedAt).toBeDefined();
+      }
+    });
+
+    it('should detect active market as not resolved', async () => {
+      const mockMarketData = {
+        condition_id: 'test-123',
+        question: 'Test question',
+        description: 'Test',
+        end_date_iso: '2024-12-31T23:59:59Z',
+        game_start_time: '2024-01-01T00:00:00Z',
+        question_id: 'q123',
+        market_slug: 'test',
+        outcomes: ['YES', 'NO'],
+        outcome_prices: ['0.55', '0.45'],
+        volume: '100000',
+        liquidity: '50000',
+        closed: false,
+        active: true,
+      };
+
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockMarketData,
+      });
+
+      const result = await client.checkMarketResolution('test-123');
+
+      expect(result.resolved).toBe(false);
+    });
+
+    it('should detect market with active=false as resolved', async () => {
+      const mockMarketData = {
+        condition_id: 'test-123',
+        question: 'Test question',
+        description: 'Test',
+        end_date_iso: '2024-12-31T23:59:59Z',
+        game_start_time: '2024-01-01T00:00:00Z',
+        question_id: 'q123',
+        market_slug: 'test',
+        outcomes: ['YES', 'NO'],
+        outcome_prices: ['0.98', '0.02'],
+        volume: '100000',
+        liquidity: '50000',
+        active: false,
+      };
+
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockMarketData,
+      });
+
+      const result = await client.checkMarketResolution('test-123');
+
+      expect(result.resolved).toBe(true);
+      if (result.resolved) {
+        expect(result.outcome).toBe('YES');
+      }
+    });
+
+    it('should handle API errors gracefully', async () => {
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+        new Error('Network error')
+      );
+
+      const result = await client.checkMarketResolution('test-123');
+
+      expect(result.resolved).toBe(false);
+    });
+
+    it('should detect resolved market with near-1.0 prices (0.95+)', async () => {
+      const mockMarketData = {
+        condition_id: 'test-123',
+        question: 'Test question',
+        description: 'Test',
+        end_date_iso: '2024-12-31T23:59:59Z',
+        game_start_time: '2024-01-01T00:00:00Z',
+        question_id: 'q123',
+        market_slug: 'test',
+        outcomes: ['YES', 'NO'],
+        outcome_prices: ['0.96', '0.04'],
+        volume: '100000',
+        liquidity: '50000',
+        closed: true,
+      };
+
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockMarketData,
+      });
+
+      const result = await client.checkMarketResolution('test-123');
+
+      expect(result.resolved).toBe(true);
+      if (result.resolved) {
+        expect(result.outcome).toBe('YES');
+      }
+    });
+
+    it('should return UNKNOWN outcome when prices are ambiguous', async () => {
+      const mockMarketData = {
+        condition_id: 'test-123',
+        question: 'Test question',
+        description: 'Test',
+        end_date_iso: '2024-12-31T23:59:59Z',
+        game_start_time: '2024-01-01T00:00:00Z',
+        question_id: 'q123',
+        market_slug: 'test',
+        outcomes: ['YES', 'NO'],
+        outcome_prices: ['0.50', '0.50'],
+        volume: '100000',
+        liquidity: '50000',
+        closed: true,
+      };
+
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockMarketData,
+      });
+
+      const result = await client.checkMarketResolution('test-123');
+
+      expect(result.resolved).toBe(true);
+      if (result.resolved) {
+        expect(result.outcome).toBe('UNKNOWN');
+      }
+    });
+  });
 });

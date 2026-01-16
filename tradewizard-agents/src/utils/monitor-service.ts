@@ -366,6 +366,34 @@ export class AutomatedMarketMonitor implements MonitorService {
 
       for (const market of markets) {
         try {
+          // Check if market is resolved before analyzing
+          const resolutionStatus = await this.polymarketClient.checkMarketResolution(
+            market.conditionId
+          );
+
+          if (resolutionStatus.resolved) {
+            console.log(
+              `[MonitorService] Market ${market.conditionId} is resolved with outcome: ${resolutionStatus.outcome}`
+            );
+
+            // Get market ID from database
+            const client = this.supabaseManager.getClient();
+            const { data: marketData, error } = await client
+              .from('markets')
+              .select('id')
+              .eq('condition_id', market.conditionId)
+              .single();
+
+            if (!error && marketData) {
+              await this.database.markMarketResolved(marketData.id, resolutionStatus.outcome);
+              console.log(`[MonitorService] Market ${market.conditionId} marked as resolved`);
+            }
+
+            // Skip analysis for resolved markets
+            continue;
+          }
+
+          // Market is still active, proceed with analysis
           await this.analyzeMarket(market.conditionId);
           
           // Record update in Opik

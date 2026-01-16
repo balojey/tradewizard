@@ -368,7 +368,7 @@ This implementation plan creates a production-ready background service that cont
   - Document dashboard setup in Supabase
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5_
 
-- [ ] 23. Add market resolution detection
+- [x] 23. Add market resolution detection
   - Implement Polymarket market resolution checking
   - Update market status to "resolved" when detected
   - Store resolution outcome
@@ -376,7 +376,7 @@ This implementation plan creates a production-ready background service that cont
   - Log resolution events
   - _Requirements: 3.5, 11.3_
 
-- [ ] 23.1 Write unit tests for resolution detection
+- [x] 23.1 Write unit tests for resolution detection
   - Test resolution detection
   - Test status update
   - Test outcome storage
