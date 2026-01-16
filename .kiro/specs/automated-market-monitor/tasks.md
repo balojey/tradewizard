@@ -86,7 +86,7 @@ This implementation plan creates a production-ready background service that cont
   - **Property 2: API quota respect**
   - **Validates: Requirements 4.2, 4.4**
 
-- [ ] 5. Implement market discovery engine
+- [x] 5. Implement market discovery engine
   - Create MarketDiscoveryEngine interface
   - Implement fetchPoliticalMarkets function using Polymarket client
   - Implement filterPoliticalMarkets function with keyword matching
@@ -97,7 +97,7 @@ This implementation plan creates a production-ready background service that cont
   - Add error handling and retry logic for Polymarket API
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6_
 
-- [ ] 5.1 Write unit tests for market discovery
+- [x] 5.1 Write unit tests for market discovery
   - Test fetchPoliticalMarkets with mocked Polymarket API
   - Test filterPoliticalMarkets with various market types
   - Test calculateTrendingScore with different market metrics
@@ -106,7 +106,7 @@ This implementation plan creates a production-ready background service that cont
   - Test error handling and retry logic
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6_
 
-- [ ] 5.2 Write property test for market selection count
+- [x] 5.2 Write property test for market selection count
   - **Property 1: Market selection count enforcement**
   - **Validates: Requirements 1.4, 4.3**
 

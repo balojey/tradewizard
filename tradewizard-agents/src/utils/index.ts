@@ -49,4 +49,11 @@ export {
   type APIQuotaManager,
   type QuotaConfig,
 } from './api-quota-manager.js';
+export {
+  PolymarketDiscoveryEngine,
+  createMarketDiscoveryEngine,
+  type MarketDiscoveryEngine,
+  type PolymarketMarket,
+  type RankedMarket,
+} from './market-discovery.js';
 
