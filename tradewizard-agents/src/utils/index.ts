@@ -56,4 +56,10 @@ export {
   type PolymarketMarket,
   type RankedMarket,
 } from './market-discovery.js';
+export {
+  CronScheduler,
+  createScheduler,
+  type Scheduler,
+  type AnalysisCycleFunction,
+} from './scheduler.js';
 

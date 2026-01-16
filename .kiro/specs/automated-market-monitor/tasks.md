@@ -110,7 +110,7 @@ This implementation plan creates a production-ready background service that cont
   - **Property 1: Market selection count enforcement**
   - **Validates: Requirements 1.4, 4.3**
 
-- [ ] 6. Implement scheduler
+- [x] 6. Implement scheduler
   - Create Scheduler interface
   - Implement CronScheduler class
   - Implement start function with configurable interval
@@ -121,7 +121,7 @@ This implementation plan creates a production-ready background service that cont
   - Add concurrent execution prevention
   - _Requirements: 2.1, 2.2, 2.6, 7.3_
 
-- [ ] 6.1 Write unit tests for scheduler
+- [x] 6.1 Write unit tests for scheduler
   - Test scheduler start and stop
   - Test interval timing
   - Test manual trigger
@@ -129,7 +129,7 @@ This implementation plan creates a production-ready background service that cont
   - Test graceful shutdown
   - _Requirements: 2.1, 2.2, 2.6, 7.3_
 
-- [ ] 6.2 Write property test for scheduled execution reliability
+- [x] 6.2 Write property test for scheduled execution reliability
   - **Property 4: Scheduled execution reliability**
   - **Validates: Requirements 2.1, 2.2**
 
