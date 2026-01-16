@@ -22,7 +22,7 @@ This implementation plan creates a production-ready background service that cont
   - Test connection health check
   - _Requirements: 5.1, 5.5_
 
-- [ ] 2. Implement database persistence layer
+- [x] 2. Implement database persistence layer
   - Create DatabasePersistence interface
   - Implement upsertMarket function
   - Implement storeRecommendation function
@@ -34,7 +34,7 @@ This implementation plan creates a production-ready background service that cont
   - Add error handling and logging for all database operations
   - _Requirements: 5.2, 5.3, 5.4, 11.1, 11.2, 11.3, 11.4, 11.5_
 
-- [ ] 2.1 Write unit tests for database persistence
+- [x] 2.1 Write unit tests for database persistence
   - Test upsertMarket with new and existing markets
   - Test storeRecommendation
   - Test storeAgentSignals with multiple signals
@@ -44,11 +44,11 @@ This implementation plan creates a production-ready background service that cont
   - Test error handling for database failures
   - _Requirements: 5.2, 5.3, 5.4, 11.1, 11.2, 11.3, 11.4, 11.5_
 
-- [ ] 2.2 Write property test for database persistence completeness
+- [x] 2.2 Write property test for database persistence completeness
   - **Property 3: Database persistence completeness**
   - **Validates: Requirements 5.2, 5.3, 5.4**
 
-- [ ] 3. Integrate LangGraph with PostgreSQL checkpointer
+- [-] 3. Integrate LangGraph with PostgreSQL checkpointer
   - Install @langchain/langgraph-checkpoint-postgres
   - Create PostgreSQL checkpointer configuration
   - Modify Market Intelligence Engine to use PostgreSQL checkpointer
