@@ -43,4 +43,10 @@ export {
   trackAgentCost,
   AgentPriority,
 } from './cost-optimization.js';
+export {
+  QuotaManager,
+  createQuotaManager,
+  type APIQuotaManager,
+  type QuotaConfig,
+} from './api-quota-manager.js';
 

@@ -63,7 +63,7 @@ This implementation plan creates a production-ready background service that cont
   - Test checkpoint cleanup
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-- [ ] 4. Implement API quota manager
+- [x] 4. Implement API quota manager
   - Create APIQuotaManager interface
   - Implement QuotaManager class with usage tracking
   - Implement canMakeRequest function
@@ -74,7 +74,7 @@ This implementation plan creates a production-ready background service that cont
   - Add quota configuration loading from environment
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6_
 
-- [ ] 4.1 Write unit tests for quota manager
+- [x] 4.1 Write unit tests for quota manager
   - Test usage tracking
   - Test quota enforcement
   - Test recommended market count calculation
@@ -82,7 +82,7 @@ This implementation plan creates a production-ready background service that cont
   - Test configuration loading
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6_
 
-- [ ] 4.2 Write property test for API quota respect
+- [x] 4.2 Write property test for API quota respect
   - **Property 2: API quota respect**
   - **Validates: Requirements 4.2, 4.4**
 
