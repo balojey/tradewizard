@@ -68,4 +68,19 @@ export {
   type MonitorService,
   type HealthStatus,
 } from './monitor-service.js';
-
+export {
+  createLogger,
+  createMonitorLogger,
+  initializeLogger,
+  initializeMonitorLogger,
+  getLogger,
+  getMonitorLogger,
+  MonitorLogger,
+  sanitizeLogData,
+  formatDuration,
+  formatCost,
+  type LogLevel,
+  type LoggerConfig,
+  type LogContext,
+  type ErrorContext,
+} from './logger.js';
