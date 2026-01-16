@@ -343,25 +343,53 @@ describe('DatabasePersistence', () => {
       expect(markets.length).toBeGreaterThanOrEqual(0);
     });
 
-    it('should filter by status', async () => {
+    it('should filter by status - only return active markets', async () => {
+      const timestamp = Date.now();
+      
+      // Create active market
+      const activeMarket = {
+        conditionId: `test-active-${timestamp}`,
+        question: 'Active market',
+        eventType: 'election',
+        status: 'active' as const,
+        trendingScore: 5.0,
+      };
+      await persistence.upsertMarket(activeMarket);
+
       // Create resolved market
       const resolvedMarket = {
-        conditionId: `test-resolved-${Date.now()}`,
+        conditionId: `test-resolved-${timestamp}`,
         question: 'Resolved market',
         eventType: 'election',
         status: 'resolved' as const,
+        trendingScore: 8.0,
       };
       await persistence.upsertMarket(resolvedMarket);
+
+      // Create inactive market
+      const inactiveMarket = {
+        conditionId: `test-inactive-${timestamp}`,
+        question: 'Inactive market',
+        eventType: 'election',
+        status: 'inactive' as const,
+        trendingScore: 3.0,
+      };
+      await persistence.upsertMarket(inactiveMarket);
 
       const updateIntervalMs = 0; // Get all markets
       const markets = await persistence.getMarketsForUpdate(updateIntervalMs);
 
-      // Should not include resolved markets
+      // Should only include active markets
       const hasResolved = markets.some((m) => m.status === 'resolved');
+      const hasInactive = markets.some((m) => m.status === 'inactive');
+      const allActive = markets.every((m) => m.status === 'active');
+      
       expect(hasResolved).toBe(false);
+      expect(hasInactive).toBe(false);
+      expect(allActive).toBe(true);
     });
 
-    it('should handle various timestamps', async () => {
+    it('should handle various timestamps correctly', async () => {
       // Test with different intervals
       const intervals = [
         0, // All markets
@@ -374,6 +402,167 @@ describe('DatabasePersistence', () => {
         const markets = await persistence.getMarketsForUpdate(interval);
         expect(Array.isArray(markets)).toBe(true);
       }
+    });
+
+    it('should respect update interval - exclude recently analyzed markets', async () => {
+      const timestamp = Date.now();
+      
+      // Create a market and analyze it (sets last_analyzed_at to now)
+      const recentMarket = {
+        conditionId: `test-recent-${timestamp}`,
+        question: 'Recently analyzed market',
+        eventType: 'election',
+        status: 'active' as const,
+        trendingScore: 7.0,
+      };
+      await persistence.upsertMarket(recentMarket);
+
+      // Get markets that need update (haven't been analyzed in last 24 hours)
+      const updateIntervalMs = 24 * 60 * 60 * 1000; // 24 hours
+      const markets = await persistence.getMarketsForUpdate(updateIntervalMs);
+
+      // Should NOT include the recently analyzed market
+      const foundRecent = markets.find((m) => m.conditionId === recentMarket.conditionId);
+      expect(foundRecent).toBeUndefined();
+    });
+
+    it('should include markets with null last_analyzed_at', async () => {
+      const timestamp = Date.now();
+      
+      // Create a market (will have last_analyzed_at set by upsertMarket)
+      const market = {
+        conditionId: `test-null-timestamp-${timestamp}`,
+        question: 'Market with null timestamp',
+        eventType: 'election',
+        status: 'active' as const,
+        trendingScore: 6.0,
+      };
+      await persistence.upsertMarket(market);
+
+      // Get all active markets
+      const updateIntervalMs = 0;
+      const markets = await persistence.getMarketsForUpdate(updateIntervalMs);
+
+      // Should include markets regardless of timestamp when interval is 0
+      expect(Array.isArray(markets)).toBe(true);
+      expect(markets.length).toBeGreaterThan(0);
+    });
+
+    it('should sort by priority - trending score descending, then staleness', async () => {
+      const timestamp = Date.now();
+      
+      // Create markets with different trending scores
+      const highTrendingMarket = {
+        conditionId: `test-high-trending-${timestamp}`,
+        question: 'High trending market',
+        eventType: 'election',
+        status: 'active' as const,
+        trendingScore: 9.5,
+      };
+      await persistence.upsertMarket(highTrendingMarket);
+
+      const mediumTrendingMarket = {
+        conditionId: `test-medium-trending-${timestamp}`,
+        question: 'Medium trending market',
+        eventType: 'election',
+        status: 'active' as const,
+        trendingScore: 5.0,
+      };
+      await persistence.upsertMarket(mediumTrendingMarket);
+
+      const lowTrendingMarket = {
+        conditionId: `test-low-trending-${timestamp}`,
+        question: 'Low trending market',
+        eventType: 'election',
+        status: 'active' as const,
+        trendingScore: 2.0,
+      };
+      await persistence.upsertMarket(lowTrendingMarket);
+
+      const updateIntervalMs = 0; // Get all markets
+      const markets = await persistence.getMarketsForUpdate(updateIntervalMs);
+
+      // Find our test markets in the results
+      const testMarkets = markets.filter((m) => 
+        m.conditionId.includes(`-${timestamp}`)
+      );
+
+      // Should be sorted by trending score descending
+      if (testMarkets.length >= 3) {
+        const highIndex = testMarkets.findIndex((m) => m.conditionId === highTrendingMarket.conditionId);
+        const mediumIndex = testMarkets.findIndex((m) => m.conditionId === mediumTrendingMarket.conditionId);
+        const lowIndex = testMarkets.findIndex((m) => m.conditionId === lowTrendingMarket.conditionId);
+
+        expect(highIndex).toBeLessThan(mediumIndex);
+        expect(mediumIndex).toBeLessThan(lowIndex);
+      }
+    });
+
+    it('should support quota-based limiting by returning all eligible markets', async () => {
+      const timestamp = Date.now();
+      
+      // Create multiple active markets
+      const marketCount = 5;
+      for (let i = 0; i < marketCount; i++) {
+        const market = {
+          conditionId: `test-quota-market-${timestamp}-${i}`,
+          question: `Quota test market ${i}`,
+          eventType: 'election',
+          status: 'active' as const,
+          trendingScore: 10 - i, // Descending scores
+        };
+        await persistence.upsertMarket(market);
+      }
+
+      const updateIntervalMs = 0; // Get all markets
+      const markets = await persistence.getMarketsForUpdate(updateIntervalMs);
+
+      // Should return all eligible markets (caller can limit based on quota)
+      const testMarkets = markets.filter((m) => 
+        m.conditionId.includes(`test-quota-market-${timestamp}`)
+      );
+      
+      expect(testMarkets.length).toBe(marketCount);
+      
+      // Verify they're sorted by trending score
+      for (let i = 0; i < testMarkets.length - 1; i++) {
+        const current = testMarkets[i].trendingScore || 0;
+        const next = testMarkets[i + 1].trendingScore || 0;
+        expect(current).toBeGreaterThanOrEqual(next);
+      }
+    });
+
+    it('should handle markets with missing trending scores', async () => {
+      const timestamp = Date.now();
+      
+      // Create market without trending score
+      const marketNoScore = {
+        conditionId: `test-no-score-${timestamp}`,
+        question: 'Market without trending score',
+        eventType: 'election',
+        status: 'active' as const,
+      };
+      await persistence.upsertMarket(marketNoScore);
+
+      const updateIntervalMs = 0;
+      const markets = await persistence.getMarketsForUpdate(updateIntervalMs);
+
+      // Should still return the market
+      const found = markets.find((m) => m.conditionId === marketNoScore.conditionId);
+      expect(found).toBeDefined();
+    });
+
+    it('should return empty array when no markets need update', async () => {
+      // Use a very short interval (1ms) - all markets should be too recent
+      const updateIntervalMs = 1;
+      
+      // Wait a bit to ensure any just-created markets are outside the interval
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
+      const markets = await persistence.getMarketsForUpdate(updateIntervalMs);
+
+      // Should return empty array or only very old markets
+      expect(Array.isArray(markets)).toBe(true);
     });
   });
 

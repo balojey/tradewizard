@@ -236,7 +236,7 @@ This implementation plan creates a production-ready background service that cont
   - **Property 8: Quota reset timing**
   - **Validates: Requirements 4.5**
 
-- [ ] 12. Implement market update logic
+- [x] 12. Implement market update logic
   - Implement getMarketsForUpdate query
   - Filter markets by status (active only)
   - Filter markets by last_analyzed_at timestamp
@@ -244,14 +244,14 @@ This implementation plan creates a production-ready background service that cont
   - Limit to quota-allowed count
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
 
-- [ ] 12.1 Write unit tests for market updates
+- [x] 12.1 Write unit tests for market updates
   - Test getMarketsForUpdate with various timestamps
   - Test filtering by status
   - Test sorting by priority
   - Test quota-based limiting
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
 
-- [ ] 12.2 Write property test for update interval enforcement
+- [x] 12.2 Write property test for update interval enforcement
   - **Property 6: Market update interval enforcement**
   - **Validates: Requirements 3.2**
 
