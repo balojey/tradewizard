@@ -455,9 +455,17 @@ function fixMisconfiguredAgentGroups(config: EngineConfig): EngineConfig {
 }
 
 /**
- * Default configuration instance
+ * Default configuration instance (lazy loaded)
  */
-export const config = loadConfig();
+let _config: EngineConfig | null = null;
+export const config = new Proxy({} as EngineConfig, {
+  get(_target, prop) {
+    if (!_config) {
+      _config = loadConfig();
+    }
+    return _config[prop as keyof EngineConfig];
+  }
+});
 
 /**
  * Create a configuration with overrides
