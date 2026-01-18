@@ -65,13 +65,16 @@ export class QuotaManager implements APIQuotaManager {
     this.quotas.set('reddit', config.redditQuota || 60);
   }
 
-  canMakeRequest(source: string): boolean {
-    const current = this.usage.get(source) || 0;
-    const limit = this.quotas.get(source) || Infinity;
-    // Stay under 80% of quota
-    // Use Math.ceil to handle small quotas correctly (e.g., quota=1 → threshold=1)
-    const threshold = Math.ceil(limit * 0.8);
-    return current < threshold;
+  canMakeRequest(_source: string): boolean {
+    // Always allow requests - quota manager is for monitoring only
+    // User controls analysis limits via MAX_MARKETS_PER_CYCLE
+    return true;
+    
+    // Note: The code below is kept for reference but disabled
+    // const current = this.usage.get(source) || 0;
+    // const limit = this.quotas.get(source) || Infinity;
+    // const threshold = Math.ceil(limit * 0.8);
+    // return current < threshold;
   }
 
   recordUsage(source: string, count: number = 1): void {
@@ -89,23 +92,23 @@ export class QuotaManager implements APIQuotaManager {
   }
 
   getRecommendedMarketCount(): number {
-    // Estimate API calls per market
-    const callsPerMarket: Record<string, number> = {
-      newsapi: 1,
-      twitter: 3,
-      reddit: 2,
-    };
-
-    // Calculate how many markets we can analyze
-    let maxMarkets = Infinity;
-    for (const [source, quota] of this.quotas) {
-      const remaining = quota - (this.usage.get(source) || 0);
-      const marketsForSource = Math.floor(remaining / (callsPerMarket[source] || 1));
-      maxMarkets = Math.min(maxMarkets, marketsForSource);
-    }
-
-    // Return between 1 and 3 markets
-    return Math.max(1, Math.min(3, maxMarkets));
+    // Always return maximum - user controls limits via MAX_MARKETS_PER_CYCLE
+    // This method is kept for compatibility but doesn't limit operations
+    return 999; // High number to indicate no quota-based limiting
+    
+    // Note: The code below is kept for reference but disabled
+    // const callsPerMarket: Record<string, number> = {
+    //   newsapi: 1,
+    //   twitter: 3,
+    //   reddit: 2,
+    // };
+    // let maxMarkets = Infinity;
+    // for (const [source, quota] of this.quotas) {
+    //   const remaining = quota - (this.usage.get(source) || 0);
+    //   const marketsForSource = Math.floor(remaining / (callsPerMarket[source] || 1));
+    //   maxMarkets = Math.min(maxMarkets, marketsForSource);
+    // }
+    // return Math.max(1, Math.min(3, maxMarkets));
   }
 
   /**

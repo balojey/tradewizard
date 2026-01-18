@@ -218,10 +218,7 @@ export class AutomatedMarketMonitor implements MonitorService {
           used: this.quotaManager.getUsage('reddit'),
           limit: (this.quotaManager as any).getQuotaLimit('reddit'),
         },
-        recommendedMarkets: Math.min(
-          this.quotaManager.getRecommendedMarketCount(),
-          parseInt(process.env.MAX_MARKETS_PER_CYCLE || '3', 10)
-        ),
+        recommendedMarkets: parseInt(process.env.MAX_MARKETS_PER_CYCLE || '3', 10),
       },
     };
   }
@@ -308,16 +305,10 @@ export class AutomatedMarketMonitor implements MonitorService {
     this.opikIntegration.startCycle();
 
     try {
-      // Get recommended market count based on quota
-      const quotaRecommendation = this.quotaManager.getRecommendedMarketCount();
+      // Get configured max markets per cycle from environment (user has full control)
+      const maxMarkets = parseInt(process.env.MAX_MARKETS_PER_CYCLE || '3', 10);
       
-      // Get configured max markets per cycle from environment
-      const configuredMax = parseInt(process.env.MAX_MARKETS_PER_CYCLE || '3', 10);
-      
-      // Use the minimum of quota recommendation and configured max
-      const maxMarkets = Math.min(quotaRecommendation, configuredMax);
-      
-      console.log(`[MonitorService] Quota allows ${quotaRecommendation} markets, configured max: ${configuredMax}, using: ${maxMarkets} markets`);
+      console.log(`[MonitorService] Analyzing up to ${maxMarkets} markets (configured via MAX_MARKETS_PER_CYCLE)`);
 
       // Discover markets
       const markets = await this.discovery.discoverMarkets(maxMarkets);
