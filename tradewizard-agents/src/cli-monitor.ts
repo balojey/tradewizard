@@ -202,18 +202,36 @@ async function startMonitor(): Promise<void> {
     console.log('Starting monitor as background process...');
     console.log('  (Install PM2 for better process management: npm install -g pm2)');
     
-    const monitorScript = path.join(PROJECT_ROOT, 'dist', 'monitor.js');
+    // Check if we're in development mode (NODE_ENV=development or tsx available)
+    const isDevelopment = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === undefined;
     
-    // Check if built
-    try {
-      await fs.access(monitorScript);
-    } catch {
-      console.error('✗ Monitor script not found. Run "npm run build" first.');
-      process.exit(1);
+    let command: string;
+    let args: string[];
+    let scriptPath: string;
+    
+    if (isDevelopment) {
+      // Use tsx for development
+      command = 'npx';
+      args = ['tsx', 'src/monitor.ts'];
+      scriptPath = path.join(PROJECT_ROOT, 'src', 'monitor.ts');
+      console.log('  Using tsx for development mode');
+    } else {
+      // Use compiled version for production
+      command = 'node';
+      scriptPath = path.join(PROJECT_ROOT, 'dist', 'monitor.js');
+      args = [scriptPath];
+      
+      // Check if built
+      try {
+        await fs.access(scriptPath);
+      } catch {
+        console.error('✗ Monitor script not found. Run "npm run build" first.');
+        process.exit(1);
+      }
     }
     
     // Spawn detached process
-    const child = spawn('node', [monitorScript], {
+    const child = spawn(command, args, {
       detached: true,
       stdio: 'ignore',
       cwd: PROJECT_ROOT,
