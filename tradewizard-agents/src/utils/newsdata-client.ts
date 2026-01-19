@@ -14,6 +14,10 @@
  */
 
 import type { AdvancedObservabilityLogger } from './audit-logger.js';
+import type { NewsDataCacheManager } from './newsdata-cache-manager.js';
+import type { NewsDataRateLimiter } from './newsdata-rate-limiter.js';
+import type { NewsDataCircuitBreaker } from './newsdata-circuit-breaker.js';
+import type { NewsDataFallbackManager } from './newsdata-fallback-manager.js';
 
 // ============================================================================
 // Core Configuration Types
@@ -269,8 +273,19 @@ export const DEFAULT_NEWSDATA_CONFIG: Partial<NewsDataConfig> = {
 export class NewsDataClient {
   private config: NewsDataConfig;
   private observabilityLogger?: AdvancedObservabilityLogger;
+  private cacheManager?: NewsDataCacheManager;
+  // private rateLimiter?: NewsDataRateLimiter; // TODO: Implement rate limiting
+  private circuitBreaker?: NewsDataCircuitBreaker;
+  private fallbackManager?: NewsDataFallbackManager;
   
-  constructor(config: NewsDataConfig, observabilityLogger?: AdvancedObservabilityLogger) {
+  constructor(
+    config: NewsDataConfig, 
+    observabilityLogger?: AdvancedObservabilityLogger,
+    cacheManager?: NewsDataCacheManager,
+    _rateLimiter?: NewsDataRateLimiter, // TODO: Implement rate limiting
+    circuitBreaker?: NewsDataCircuitBreaker,
+    fallbackManager?: NewsDataFallbackManager
+  ) {
     // Validate required configuration
     if (!config.apiKey) {
       throw new NewsDataValidationError('API key is required');
@@ -299,6 +314,10 @@ export class NewsDataClient {
     };
     
     this.observabilityLogger = observabilityLogger;
+    this.cacheManager = cacheManager;
+    // Rate limiter will be implemented in future iterations
+    this.circuitBreaker = circuitBreaker;
+    this.fallbackManager = fallbackManager;
     
     // Log client initialization
     console.log('[NewsDataClient] Initialized with configuration:', {
@@ -485,9 +504,75 @@ export class NewsDataClient {
   // ============================================================================
 
   /**
-   * Make HTTP request with error handling and retries
+   * Make HTTP request with circuit breaker protection and fallback mechanisms
    */
-  private async makeRequest(url: string): Promise<NewsDataResponse> {
+  private async makeRequest(url: string, endpoint: string): Promise<NewsDataResponse> {
+    // const startTime = Date.now(); // TODO: Use for performance monitoring
+    
+    // Generate cache key for fallback purposes
+    const cacheKey = this.cacheManager?.generateCacheKey(endpoint, this.extractParamsFromUrl(url)) || url;
+    
+    // If circuit breaker is available, use it with fallback
+    if (this.circuitBreaker && this.fallbackManager) {
+      const result = await this.circuitBreaker.execute(
+        () => this.makeDirectRequest(url),
+        () => this.executeFallback(cacheKey)
+      );
+      
+      if (result.success && result.data) {
+        return result.data;
+      } else if (result.fromFallback && result.data) {
+        return result.data;
+      } else {
+        throw result.error || new Error('Request failed and no fallback available');
+      }
+    }
+    
+    // Fallback to direct request if circuit breaker not available
+    return await this.makeDirectRequest(url);
+  }
+  
+  /**
+   * Execute fallback strategy when primary request fails
+   */
+  private async executeFallback(cacheKey: string): Promise<NewsDataResponse> {
+    if (!this.fallbackManager) {
+      throw new Error('No fallback manager available');
+    }
+    
+    const fallbackResult = await this.fallbackManager.executeFallback(cacheKey);
+    
+    if (fallbackResult.success && fallbackResult.data) {
+      return fallbackResult.data;
+    }
+    
+    throw fallbackResult.error || new Error('Fallback failed');
+  }
+  
+  /**
+   * Extract parameters from URL for cache key generation
+   */
+  private extractParamsFromUrl(url: string): Record<string, any> {
+    try {
+      const urlObj = new URL(url);
+      const params: Record<string, any> = {};
+      
+      urlObj.searchParams.forEach((value, key) => {
+        if (key !== 'apikey') { // Exclude API key from cache key
+          params[key] = value;
+        }
+      });
+      
+      return params;
+    } catch {
+      return {};
+    }
+  }
+
+  /**
+   * Make direct HTTP request with error handling and retries
+   */
+  private async makeDirectRequest(url: string): Promise<NewsDataResponse> {
     const startTime = Date.now();
     let lastError: Error | null = null;
     
@@ -610,7 +695,7 @@ export class NewsDataClient {
     this.validateParams(params, 'latest');
     
     const url = this.buildUrl('latest', params);
-    return await this.makeRequest(url);
+    return await this.makeRequest(url, 'latest');
   }
 
   /**
@@ -621,7 +706,7 @@ export class NewsDataClient {
     this.validateParams(params, 'crypto');
     
     const url = this.buildUrl('crypto', params);
-    return await this.makeRequest(url);
+    return await this.makeRequest(url, 'crypto');
   }
 
   /**
@@ -632,7 +717,7 @@ export class NewsDataClient {
     this.validateParams(params, 'market');
     
     const url = this.buildUrl('market', params);
-    return await this.makeRequest(url);
+    return await this.makeRequest(url, 'market');
   }
 
   /**
@@ -643,7 +728,7 @@ export class NewsDataClient {
     this.validateParams(params, 'archive');
     
     const url = this.buildUrl('archive', params);
-    return await this.makeRequest(url);
+    return await this.makeRequest(url, 'archive');
   }
 
   /**
@@ -653,7 +738,7 @@ export class NewsDataClient {
     this.validateApiKey();
     
     const url = this.buildUrl('sources', params);
-    return await this.makeRequest(url);
+    return await this.makeRequest(url, 'sources');
   }
 
   // ============================================================================
@@ -810,9 +895,13 @@ export class NewsDataClient {
  */
 export function createNewsDataClient(
   config: NewsDataConfig,
-  observabilityLogger?: AdvancedObservabilityLogger
+  observabilityLogger?: AdvancedObservabilityLogger,
+  cacheManager?: NewsDataCacheManager,
+  rateLimiter?: NewsDataRateLimiter,
+  circuitBreaker?: NewsDataCircuitBreaker,
+  fallbackManager?: NewsDataFallbackManager
 ): NewsDataClient {
-  return new NewsDataClient(config, observabilityLogger);
+  return new NewsDataClient(config, observabilityLogger, cacheManager, rateLimiter, circuitBreaker, fallbackManager);
 }
 
 /**
