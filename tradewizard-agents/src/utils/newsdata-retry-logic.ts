@@ -10,9 +10,17 @@
  * - Configurable maximum retry attempts and delay caps
  * - Different retry strategies for different error types
  * - Circuit breaker integration for persistent failures
+ * - Integration with comprehensive error handling framework
+ * 
+ * Requirements: 6.5
  */
 
 import type { AdvancedObservabilityLogger } from './audit-logger.js';
+import type { 
+  NewsDataErrorHandlerManager, 
+  ErrorHandlingResult, 
+  DegradationLevel 
+} from './newsdata-error-handler.js';
 
 // ============================================================================
 // Configuration Types
@@ -59,6 +67,9 @@ export interface RetryResult<T> {
   attempts: number;
   totalDelay: number;
   circuitBreakerTripped?: boolean;
+  degradationLevel?: DegradationLevel;
+  fallbackUsed?: boolean;
+  errorHandlingResult?: ErrorHandlingResult;
 }
 
 export interface RetryMetrics {
@@ -185,13 +196,15 @@ export class NewsDataRetryLogic {
   
   constructor(
     private config: RetryConfig,
-    private observabilityLogger?: AdvancedObservabilityLogger
+    private observabilityLogger?: AdvancedObservabilityLogger,
+    private errorHandler?: NewsDataErrorHandlerManager
   ) {
     console.log('[NewsDataRetryLogic] Initialized with config:', {
       maxAttempts: config.maxAttempts,
       baseDelay: config.baseDelay,
       maxDelay: config.maxDelay,
       circuitBreakerEnabled: config.circuitBreakerEnabled,
+      errorHandlerEnabled: !!errorHandler,
     });
   }
   
@@ -259,11 +272,26 @@ export class NewsDataRetryLogic {
         if (!isRetryable || attempt >= config.maxAttempts) {
           this.recordFailure(endpoint, attempt, totalDelay, lastError);
           
+          // Use error handler if available for final error processing
+          let errorHandlingResult: ErrorHandlingResult | undefined;
+          if (this.errorHandler) {
+            try {
+              errorHandlingResult = await this.errorHandler.handleError(lastError, {
+                endpoint,
+                operation,
+                parameters: { attempt, totalAttempts: config.maxAttempts }
+              });
+            } catch (handlerError) {
+              console.warn('[NewsDataRetryLogic] Error handler failed:', handlerError);
+            }
+          }
+          
           return {
             success: false,
             error: lastError,
             attempts: attempt,
             totalDelay,
+            errorHandlingResult
           };
         }
         
@@ -309,11 +337,26 @@ export class NewsDataRetryLogic {
     // All retries exhausted
     this.recordFailure(endpoint, config.maxAttempts, totalDelay, lastError!);
     
+    // Use error handler if available for final error processing
+    let errorHandlingResult: ErrorHandlingResult | undefined;
+    if (this.errorHandler) {
+      try {
+        errorHandlingResult = await this.errorHandler.handleError(lastError!, {
+          endpoint,
+          operation,
+          parameters: { attempt: config.maxAttempts, totalAttempts: config.maxAttempts }
+        });
+      } catch (handlerError) {
+        console.warn('[NewsDataRetryLogic] Error handler failed:', handlerError);
+      }
+    }
+    
     return {
       success: false,
       error: lastError!,
       attempts: config.maxAttempts,
       totalDelay,
+      errorHandlingResult
     };
   }
   
@@ -649,14 +692,15 @@ export const DEFAULT_RETRY_CONFIG: RetryConfig = {
  */
 export function createNewsDataRetryLogic(
   config?: Partial<RetryConfig>,
-  observabilityLogger?: AdvancedObservabilityLogger
+  observabilityLogger?: AdvancedObservabilityLogger,
+  errorHandler?: NewsDataErrorHandlerManager
 ): NewsDataRetryLogic {
   const mergedConfig: RetryConfig = {
     ...DEFAULT_RETRY_CONFIG,
     ...config,
   };
   
-  return new NewsDataRetryLogic(mergedConfig, observabilityLogger);
+  return new NewsDataRetryLogic(mergedConfig, observabilityLogger, errorHandler);
 }
 
 /**
