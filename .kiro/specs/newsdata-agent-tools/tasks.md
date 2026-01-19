@@ -70,25 +70,25 @@ This implementation plan converts the NewsData.io agent tools design into a seri
   - Property 9: Cache Eviction Policy
   - Validates: Requirements 4.2, 4.3, 4.4, 4.5
 
-- [ ] 4. Implement rate limiting and quota management
-  - [ ] 4.1 Create token bucket rate limiter
+- [x] 4. Implement rate limiting and quota management
+  - [x] 4.1 Create token bucket rate limiter
     - Implement token bucket algorithm with configurable capacity and refill rate
     - Add support for multiple buckets (latest, archive, crypto, market)
     - Implement daily quota tracking and reset logic
     - _Requirements: 5.1, 5.4_
 
-  - [ ] 4.2 Add request coordination and throttling
+  - [x] 4.2 Add request coordination and throttling
     - Implement request throttling when quota limits approached
     - Add coordination logic for concurrent requests from multiple agents
     - Implement fallback to cached data when quota exhausted
     - _Requirements: 5.2, 5.3, 5.5_
 
-  - [ ] 4.3 Implement exponential backoff retry logic
+  - [x] 4.3 Implement exponential backoff retry logic
     - Add retry logic with exponential backoff for rate limit errors
     - Implement jitter to prevent thundering herd problems
     - _Requirements: 5.6_
 
-- [ ] 4.4 Write property tests for rate limiting
+- [x] 4.4 Write property tests for rate limiting
   - Property 10: Rate Limit Tracking
   - Property 11: Rate Limit Throttling
   - Property 12: Quota Reset Behavior
