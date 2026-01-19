@@ -18,32 +18,32 @@ This implementation plan converts the NewsData.io agent tools design into a seri
   - Test HTTP client setup and authentication headers
   - _Requirements: 1.1_
 
-- [ ] 2. Implement core NewsData.io API endpoints
-  - [ ] 2.1 Implement latest news endpoint integration
+- [x] 2. Implement core NewsData.io API endpoints
+  - [x] 2.1 Implement latest news endpoint integration
     - Create fetchLatestNews method with comprehensive parameter support
     - Implement URL construction with all NewsData.io latest endpoint parameters
     - Add request/response type definitions for latest news
     - _Requirements: 1.2, 2.1_
 
-  - [ ] 2.2 Implement archive news endpoint integration
+  - [x] 2.2 Implement archive news endpoint integration
     - Create fetchArchiveNews method with date range support
     - Implement URL construction with all NewsData.io archive endpoint parameters
     - Add request/response type definitions for archive news
     - _Requirements: 1.3, 2.2_
 
-  - [ ] 2.3 Implement crypto news endpoint integration
+  - [x] 2.3 Implement crypto news endpoint integration
     - Create fetchCryptoNews method with coin-specific filtering
     - Implement URL construction with all NewsData.io crypto endpoint parameters
     - Add request/response type definitions for crypto news
     - _Requirements: 1.4, 2.3_
 
-  - [ ] 2.4 Implement market news endpoint integration
+  - [x] 2.4 Implement market news endpoint integration
     - Create fetchMarketNews method with symbol and organization filtering
     - Implement URL construction with all NewsData.io market endpoint parameters
     - Add request/response type definitions for market news
     - _Requirements: 1.5, 2.4_
 
-- [ ] 2.5 Write property tests for endpoint routing
+- [x] 2.5 Write property tests for endpoint routing
   - Property 1: Endpoint Routing Correctness
   - Validates: Requirements 1.2, 1.3, 1.4, 1.5
 
