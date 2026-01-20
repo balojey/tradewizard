@@ -622,10 +622,27 @@ export class DataIntegrationLayer {
 
 /**
  * Create a data integration layer instance
+ * 
+ * Automatically detects if migration should be enabled based on environment variables.
+ * If NEWS_MIGRATION_ENABLED=true, returns MigrationAwareDataIntegrationLayer.
+ * Otherwise, returns standard DataIntegrationLayer for backward compatibility.
  */
 export function createDataIntegrationLayer(
   config: DataSourceConfig,
   observabilityLogger?: AdvancedObservabilityLogger
 ): DataIntegrationLayer {
+  // Check if migration is enabled
+  if (process.env.NEWS_MIGRATION_ENABLED === 'true') {
+    // Import migration-aware layer dynamically to avoid circular dependencies
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { createDataIntegrationLayer: createMigrationLayer } = require('./data-integration-migration.js');
+      return createMigrationLayer(config, observabilityLogger);
+    } catch (error) {
+      console.warn('[DataIntegrationLayer] Migration layer not available, using standard layer:', error);
+      return new DataIntegrationLayer(config, observabilityLogger);
+    }
+  }
+  
   return new DataIntegrationLayer(config, observabilityLogger);
 }

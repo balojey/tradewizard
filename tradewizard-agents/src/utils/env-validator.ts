@@ -32,6 +32,18 @@ const MonitorEnvSchema = z.object({
   ANTHROPIC_DEFAULT_MODEL: z.string().optional(),
   GOOGLE_DEFAULT_MODEL: z.string().optional(),
   
+  // News API Configuration
+  NEWS_API_PROVIDER: z.enum(['newsapi', 'newsdata']).optional(),
+  NEWS_API_KEY: z.string().optional(),
+  NEWSDATA_API_KEY: z.string().optional(),
+  NEWSDATA_ENABLED: z.string().optional(),
+  
+  // News Migration Configuration
+  NEWS_MIGRATION_ENABLED: z.string().optional(),
+  NEWS_MIGRATION_STRATEGY: z.enum(['newsapi-only', 'newsdata-only', 'dual-provider', 'gradual-migration']).optional(),
+  NEWS_MIGRATION_PERCENTAGE: z.string().regex(/^\d+$/, 'NEWS_MIGRATION_PERCENTAGE must be a number').optional(),
+  NEWS_MIGRATION_FALLBACK_ENABLED: z.string().optional(),
+  
   // Monitor Configuration (REQUIRED)
   ANALYSIS_INTERVAL_HOURS: z.string().regex(/^\d+$/, 'ANALYSIS_INTERVAL_HOURS must be a number'),
   UPDATE_INTERVAL_HOURS: z.string().regex(/^\d+$/, 'UPDATE_INTERVAL_HOURS must be a number'),
@@ -71,6 +83,45 @@ const MonitorEnvSchema = z.object({
   {
     message: 'When LLM_SINGLE_PROVIDER is set, the corresponding API key must be configured',
   }
+).refine(
+  (data) => {
+    // If migration is enabled, validate migration configuration
+    if (data.NEWS_MIGRATION_ENABLED === 'true') {
+      // Migration strategy must be set
+      if (!data.NEWS_MIGRATION_STRATEGY) {
+        return false;
+      }
+      
+      // If using NewsData.io, API key must be provided
+      if ((data.NEWS_MIGRATION_STRATEGY === 'newsdata-only' || 
+           data.NEWS_MIGRATION_STRATEGY === 'dual-provider' || 
+           data.NEWS_MIGRATION_STRATEGY === 'gradual-migration') && 
+          !data.NEWSDATA_API_KEY) {
+        return false;
+      }
+      
+      // If using NewsAPI, API key must be provided
+      if ((data.NEWS_MIGRATION_STRATEGY === 'newsapi-only' || 
+           data.NEWS_MIGRATION_STRATEGY === 'dual-provider' || 
+           data.NEWS_MIGRATION_STRATEGY === 'gradual-migration') && 
+          !data.NEWS_API_KEY) {
+        return false;
+      }
+      
+      // Migration percentage must be valid
+      if (data.NEWS_MIGRATION_PERCENTAGE) {
+        const percentage = parseInt(data.NEWS_MIGRATION_PERCENTAGE, 10);
+        if (percentage < 0 || percentage > 100) {
+          return false;
+        }
+      }
+    }
+    
+    return true;
+  },
+  {
+    message: 'Invalid news migration configuration - check API keys and migration settings',
+  }
 );
 
 export type MonitorEnv = z.infer<typeof MonitorEnvSchema>;
@@ -109,6 +160,27 @@ export function validateMonitorEnv(): ValidationResult {
     
     if (!env.NODE_ENV) {
       warnings.push('NODE_ENV not set - defaulting to development mode');
+    }
+    
+    // News API configuration warnings
+    if (!env.NEWS_API_KEY && !env.NEWSDATA_API_KEY) {
+      warnings.push('No news API keys configured - news data will not be available');
+    }
+    
+    if (env.NEWS_MIGRATION_ENABLED === 'true') {
+      if (!env.NEWS_MIGRATION_STRATEGY) {
+        warnings.push('NEWS_MIGRATION_ENABLED is true but NEWS_MIGRATION_STRATEGY not set');
+      }
+      
+      if (env.NEWS_MIGRATION_STRATEGY === 'gradual-migration' && !env.NEWS_MIGRATION_PERCENTAGE) {
+        warnings.push('Gradual migration enabled but NEWS_MIGRATION_PERCENTAGE not set - defaulting to 0%');
+      }
+    } else if (env.NEWSDATA_API_KEY && !env.NEWS_API_KEY) {
+      warnings.push('NewsData.io API key configured but migration not enabled - consider enabling migration');
+    }
+    
+    if (env.NEWSDATA_ENABLED === 'true' && !env.NEWSDATA_API_KEY) {
+      warnings.push('NEWSDATA_ENABLED is true but NEWSDATA_API_KEY not set');
     }
     
     // Check if multiple LLM providers are configured (recommended for better quality)

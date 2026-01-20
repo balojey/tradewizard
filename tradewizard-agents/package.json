@@ -30,6 +30,7 @@
     "migrate": "tsx src/database/migrate.ts run",
     "migrate:status": "tsx src/database/migrate.ts status",
     "migrate:build": "npm run build && node dist/database/migrate.js run",
+    "migrate-news": "tsx scripts/migrate-news-api.ts",
     "docker:build": "docker build -t tradewizard-monitor .",
     "docker:run": "docker-compose up -d",
     "docker:stop": "docker-compose down",
