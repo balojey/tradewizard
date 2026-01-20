@@ -1,886 +1,842 @@
 /**
- * NewsData.io Error Handling Framework
+ * NewsData.io Error Handler
  * 
- * Implements comprehensive error categorization and handling strategies
- * for NewsData.io API integration with graceful degradation.
- * 
- * Features:
- * - Error categorization (API, network, data, system errors)
- * - Error handler classes for each error type
- * - Graceful degradation strategies
- * - Fallback mechanisms with cached data
- * - Structured error responses
- * 
- * Requirements: 1.6, 6.6
+ * Provides comprehensive error handling with detailed context logging,
+ * circuit breaker state change logging, and quota exhaustion alerts.
  */
 
-import type { AdvancedObservabilityLogger } from './audit-logger.js';
-import type { NewsDataCacheManager } from './newsdata-cache-manager.js';
-import type { NewsDataResponse, NewsDataArticle } from './newsdata-client.js';
-import { getLogger } from './logger.js';
+import type { NewsDataObservabilityLogger } from './newsdata-observability-logger.js';
+import { getNewsDataObservabilityLogger } from './newsdata-observability-logger.js';
+import type { MonitorLogger } from './logger.js';
+import { getMonitorLogger } from './logger.js';
 
 // ============================================================================
-// Error Classification Types
+// Error Types and Interfaces
 // ============================================================================
 
-export enum ErrorCategory {
-  API = 'api',
-  NETWORK = 'network',
-  DATA = 'data',
-  SYSTEM = 'system',
-  VALIDATION = 'validation',
-  AUTHENTICATION = 'authentication',
-  RATE_LIMIT = 'rate_limit',
-  QUOTA = 'quota'
-}
-
-export enum ErrorSeverity {
-  LOW = 'low',
-  MEDIUM = 'medium',
-  HIGH = 'high',
-  CRITICAL = 'critical'
-}
-
-export interface ErrorContext {
-  timestamp: number;
-  endpoint?: string;
-  operation?: string;
+/**
+ * Enhanced error context for detailed logging
+ */
+export interface EnhancedErrorContext {
   requestId?: string;
-  userId?: string;
+  endpoint?: 'latest' | 'archive' | 'crypto' | 'market' | 'sources';
+  agentName?: string;
   parameters?: Record<string, any>;
-  stackTrace?: string;
-  additionalInfo?: Record<string, any>;
-}
-
-export interface ErrorHandlingResult {
-  success: boolean;
-  data?: NewsDataResponse;
-  error?: ProcessedError;
-  fallbackUsed: boolean;
-  degradationLevel: DegradationLevel;
-  retryable: boolean;
-  retryAfter?: number;
-}
-
-export enum DegradationLevel {
-  NONE = 'none',           // Full functionality
-  PARTIAL = 'partial',     // Some features disabled
-  CACHED_ONLY = 'cached_only', // Only cached data available
-  MINIMAL = 'minimal',     // Basic functionality only
-  UNAVAILABLE = 'unavailable'  // Service unavailable
-}
-
-// ============================================================================
-// Base Error Classes
-// ============================================================================
-
-export abstract class NewsDataBaseError extends Error {
-  public readonly category: ErrorCategory;
-  public readonly severity: ErrorSeverity;
-  public readonly context: ErrorContext;
-  public readonly retryable: boolean;
-  public readonly degradationLevel: DegradationLevel;
-
-  constructor(
-    message: string,
-    category: ErrorCategory,
-    severity: ErrorSeverity,
-    retryable: boolean = false,
-    degradationLevel: DegradationLevel = DegradationLevel.UNAVAILABLE,
-    context: Partial<ErrorContext> = {}
-  ) {
-    super(message);
-    this.name = this.constructor.name;
-    this.category = category;
-    this.severity = severity;
-    this.retryable = retryable;
-    this.degradationLevel = degradationLevel;
-    this.context = {
-      timestamp: Date.now(),
-      ...context
-    };
-  }
-
-  abstract getRecoveryStrategy(): RecoveryStrategy;
-  abstract shouldUseFallback(): boolean;
-}
-
-export interface RecoveryStrategy {
-  type: 'retry' | 'fallback' | 'degrade' | 'fail';
-  retryAfter?: number;
-  fallbackOptions?: string[];
-  degradationLevel?: DegradationLevel;
+  url?: string;
+  httpStatus?: number;
+  apiErrorCode?: string;
+  retryAttempt?: number;
   maxRetries?: number;
+  fallbackUsed?: boolean;
+  circuitBreakerState?: 'closed' | 'open' | 'half_open';
+  quotaInfo?: {
+    dailyUsed: number;
+    dailyLimit: number;
+    rateLimitUsed: number;
+    rateLimitLimit: number;
+  };
+  cacheInfo?: {
+    cacheKey?: string;
+    cacheHit?: boolean;
+    cacheStale?: boolean;
+  };
+  performanceInfo?: {
+    responseTime?: number;
+    requestStartTime?: number;
+  };
+  additionalContext?: Record<string, any>;
+}
+
+/**
+ * Alert configuration for different error types
+ */
+export interface AlertConfiguration {
+  enabled: boolean;
+  severity: 'info' | 'warning' | 'error' | 'critical';
+  threshold?: number;
+  timeWindow?: number; // seconds
+  actionRequired: boolean;
+  notificationChannels?: string[];
+  escalationRules?: {
+    escalateAfter: number; // seconds
+    escalateTo: 'warning' | 'error' | 'critical';
+  };
+}
+
+/**
+ * Error handling configuration
+ */
+export interface ErrorHandlingConfig {
+  alerts: {
+    quotaExhaustion: AlertConfiguration;
+    rateLimitExceeded: AlertConfiguration;
+    highErrorRate: AlertConfiguration;
+    circuitBreakerOpen: AlertConfiguration;
+    apiKeyInvalid: AlertConfiguration;
+    serverErrors: AlertConfiguration;
+    networkErrors: AlertConfiguration;
+    validationErrors: AlertConfiguration;
+  };
+  errorTracking: {
+    maxErrorHistory: number;
+    errorAggregationWindow: number; // seconds
+    enableStackTraces: boolean;
+    sanitizeParameters: boolean;
+  };
+  circuitBreaker: {
+    logStateChanges: boolean;
+    alertOnOpen: boolean;
+    alertOnHalfOpen: boolean;
+    alertOnClose: boolean;
+  };
+}
+
+/**
+ * Default error handling configuration
+ */
+export const DEFAULT_ERROR_HANDLING_CONFIG: ErrorHandlingConfig = {
+  alerts: {
+    quotaExhaustion: {
+      enabled: true,
+      severity: 'critical',
+      threshold: 95, // 95% quota utilization
+      timeWindow: 300, // 5 minutes
+      actionRequired: true,
+      escalationRules: {
+        escalateAfter: 300, // 5 minutes
+        escalateTo: 'critical',
+      },
+    },
+    rateLimitExceeded: {
+      enabled: true,
+      severity: 'error',
+      threshold: 90, // 90% rate limit utilization
+      timeWindow: 900, // 15 minutes
+      actionRequired: true,
+    },
+    highErrorRate: {
+      enabled: true,
+      severity: 'warning',
+      threshold: 20, // 20% error rate
+      timeWindow: 600, // 10 minutes
+      actionRequired: false,
+      escalationRules: {
+        escalateAfter: 1800, // 30 minutes
+        escalateTo: 'error',
+      },
+    },
+    circuitBreakerOpen: {
+      enabled: true,
+      severity: 'error',
+      actionRequired: true,
+    },
+    apiKeyInvalid: {
+      enabled: true,
+      severity: 'critical',
+      actionRequired: true,
+    },
+    serverErrors: {
+      enabled: true,
+      severity: 'error',
+      threshold: 5, // 5 server errors
+      timeWindow: 300, // 5 minutes
+      actionRequired: false,
+    },
+    networkErrors: {
+      enabled: true,
+      severity: 'warning',
+      threshold: 10, // 10 network errors
+      timeWindow: 600, // 10 minutes
+      actionRequired: false,
+    },
+    validationErrors: {
+      enabled: true,
+      severity: 'info',
+      threshold: 20, // 20 validation errors
+      timeWindow: 3600, // 1 hour
+      actionRequired: false,
+    },
+  },
+  errorTracking: {
+    maxErrorHistory: 1000,
+    errorAggregationWindow: 300, // 5 minutes
+    enableStackTraces: true,
+    sanitizeParameters: true,
+  },
+  circuitBreaker: {
+    logStateChanges: true,
+    alertOnOpen: true,
+    alertOnHalfOpen: false,
+    alertOnClose: true,
+  },
+};
+
+// ============================================================================
+// Error Statistics Tracking
+// ============================================================================
+
+/**
+ * Error statistics for tracking patterns
+ */
+export interface ErrorStatistics {
+  totalErrors: number;
+  errorsByType: Map<string, number>;
+  errorsByEndpoint: Map<string, number>;
+  errorsByAgent: Map<string, number>;
+  errorsByTimeWindow: Array<{ timestamp: number; count: number }>;
+  recentErrors: Array<{
+    timestamp: number;
+    type: string;
+    endpoint?: string;
+    agentName?: string;
+    message: string;
+  }>;
 }
 
 // ============================================================================
-// Specific Error Classes
+// NewsData Error Handler Class
 // ============================================================================
 
-export class NewsDataApiError extends NewsDataBaseError {
+/**
+ * Comprehensive error handler for NewsData.io operations
+ */
+export class NewsDataErrorHandler {
+  private config: ErrorHandlingConfig;
+  private newsDataLogger: NewsDataObservabilityLogger;
+  private logger: MonitorLogger;
+  private errorStatistics: ErrorStatistics;
+  private alertHistory: Map<string, number> = new Map(); // alertType -> lastAlertTime
+
   constructor(
-    message: string,
-    public statusCode: number,
-    public apiCode?: string,
-    context: Partial<ErrorContext> = {}
+    config: Partial<ErrorHandlingConfig> = {},
+    newsDataLogger?: NewsDataObservabilityLogger,
+    logger?: MonitorLogger
   ) {
-    const severity = NewsDataApiError.determineSeverity(statusCode);
-    const retryable = NewsDataApiError.isRetryable(statusCode);
-    const degradationLevel = NewsDataApiError.getDegradationLevel(statusCode);
+    this.config = this.mergeConfig(DEFAULT_ERROR_HANDLING_CONFIG, config);
+    this.newsDataLogger = newsDataLogger || getNewsDataObservabilityLogger();
+    this.logger = logger || getMonitorLogger();
+    
+    this.errorStatistics = {
+      totalErrors: 0,
+      errorsByType: new Map(),
+      errorsByEndpoint: new Map(),
+      errorsByAgent: new Map(),
+      errorsByTimeWindow: [],
+      recentErrors: [],
+    };
 
-    super(message, ErrorCategory.API, severity, retryable, degradationLevel, context);
+    this.logger.logConfig('NewsData error handler initialized', {
+      alertsEnabled: Object.values(this.config.alerts).filter(a => a.enabled).length,
+      errorTrackingEnabled: true,
+      circuitBreakerLoggingEnabled: this.config.circuitBreaker.logStateChanges,
+    });
   }
 
-  static determineSeverity(statusCode: number): ErrorSeverity {
-    if (statusCode >= 500) return ErrorSeverity.HIGH;
-    if (statusCode === 429) return ErrorSeverity.MEDIUM;
-    if (statusCode >= 400) return ErrorSeverity.LOW;
-    return ErrorSeverity.LOW;
-  }
-
-  static isRetryable(statusCode: number): boolean {
-    // Retry on server errors and rate limits
-    return statusCode >= 500 || statusCode === 429;
-  }
-
-  static getDegradationLevel(statusCode: number): DegradationLevel {
-    switch (statusCode) {
-      case 429: return DegradationLevel.CACHED_ONLY;
-      case 500:
-      case 502:
-      case 503:
-      case 504: return DegradationLevel.PARTIAL;
-      case 401:
-      case 403: return DegradationLevel.UNAVAILABLE;
-      default: return DegradationLevel.MINIMAL;
-    }
-  }
-
-  getRecoveryStrategy(): RecoveryStrategy {
-    switch (this.statusCode) {
-      case 429:
-        return {
-          type: 'fallback',
-          fallbackOptions: ['cached_data', 'stale_data'],
-          degradationLevel: DegradationLevel.CACHED_ONLY,
-          retryAfter: 60000 // 1 minute
-        };
-      case 500:
-      case 502:
-      case 503:
-      case 504:
-        return {
-          type: 'retry',
-          maxRetries: 3,
-          retryAfter: 5000,
-          degradationLevel: DegradationLevel.PARTIAL
-        };
-      case 401:
-      case 403:
-        return {
-          type: 'fail',
-          degradationLevel: DegradationLevel.UNAVAILABLE
-        };
-      default:
-        return {
-          type: 'degrade',
-          degradationLevel: DegradationLevel.MINIMAL
-        };
-    }
-  }
-
-  shouldUseFallback(): boolean {
-    return this.statusCode === 429 || this.statusCode >= 500;
-  }
-}
-
-export class NewsDataNetworkError extends NewsDataBaseError {
-  constructor(
-    message: string,
-    public networkCode?: string,
-    context: Partial<ErrorContext> = {}
-  ) {
-    super(
-      message,
-      ErrorCategory.NETWORK,
-      ErrorSeverity.MEDIUM,
-      true, // Network errors are generally retryable
-      DegradationLevel.CACHED_ONLY,
-      context
-    );
-  }
-
-  getRecoveryStrategy(): RecoveryStrategy {
+  /**
+   * Merge configuration with defaults
+   */
+  private mergeConfig(
+    defaultConfig: ErrorHandlingConfig, 
+    userConfig: Partial<ErrorHandlingConfig>
+  ): ErrorHandlingConfig {
     return {
-      type: 'retry',
-      maxRetries: 3,
-      retryAfter: 2000,
-      fallbackOptions: ['cached_data', 'stale_data'],
-      degradationLevel: DegradationLevel.CACHED_ONLY
+      alerts: { ...defaultConfig.alerts, ...userConfig.alerts },
+      errorTracking: { ...defaultConfig.errorTracking, ...userConfig.errorTracking },
+      circuitBreaker: { ...defaultConfig.circuitBreaker, ...userConfig.circuitBreaker },
     };
   }
 
-  shouldUseFallback(): boolean {
-    return true;
-  }
-}
+  // ============================================================================
+  // Error Handling Methods
+  // ============================================================================
 
-export class NewsDataValidationError extends NewsDataBaseError {
-  constructor(
-    message: string,
-    public validationErrors: string[],
-    context: Partial<ErrorContext> = {}
-  ) {
-    super(
-      message,
-      ErrorCategory.VALIDATION,
-      ErrorSeverity.LOW,
-      false, // Validation errors are not retryable
-      DegradationLevel.NONE,
-      context
-    );
-  }
-
-  getRecoveryStrategy(): RecoveryStrategy {
-    return {
-      type: 'fail',
-      degradationLevel: DegradationLevel.NONE
-    };
-  }
-
-  shouldUseFallback(): boolean {
-    return false;
-  }
-}
-
-export class NewsDataSystemError extends NewsDataBaseError {
-  constructor(
-    message: string,
-    public systemComponent: string,
-    context: Partial<ErrorContext> = {}
-  ) {
-    super(
-      message,
-      ErrorCategory.SYSTEM,
-      ErrorSeverity.HIGH,
-      true,
-      DegradationLevel.PARTIAL,
-      context
-    );
-  }
-
-  getRecoveryStrategy(): RecoveryStrategy {
-    return {
-      type: 'fallback',
-      fallbackOptions: ['cached_data', 'stale_data', 'minimal_service'],
-      degradationLevel: DegradationLevel.PARTIAL,
-      retryAfter: 30000 // 30 seconds
-    };
-  }
-
-  shouldUseFallback(): boolean {
-    return true;
-  }
-}
-
-export class NewsDataDataError extends NewsDataBaseError {
-  constructor(
-    message: string,
-    public validArticles: NewsDataArticle[],
-    public invalidCount: number,
-    context: Partial<ErrorContext> = {}
-  ) {
-    super(
-      message,
-      ErrorCategory.DATA,
-      ErrorSeverity.LOW,
-      false,
-      DegradationLevel.PARTIAL,
-      context
-    );
-  }
-
-  getRecoveryStrategy(): RecoveryStrategy {
-    return {
-      type: 'degrade',
-      degradationLevel: DegradationLevel.PARTIAL
-    };
-  }
-
-  shouldUseFallback(): boolean {
-    return false; // We have valid data to return
-  }
-}
-
-export class NewsDataRateLimitError extends NewsDataBaseError {
-  constructor(
-    message: string,
-    public retryAfterSeconds?: number,
-    context: Partial<ErrorContext> = {}
-  ) {
-    super(
-      message,
-      ErrorCategory.RATE_LIMIT,
-      ErrorSeverity.MEDIUM,
-      true,
-      DegradationLevel.CACHED_ONLY,
-      context
-    );
-  }
-
-  getRecoveryStrategy(): RecoveryStrategy {
-    return {
-      type: 'fallback',
-      fallbackOptions: ['cached_data', 'stale_data'],
-      degradationLevel: DegradationLevel.CACHED_ONLY,
-      retryAfter: (this.retryAfterSeconds || 60) * 1000
-    };
-  }
-
-  shouldUseFallback(): boolean {
-    return true;
-  }
-}
-
-export class NewsDataQuotaError extends NewsDataBaseError {
-  constructor(
-    message: string,
-    public quotaType: 'daily' | 'monthly',
-    public resetTime?: number,
-    context: Partial<ErrorContext> = {}
-  ) {
-    super(
-      message,
-      ErrorCategory.QUOTA,
-      ErrorSeverity.HIGH,
-      false, // Don't retry quota errors
-      DegradationLevel.CACHED_ONLY,
-      context
-    );
-  }
-
-  getRecoveryStrategy(): RecoveryStrategy {
-    return {
-      type: 'fallback',
-      fallbackOptions: ['cached_data', 'stale_data'],
-      degradationLevel: DegradationLevel.CACHED_ONLY,
-      retryAfter: this.resetTime ? this.resetTime - Date.now() : 24 * 60 * 60 * 1000 // 24 hours default
-    };
-  }
-
-  shouldUseFallback(): boolean {
-    return true;
-  }
-}
-
-// ============================================================================
-// Processed Error Interface
-// ============================================================================
-
-export interface ProcessedError {
-  category: ErrorCategory;
-  severity: ErrorSeverity;
-  message: string;
-  code?: string;
-  retryable: boolean;
-  retryAfter?: number;
-  degradationLevel: DegradationLevel;
-  context: ErrorContext;
-  recoveryStrategy: RecoveryStrategy;
-  originalError?: Error;
-}
-
-// ============================================================================
-// Error Handler Interface
-// ============================================================================
-
-export interface ErrorHandler {
-  canHandle(error: Error): boolean;
-  handle(error: Error, context: Partial<ErrorContext>): Promise<ErrorHandlingResult>;
-  getPriority(): number;
-}
-
-// ============================================================================
-// Specific Error Handlers
-// ============================================================================
-
-export class ApiErrorHandler implements ErrorHandler {
-  constructor(
-    private cacheManager?: NewsDataCacheManager,
-    private observabilityLogger?: AdvancedObservabilityLogger
-  ) {}
-
-  canHandle(error: Error): boolean {
-    return error instanceof NewsDataApiError || 
-           error.message.includes('HTTP') ||
-           /\b[45]\d{2}\b/.test(error.message); // HTTP 4xx or 5xx status codes
-  }
-
-  async handle(error: Error, context: Partial<ErrorContext> = {}): Promise<ErrorHandlingResult> {
-    let apiError: NewsDataApiError;
-
-    if (error instanceof NewsDataApiError) {
-      apiError = error;
-    } else {
-      // Parse HTTP error from message
-      const statusMatch = error.message.match(/HTTP (\d{3})/);
-      const statusCode = statusMatch ? parseInt(statusMatch[1]) : 500;
-      apiError = new NewsDataApiError(error.message, statusCode, undefined, context);
-    }
-
-    this.observabilityLogger?.logDataFetch({
+  /**
+   * Handle API errors with comprehensive logging and alerting
+   */
+  async handleApiError(
+    error: Error, 
+    context: EnhancedErrorContext
+  ): Promise<void> {
+    const errorType = this.categorizeError(error, context);
+    const impactLevel = this.assessImpactLevel(error, context);
+    
+    // Update error statistics
+    this.updateErrorStatistics(errorType, context);
+    
+    // Log error with detailed context
+    this.newsDataLogger.logError({
       timestamp: Date.now(),
-      source: 'news',
-      provider: 'newsdata.io',
-      success: false,
-      cached: false,
-      stale: false,
-      freshness: 0,
-      itemCount: 0,
-      error: `API Error ${apiError.statusCode}: ${apiError.message}`,
-      duration: 0,
+      requestId: context.requestId,
+      endpoint: context.endpoint,
+      agentName: context.agentName,
+      errorType,
+      errorCode: this.extractErrorCode(error, context),
+      errorMessage: error.message,
+      errorDetails: this.buildErrorDetails(error, context),
+      stackTrace: this.config.errorTracking.enableStackTraces ? error.stack : undefined,
+      retryAttempt: context.retryAttempt,
+      maxRetries: context.maxRetries,
+      fallbackUsed: context.fallbackUsed || false,
+      impactLevel,
     });
 
-    // Try fallback if appropriate
-    if (apiError.shouldUseFallback() && this.cacheManager && context.endpoint) {
-      const fallbackData = await this.tryFallback(context.endpoint, context.parameters);
-      if (fallbackData) {
-        return {
-          success: true,
-          data: fallbackData,
-          fallbackUsed: true,
-          degradationLevel: apiError.degradationLevel,
-          retryable: apiError.retryable,
-          retryAfter: apiError.getRecoveryStrategy().retryAfter
-        };
-      }
-    }
+    // Check for alert conditions
+    await this.checkAndTriggerAlerts(errorType, error, context);
 
-    return {
-      success: false,
-      error: this.processError(apiError),
-      fallbackUsed: false,
-      degradationLevel: apiError.degradationLevel,
-      retryable: apiError.retryable,
-      retryAfter: apiError.getRecoveryStrategy().retryAfter
-    };
+    // Log to structured logger
+    this.logger.logError('NewsData API error', {
+      errorType,
+      errorCode: this.extractErrorCode(error, context),
+      endpoint: context.endpoint,
+      agentName: context.agentName,
+      httpStatus: context.httpStatus,
+      retryAttempt: context.retryAttempt,
+      fallbackUsed: context.fallbackUsed,
+      impactLevel,
+      error,
+    });
   }
 
-  private async tryFallback(endpoint: string, parameters?: Record<string, any>): Promise<NewsDataResponse | null> {
-    if (!this.cacheManager) return null;
+  /**
+   * Handle quota exhaustion with immediate alerting
+   */
+  async handleQuotaExhaustion(
+    quotaInfo: {
+      dailyUsed: number;
+      dailyLimit: number;
+      utilizationPercentage: number;
+    },
+    context: EnhancedErrorContext
+  ): Promise<void> {
+    const alertConfig = this.config.alerts.quotaExhaustion;
+    
+    if (!alertConfig.enabled) return;
 
-    try {
-      const cacheKey = this.cacheManager.generateCacheKey(endpoint, parameters || {});
-      const cachedData = await this.cacheManager.get(cacheKey);
-      
-      if (cachedData && cachedData.data) {
-        this.observabilityLogger?.logDataFetch({
-          timestamp: Date.now(),
-          source: 'news',
-          provider: 'newsdata.io',
-          success: true,
-          cached: true,
-          stale: cachedData.isStale,
-          freshness: Date.now() - cachedData.timestamp,
-          itemCount: (cachedData.data as NewsDataResponse)?.results?.length || 0,
-          duration: 0,
-        });
-
-        return cachedData.data as NewsDataResponse;
-      }
-    } catch (fallbackError) {
-      console.warn('[ApiErrorHandler] Fallback failed:', fallbackError);
-    }
-
-    return null;
-  }
-
-  private processError(error: NewsDataApiError): ProcessedError {
-    return {
-      category: error.category,
-      severity: error.severity,
-      message: error.message,
-      code: error.apiCode,
-      retryable: error.retryable,
-      retryAfter: error.getRecoveryStrategy().retryAfter,
-      degradationLevel: error.degradationLevel,
-      context: error.context,
-      recoveryStrategy: error.getRecoveryStrategy(),
-      originalError: error
-    };
-  }
-
-  getPriority(): number {
-    return 1; // High priority for API errors
-  }
-}
-
-export class NetworkErrorHandler implements ErrorHandler {
-  constructor(
-    private cacheManager?: NewsDataCacheManager,
-    private observabilityLogger?: AdvancedObservabilityLogger
-  ) {}
-
-  canHandle(error: Error): boolean {
-    const message = error.message.toLowerCase();
-    return message.includes('network') ||
-           message.includes('timeout') ||
-           message.includes('econnreset') ||
-           message.includes('enotfound') ||
-           message.includes('etimedout') ||
-           message.includes('connection') ||
-           message.includes('fetch failed');
-  }
-
-  async handle(error: Error, context: Partial<ErrorContext> = {}): Promise<ErrorHandlingResult> {
-    const networkError = new NewsDataNetworkError(error.message, undefined, context);
-
-    this.observabilityLogger?.logDataFetch({
+    // Log quota usage
+    this.newsDataLogger.logQuotaUsage({
       timestamp: Date.now(),
-      source: 'news',
-      provider: 'newsdata.io',
-      success: false,
-      cached: false,
-      stale: false,
-      freshness: 0,
-      itemCount: 0,
-      error: `Network Error: ${networkError.message}`,
-      duration: 0,
+      dailyQuotaLimit: quotaInfo.dailyLimit,
+      dailyQuotaUsed: quotaInfo.dailyUsed,
+      dailyQuotaRemaining: quotaInfo.dailyLimit - quotaInfo.dailyUsed,
+      quotaUtilization: quotaInfo.utilizationPercentage,
+      rateLimitWindow: 15 * 60 * 1000, // 15 minutes
+      rateLimitUsed: context.quotaInfo?.rateLimitUsed || 0,
+      rateLimitRemaining: context.quotaInfo?.rateLimitLimit || 0,
+      rateLimitUtilization: context.quotaInfo ? 
+        (context.quotaInfo.rateLimitUsed / context.quotaInfo.rateLimitLimit) * 100 : 0,
+      estimatedTimeToReset: this.calculateTimeToQuotaReset(),
     });
 
-    // Always try fallback for network errors
-    if (this.cacheManager && context.endpoint) {
-      const fallbackData = await this.tryFallback(context.endpoint, context.parameters);
-      if (fallbackData) {
-        return {
-          success: true,
-          data: fallbackData,
-          fallbackUsed: true,
-          degradationLevel: networkError.degradationLevel,
-          retryable: networkError.retryable,
-          retryAfter: networkError.getRecoveryStrategy().retryAfter
-        };
-      }
-    }
-
-    return {
-      success: false,
-      error: this.processError(networkError),
-      fallbackUsed: false,
-      degradationLevel: networkError.degradationLevel,
-      retryable: networkError.retryable,
-      retryAfter: networkError.getRecoveryStrategy().retryAfter
-    };
-  }
-
-  private async tryFallback(endpoint: string, parameters?: Record<string, any>): Promise<NewsDataResponse | null> {
-    if (!this.cacheManager) return null;
-
-    try {
-      const cacheKey = this.cacheManager.generateCacheKey(endpoint, parameters || {});
-      const cachedData = await this.cacheManager.get(cacheKey);
-      
-      if (cachedData && cachedData.data) {
-        this.observabilityLogger?.logDataFetch({
-          timestamp: Date.now(),
-          source: 'news',
-          provider: 'newsdata.io',
-          success: true,
-          cached: true,
-          stale: cachedData.isStale,
-          freshness: Date.now() - cachedData.timestamp,
-          itemCount: (cachedData.data as NewsDataResponse)?.results?.length || 0,
-          duration: 0,
-        });
-
-        return cachedData.data as NewsDataResponse;
-      }
-    } catch (fallbackError) {
-      console.warn('[NetworkErrorHandler] Fallback failed:', fallbackError);
-    }
-
-    return null;
-  }
-
-  private processError(error: NewsDataNetworkError): ProcessedError {
-    return {
-      category: error.category,
-      severity: error.severity,
-      message: error.message,
-      retryable: error.retryable,
-      retryAfter: error.getRecoveryStrategy().retryAfter,
-      degradationLevel: error.degradationLevel,
-      context: error.context,
-      recoveryStrategy: error.getRecoveryStrategy(),
-      originalError: error
-    };
-  }
-
-  getPriority(): number {
-    return 2; // Medium priority for network errors
-  }
-}
-
-export class DataErrorHandler implements ErrorHandler {
-  constructor(
-    private observabilityLogger?: AdvancedObservabilityLogger
-  ) {}
-
-  canHandle(error: Error): boolean {
-    return error instanceof NewsDataDataError ||
-           error.message.includes('validation') ||
-           error.message.includes('invalid data') ||
-           error.message.includes('malformed');
-  }
-
-  async handle(error: Error, context: Partial<ErrorContext> = {}): Promise<ErrorHandlingResult> {
-    let dataError: NewsDataDataError;
-
-    if (error instanceof NewsDataDataError) {
-      dataError = error;
-    } else {
-      // Create a data error with empty valid articles
-      dataError = new NewsDataDataError(error.message, [], 0, context);
-    }
-
-    this.observabilityLogger?.logDataFetch({
-      timestamp: Date.now(),
-      source: 'news',
-      provider: 'newsdata.io',
-      success: dataError.validArticles.length > 0,
-      cached: false,
-      stale: false,
-      freshness: 0,
-      itemCount: dataError.validArticles.length,
-      error: `Data Error: ${dataError.message} (${dataError.invalidCount} invalid articles)`,
-      duration: 0,
-    });
-
-    // If we have valid articles, return partial success
-    if (dataError.validArticles.length > 0) {
-      return {
-        success: true,
-        data: {
-          status: 'success',
-          totalResults: dataError.validArticles.length,
-          results: dataError.validArticles
+    // Check if alert threshold is met
+    if (quotaInfo.utilizationPercentage >= (alertConfig.threshold || 95)) {
+      await this.triggerAlert('quotaExhaustion', {
+        message: `Daily quota utilization is ${quotaInfo.utilizationPercentage.toFixed(1)}%`,
+        severity: quotaInfo.utilizationPercentage >= 98 ? 'critical' : alertConfig.severity,
+        details: {
+          dailyUsed: quotaInfo.dailyUsed,
+          dailyLimit: quotaInfo.dailyLimit,
+          utilizationPercentage: quotaInfo.utilizationPercentage,
+          estimatedTimeToReset: this.calculateTimeToQuotaReset(),
+          endpoint: context.endpoint,
+          agentName: context.agentName,
         },
-        fallbackUsed: false,
-        degradationLevel: dataError.degradationLevel,
-        retryable: dataError.retryable
-      };
+        actionRequired: quotaInfo.utilizationPercentage >= 98,
+      });
     }
-
-    return {
-      success: false,
-      error: this.processError(dataError),
-      fallbackUsed: false,
-      degradationLevel: dataError.degradationLevel,
-      retryable: dataError.retryable
-    };
   }
 
-  private processError(error: NewsDataDataError): ProcessedError {
-    return {
-      category: error.category,
-      severity: error.severity,
-      message: error.message,
-      retryable: error.retryable,
-      degradationLevel: error.degradationLevel,
-      context: error.context,
-      recoveryStrategy: error.getRecoveryStrategy(),
-      originalError: error
-    };
-  }
-
-  getPriority(): number {
-    return 3; // Lower priority for data errors
-  }
-}
-
-export class SystemErrorHandler implements ErrorHandler {
-  constructor(
-    private cacheManager?: NewsDataCacheManager,
-    private observabilityLogger?: AdvancedObservabilityLogger
-  ) {}
-
-  canHandle(error: Error): boolean {
-    return error instanceof NewsDataSystemError ||
-           error.message.includes('system') ||
-           error.message.includes('internal') ||
-           error.message.includes('cache') ||
-           error.message.includes('database');
-  }
-
-  async handle(error: Error, context: Partial<ErrorContext> = {}): Promise<ErrorHandlingResult> {
-    let systemError: NewsDataSystemError;
-
-    if (error instanceof NewsDataSystemError) {
-      systemError = error;
-    } else {
-      systemError = new NewsDataSystemError(error.message, 'unknown', context);
-    }
-
-    this.observabilityLogger?.logDataFetch({
+  /**
+   * Handle rate limit exceeded with backoff recommendations
+   */
+  async handleRateLimitExceeded(
+    rateLimitInfo: {
+      requestsInWindow: number;
+      windowSizeMs: number;
+      limitExceeded: boolean;
+      retryAfter?: number;
+    },
+    context: EnhancedErrorContext
+  ): Promise<void> {
+    // Log rate limit information
+    this.newsDataLogger.logRateLimit({
       timestamp: Date.now(),
-      source: 'news',
-      provider: 'newsdata.io',
-      success: false,
-      cached: false,
-      stale: false,
-      freshness: 0,
-      itemCount: 0,
-      error: `System Error: ${systemError.message}`,
-      duration: 0,
+      endpoint: (context.endpoint as 'latest' | 'archive' | 'crypto' | 'market' | 'sources') || 'latest',
+      requestsInWindow: rateLimitInfo.requestsInWindow,
+      windowSizeMs: rateLimitInfo.windowSizeMs,
+      limitExceeded: rateLimitInfo.limitExceeded,
+      throttled: true,
+      retryAfter: rateLimitInfo.retryAfter,
+      backoffTime: this.calculateBackoffTime(context.retryAttempt || 1),
     });
 
-    // Try fallback for system errors
-    if (this.cacheManager && context.endpoint) {
-      const fallbackData = await this.tryFallback(context.endpoint, context.parameters);
-      if (fallbackData) {
-        return {
-          success: true,
-          data: fallbackData,
-          fallbackUsed: true,
-          degradationLevel: systemError.degradationLevel,
-          retryable: systemError.retryable,
-          retryAfter: systemError.getRecoveryStrategy().retryAfter
-        };
-      }
+    if (rateLimitInfo.limitExceeded) {
+      await this.triggerAlert('rateLimitExceeded', {
+        message: `Rate limit exceeded for ${context.endpoint} endpoint`,
+        severity: 'error',
+        details: {
+          endpoint: context.endpoint,
+          requestsInWindow: rateLimitInfo.requestsInWindow,
+          windowSizeMs: rateLimitInfo.windowSizeMs,
+          retryAfter: rateLimitInfo.retryAfter,
+          recommendedBackoff: this.calculateBackoffTime(context.retryAttempt || 1),
+          agentName: context.agentName,
+        },
+        actionRequired: true,
+      });
+    }
+  }
+
+  /**
+   * Handle circuit breaker state changes
+   */
+  async handleCircuitBreakerStateChange(
+    stateChange: {
+      endpoint: string;
+      previousState: 'closed' | 'open' | 'half_open';
+      newState: 'closed' | 'open' | 'half_open';
+      failureCount: number;
+      successCount: number;
+      failureThreshold: number;
+      resetTimeout: number;
+      reason: string;
+    }
+  ): Promise<void> {
+    if (!this.config.circuitBreaker.logStateChanges) return;
+
+    // Log circuit breaker state change
+    this.newsDataLogger.logCircuitBreakerStateChange({
+      timestamp: Date.now(),
+      endpoint: stateChange.endpoint as any,
+      previousState: stateChange.previousState,
+      newState: stateChange.newState,
+      failureCount: stateChange.failureCount,
+      successCount: stateChange.successCount,
+      failureThreshold: stateChange.failureThreshold,
+      resetTimeout: stateChange.resetTimeout,
+      reason: stateChange.reason,
+    });
+
+    // Check for alerts based on state change
+    const alertConfig = this.config.alerts.circuitBreakerOpen;
+    
+    if (stateChange.newState === 'open' && this.config.circuitBreaker.alertOnOpen && alertConfig.enabled) {
+      await this.triggerAlert('circuitBreakerOpen', {
+        message: `Circuit breaker opened for ${stateChange.endpoint} endpoint`,
+        severity: alertConfig.severity,
+        details: {
+          endpoint: stateChange.endpoint,
+          failureCount: stateChange.failureCount,
+          failureThreshold: stateChange.failureThreshold,
+          resetTimeout: stateChange.resetTimeout,
+          reason: stateChange.reason,
+        },
+        actionRequired: alertConfig.actionRequired,
+      });
     }
 
-    return {
-      success: false,
-      error: this.processError(systemError),
-      fallbackUsed: false,
-      degradationLevel: systemError.degradationLevel,
-      retryable: systemError.retryable,
-      retryAfter: systemError.getRecoveryStrategy().retryAfter
-    };
+    if (stateChange.newState === 'closed' && this.config.circuitBreaker.alertOnClose) {
+      await this.triggerAlert('circuitBreakerOpen', {
+        message: `Circuit breaker closed for ${stateChange.endpoint} endpoint - service recovered`,
+        severity: 'info',
+        details: {
+          endpoint: stateChange.endpoint,
+          successCount: stateChange.successCount,
+          previousFailureCount: stateChange.failureCount,
+        },
+        actionRequired: false,
+      });
+    }
   }
 
-  private async tryFallback(endpoint: string, parameters?: Record<string, any>): Promise<NewsDataResponse | null> {
-    if (!this.cacheManager) return null;
+  // ============================================================================
+  // Error Analysis and Categorization
+  // ============================================================================
 
-    try {
-      const cacheKey = this.cacheManager.generateCacheKey(endpoint, parameters || {});
-      const cachedData = await this.cacheManager.get(cacheKey);
-      
-      if (cachedData && cachedData.data) {
-        this.observabilityLogger?.logDataFetch({
-          timestamp: Date.now(),
-          source: 'news',
-          provider: 'newsdata.io',
-          success: true,
-          cached: true,
-          stale: cachedData.isStale,
-          freshness: Date.now() - cachedData.timestamp,
-          itemCount: (cachedData.data as NewsDataResponse)?.results?.length || 0,
-          duration: 0,
-        });
-
-        return cachedData.data as NewsDataResponse;
-      }
-    } catch (fallbackError) {
-      console.warn('[SystemErrorHandler] Fallback failed:', fallbackError);
+  /**
+   * Categorize error for proper handling
+   */
+  private categorizeError(error: Error, context: EnhancedErrorContext): 'api' | 'network' | 'validation' | 'rate_limit' | 'quota' | 'system' {
+    // Check HTTP status codes
+    if (context.httpStatus) {
+      if (context.httpStatus === 401) return 'api';
+      if (context.httpStatus === 429) return 'rate_limit';
+      if (context.httpStatus === 400 || context.httpStatus === 422) return 'validation';
+      if (context.httpStatus >= 500) return 'system';
     }
 
-    return null;
+    // Check error types
+    if (error.name === 'NewsDataRateLimitError') return 'rate_limit';
+    if (error.name === 'NewsDataQuotaExceededError') return 'quota';
+    if (error.name === 'NewsDataValidationError') return 'validation';
+    if (error.name === 'NewsDataError') return 'api';
+
+    // Check error messages
+    if (error.message.includes('quota') || error.message.includes('limit exceeded')) return 'quota';
+    if (error.message.includes('rate limit')) return 'rate_limit';
+    if (error.message.includes('validation') || error.message.includes('parameter')) return 'validation';
+    if (error.message.includes('network') || error.message.includes('timeout')) return 'network';
+    if (error.message.includes('cache')) return 'system';
+    if (error.message.includes('circuit breaker')) return 'system';
+
+    return 'system';
   }
 
-  private processError(error: NewsDataSystemError): ProcessedError {
-    return {
-      category: error.category,
-      severity: error.severity,
-      message: error.message,
-      retryable: error.retryable,
-      retryAfter: error.getRecoveryStrategy().retryAfter,
-      degradationLevel: error.degradationLevel,
-      context: error.context,
-      recoveryStrategy: error.getRecoveryStrategy(),
-      originalError: error
-    };
-  }
-
-  getPriority(): number {
-    return 4; // Lower priority for system errors
-  }
-}
-
-// ============================================================================
-// Main Error Handler Manager
-// ============================================================================
-
-export class NewsDataErrorHandlerManager {
-  private handlers: ErrorHandler[] = [];
-  private logger;
-
-  constructor(
-    cacheManager?: NewsDataCacheManager,
-    observabilityLogger?: AdvancedObservabilityLogger
-  ) {
-    this.logger = getLogger();
-
-    // Register default handlers in priority order
-    this.registerHandler(new ApiErrorHandler(cacheManager, observabilityLogger));
-    this.registerHandler(new NetworkErrorHandler(cacheManager, observabilityLogger));
-    this.registerHandler(new DataErrorHandler(observabilityLogger));
-    this.registerHandler(new SystemErrorHandler(cacheManager, observabilityLogger));
-
-    this.logger.info('[NewsDataErrorHandlerManager] Initialized with default handlers');
-  }
-
-  registerHandler(handler: ErrorHandler): void {
-    this.handlers.push(handler);
-    // Sort by priority (lower number = higher priority)
-    this.handlers.sort((a, b) => a.getPriority() - b.getPriority());
-  }
-
-  async handleError(error: Error, context: Partial<ErrorContext> = {}): Promise<ErrorHandlingResult> {
-    this.logger.debug(`[NewsDataErrorHandlerManager] Handling error: ${error.message}`);
-
-    // Find the first handler that can handle this error
-    for (const handler of this.handlers) {
-      if (handler.canHandle(error)) {
-        this.logger.debug(`[NewsDataErrorHandlerManager] Using handler: ${handler.constructor.name}`);
-        return await handler.handle(error, context);
-      }
+  /**
+   * Assess impact level of error
+   */
+  private assessImpactLevel(error: Error, context: EnhancedErrorContext): 'low' | 'medium' | 'high' | 'critical' {
+    // Critical: API key issues, quota exhaustion
+    if (context.httpStatus === 401 || error.name === 'NewsDataQuotaExceededError') {
+      return 'critical';
     }
 
-    // No specific handler found, use generic handling
-    this.logger.warn(`[NewsDataErrorHandlerManager] No specific handler found for error: ${error.message}`);
-    return this.handleGenericError(error, context);
+    // High: Rate limits, server errors, circuit breaker open
+    if (context.httpStatus === 429 || 
+        (context.httpStatus && context.httpStatus >= 500) ||
+        context.circuitBreakerState === 'open') {
+      return 'high';
+    }
+
+    // Medium: Validation errors, client errors
+    if (context.httpStatus === 400 || 
+        context.httpStatus === 422 || 
+        error.name === 'NewsDataValidationError') {
+      return 'medium';
+    }
+
+    // Low: Network timeouts, cache misses
+    return 'low';
   }
 
-  private async handleGenericError(error: Error, context: Partial<ErrorContext>): Promise<ErrorHandlingResult> {
-    const genericError: ProcessedError = {
-      category: ErrorCategory.SYSTEM,
-      severity: ErrorSeverity.MEDIUM,
-      message: error.message,
-      retryable: false,
-      degradationLevel: DegradationLevel.UNAVAILABLE,
-      context: {
-        timestamp: Date.now(),
-        ...context
-      },
-      recoveryStrategy: {
-        type: 'fail',
-        degradationLevel: DegradationLevel.UNAVAILABLE
-      },
-      originalError: error
+  /**
+   * Extract error code from error and context
+   */
+  private extractErrorCode(error: Error, context: EnhancedErrorContext): string {
+    if (context.apiErrorCode) return context.apiErrorCode;
+    if (context.httpStatus) return `HTTP_${context.httpStatus}`;
+    if (error.name !== 'Error') return error.name.replace('Error', '').toUpperCase();
+    return 'UNKNOWN_ERROR';
+  }
+
+  /**
+   * Build detailed error context for logging
+   */
+  private buildErrorDetails(error: Error, context: EnhancedErrorContext): Record<string, any> {
+    const details: Record<string, any> = {
+      errorName: error.name,
+      errorMessage: error.message,
     };
 
+    if (context.httpStatus) details.httpStatus = context.httpStatus;
+    if (context.apiErrorCode) details.apiErrorCode = context.apiErrorCode;
+    if (context.url) details.url = context.url.replace(/apikey=[^&]+/, 'apikey=***');
+    if (context.parameters && this.config.errorTracking.sanitizeParameters) {
+      details.parameters = this.sanitizeParameters(context.parameters);
+    }
+    if (context.quotaInfo) details.quotaInfo = context.quotaInfo;
+    if (context.cacheInfo) details.cacheInfo = context.cacheInfo;
+    if (context.performanceInfo) details.performanceInfo = context.performanceInfo;
+    if (context.circuitBreakerState) details.circuitBreakerState = context.circuitBreakerState;
+    if (context.additionalContext) details.additionalContext = context.additionalContext;
+
+    return details;
+  }
+
+  /**
+   * Sanitize parameters for logging (remove sensitive data)
+   */
+  private sanitizeParameters(params: Record<string, any>): Record<string, any> {
+    const sanitized = { ...params };
+    const sensitiveKeys = ['apikey', 'api_key', 'token', 'password', 'secret'];
+    
+    sensitiveKeys.forEach(key => {
+      if (sanitized[key]) {
+        sanitized[key] = '***REDACTED***';
+      }
+    });
+
+    return sanitized;
+  }
+
+  // ============================================================================
+  // Alert Management
+  // ============================================================================
+
+  /**
+   * Trigger alert with rate limiting and escalation
+   */
+  private async triggerAlert(
+    alertType: string,
+    alertData: {
+      message: string;
+      severity: 'info' | 'warning' | 'error' | 'critical';
+      details: Record<string, any>;
+      actionRequired: boolean;
+    }
+  ): Promise<void> {
+    const now = Date.now();
+    const lastAlertTime = this.alertHistory.get(alertType) || 0;
+    const alertConfig = this.config.alerts[alertType as keyof typeof this.config.alerts];
+    
+    if (!alertConfig?.enabled) return;
+
+    // Rate limit alerts (don't spam)
+    const minInterval = alertConfig.timeWindow ? alertConfig.timeWindow * 1000 : 300000; // 5 minutes default
+    if (now - lastAlertTime < minInterval) return;
+
+    // Check for escalation
+    let finalSeverity = alertData.severity;
+    if (alertConfig.escalationRules && 
+        now - lastAlertTime > alertConfig.escalationRules.escalateAfter * 1000) {
+      finalSeverity = alertConfig.escalationRules.escalateTo;
+    }
+
+    // Log alert
+    this.newsDataLogger.logAlert({
+      timestamp: now,
+      alertType: alertType as any,
+      severity: finalSeverity,
+      message: alertData.message,
+      details: alertData.details,
+      threshold: alertConfig.threshold,
+      currentValue: this.extractCurrentValue(alertType, alertData.details),
+      actionRequired: alertData.actionRequired,
+      autoResolved: false,
+    });
+
+    // Update alert history
+    this.alertHistory.set(alertType, now);
+
+    // Log to structured logger
+    const logMethod = finalSeverity === 'critical' || finalSeverity === 'error' 
+      ? this.logger.logError.bind(this.logger)
+      : finalSeverity === 'warning'
+      ? this.logger.logWarning.bind(this.logger)
+      : this.logger.logConfig.bind(this.logger);
+
+    logMethod(`NewsData alert: ${alertData.message}`, {
+      alertType,
+      severity: finalSeverity,
+      details: alertData.details,
+      actionRequired: alertData.actionRequired,
+      ...(finalSeverity === 'critical' || finalSeverity === 'error' ? { error: new Error(alertData.message) } : {}),
+    });
+  }
+
+  /**
+   * Extract current value for alert threshold comparison
+   */
+  private extractCurrentValue(alertType: string, details: Record<string, any>): number | undefined {
+    switch (alertType) {
+      case 'quotaExhaustion':
+        return details.utilizationPercentage;
+      case 'rateLimitExceeded':
+        return details.requestsInWindow;
+      case 'highErrorRate':
+        return details.errorRate;
+      default:
+        return undefined;
+    }
+  }
+
+  // ============================================================================
+  // Error Statistics and Analysis
+  // ============================================================================
+
+  /**
+   * Update error statistics for pattern analysis
+   */
+  private updateErrorStatistics(errorType: string, context: EnhancedErrorContext): void {
+    this.errorStatistics.totalErrors++;
+    
+    // Update error counts by type
+    this.errorStatistics.errorsByType.set(
+      errorType, 
+      (this.errorStatistics.errorsByType.get(errorType) || 0) + 1
+    );
+
+    // Update error counts by endpoint
+    if (context.endpoint) {
+      this.errorStatistics.errorsByEndpoint.set(
+        context.endpoint, 
+        (this.errorStatistics.errorsByEndpoint.get(context.endpoint) || 0) + 1
+      );
+    }
+
+    // Update error counts by agent
+    if (context.agentName) {
+      this.errorStatistics.errorsByAgent.set(
+        context.agentName, 
+        (this.errorStatistics.errorsByAgent.get(context.agentName) || 0) + 1
+      );
+    }
+
+    // Update time window statistics
+    const now = Date.now();
+    const windowStart = now - (this.config.errorTracking.errorAggregationWindow * 1000);
+    
+    // Remove old entries
+    this.errorStatistics.errorsByTimeWindow = this.errorStatistics.errorsByTimeWindow
+      .filter(entry => entry.timestamp >= windowStart);
+    
+    // Add current error
+    this.errorStatistics.errorsByTimeWindow.push({ timestamp: now, count: 1 });
+
+    // Update recent errors list
+    this.errorStatistics.recentErrors.push({
+      timestamp: now,
+      type: errorType,
+      endpoint: context.endpoint,
+      agentName: context.agentName,
+      message: context.additionalContext?.errorMessage || 'Unknown error',
+    });
+
+    // Limit recent errors list size
+    if (this.errorStatistics.recentErrors.length > this.config.errorTracking.maxErrorHistory) {
+      this.errorStatistics.recentErrors = this.errorStatistics.recentErrors
+        .slice(-this.config.errorTracking.maxErrorHistory);
+    }
+
+    // Check for high error rate alert
+    this.checkHighErrorRateAlert();
+  }
+
+  /**
+   * Check for high error rate alert condition
+   */
+  private checkHighErrorRateAlert(): void {
+    const alertConfig = this.config.alerts.highErrorRate;
+    if (!alertConfig.enabled || !alertConfig.threshold) return;
+
+    const now = Date.now();
+    const windowStart = now - (alertConfig.timeWindow || 600) * 1000; // Default 10 minutes
+    
+    // Count errors in time window
+    const errorsInWindow = this.errorStatistics.errorsByTimeWindow
+      .filter(entry => entry.timestamp >= windowStart)
+      .reduce((sum, entry) => sum + entry.count, 0);
+
+    // Calculate error rate (assuming some baseline request rate)
+    // This is a simplified calculation - in practice, you'd want to track total requests too
+    const errorRate = errorsInWindow; // Simplified: just count errors
+
+    if (errorRate >= alertConfig.threshold) {
+      this.triggerAlert('highErrorRate', {
+        message: `High error rate detected: ${errorRate} errors in ${alertConfig.timeWindow || 600} seconds`,
+        severity: alertConfig.severity,
+        details: {
+          errorCount: errorRate,
+          timeWindow: alertConfig.timeWindow || 600,
+          threshold: alertConfig.threshold,
+          topErrorTypes: this.getTopErrorTypes(5),
+          topErrorEndpoints: this.getTopErrorEndpoints(5),
+        },
+        actionRequired: alertConfig.actionRequired,
+      });
+    }
+  }
+
+  /**
+   * Get top error types for analysis
+   */
+  private getTopErrorTypes(limit: number = 5): Array<{ type: string; count: number }> {
+    return Array.from(this.errorStatistics.errorsByType.entries())
+      .map(([type, count]) => ({ type, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, limit);
+  }
+
+  /**
+   * Get top error endpoints for analysis
+   */
+  private getTopErrorEndpoints(limit: number = 5): Array<{ endpoint: string; count: number }> {
+    return Array.from(this.errorStatistics.errorsByEndpoint.entries())
+      .map(([endpoint, count]) => ({ endpoint, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, limit);
+  }
+
+  // ============================================================================
+  // Utility Methods
+  // ============================================================================
+
+  /**
+   * Calculate time to quota reset (simplified - assumes daily reset at midnight UTC)
+   */
+  private calculateTimeToQuotaReset(): number {
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    tomorrow.setUTCHours(0, 0, 0, 0);
+    return tomorrow.getTime() - now.getTime();
+  }
+
+  /**
+   * Calculate exponential backoff time
+   */
+  private calculateBackoffTime(retryAttempt: number): number {
+    const baseDelay = 1000; // 1 second
+    const maxDelay = 60000; // 1 minute
+    const delay = Math.min(baseDelay * Math.pow(2, retryAttempt - 1), maxDelay);
+    
+    // Add jitter (±25%)
+    const jitter = delay * 0.25 * (Math.random() - 0.5);
+    return Math.round(delay + jitter);
+  }
+
+  /**
+   * Get error statistics summary
+   */
+  getErrorStatistics(): ErrorStatistics {
     return {
-      success: false,
-      error: genericError,
-      fallbackUsed: false,
-      degradationLevel: DegradationLevel.UNAVAILABLE,
-      retryable: false
+      totalErrors: this.errorStatistics.totalErrors,
+      errorsByType: new Map(this.errorStatistics.errorsByType),
+      errorsByEndpoint: new Map(this.errorStatistics.errorsByEndpoint),
+      errorsByAgent: new Map(this.errorStatistics.errorsByAgent),
+      errorsByTimeWindow: [...this.errorStatistics.errorsByTimeWindow],
+      recentErrors: [...this.errorStatistics.recentErrors],
     };
   }
 
-  getRegisteredHandlers(): string[] {
-    return this.handlers.map(handler => handler.constructor.name);
+  /**
+   * Clear error statistics (for testing or reset)
+   */
+  clearErrorStatistics(): void {
+    this.errorStatistics = {
+      totalErrors: 0,
+      errorsByType: new Map(),
+      errorsByEndpoint: new Map(),
+      errorsByAgent: new Map(),
+      errorsByTimeWindow: [],
+      recentErrors: [],
+    };
+    this.alertHistory.clear();
+  }
+
+  /**
+   * Update configuration
+   */
+  updateConfig(newConfig: Partial<ErrorHandlingConfig>): void {
+    this.config = this.mergeConfig(this.config, newConfig);
+    
+    this.logger.logConfig('NewsData error handler configuration updated', {
+      alertsEnabled: Object.values(this.config.alerts).filter(a => a.enabled).length,
+    });
+  }
+
+  /**
+   * Check and trigger alerts based on error conditions
+   */
+  private async checkAndTriggerAlerts(
+    errorType: 'api' | 'network' | 'validation' | 'system' | 'rate_limit' | 'quota',
+    _error: Error,
+    context: any
+  ): Promise<void> {
+    // This method can be implemented to check specific alert conditions
+    // For now, it's a placeholder to resolve the compilation error
+    if (errorType === 'api' && context?.httpStatus === 401) {
+      // Could trigger specific alerts for authentication errors
+    }
   }
 }
 
@@ -889,66 +845,39 @@ export class NewsDataErrorHandlerManager {
 // ============================================================================
 
 /**
- * Create a NewsData error handler manager
+ * Create a NewsData error handler instance
  */
 export function createNewsDataErrorHandler(
-  cacheManager?: NewsDataCacheManager,
-  observabilityLogger?: AdvancedObservabilityLogger
-): NewsDataErrorHandlerManager {
-  return new NewsDataErrorHandlerManager(cacheManager, observabilityLogger);
+  config: Partial<ErrorHandlingConfig> = {},
+  newsDataLogger?: NewsDataObservabilityLogger,
+  logger?: MonitorLogger
+): NewsDataErrorHandler {
+  return new NewsDataErrorHandler(config, newsDataLogger, logger);
 }
 
 /**
- * Classify error into appropriate category
+ * Global instance for convenience
  */
-export function classifyError(error: Error): ErrorCategory {
-  const message = error.message.toLowerCase();
+let globalErrorHandler: NewsDataErrorHandler | null = null;
 
-  if (message.includes('rate limit') || message.includes('429')) {
-    return ErrorCategory.RATE_LIMIT;
+/**
+ * Get the global NewsData error handler
+ */
+export function getNewsDataErrorHandler(): NewsDataErrorHandler {
+  if (!globalErrorHandler) {
+    globalErrorHandler = createNewsDataErrorHandler();
   }
-
-  if (message.includes('quota') || message.includes('exceeded')) {
-    return ErrorCategory.QUOTA;
-  }
-
-  if (message.includes('401') || message.includes('403') || message.includes('unauthorized')) {
-    return ErrorCategory.AUTHENTICATION;
-  }
-
-  if (message.includes('validation') || message.includes('invalid') || message.includes('400')) {
-    return ErrorCategory.VALIDATION;
-  }
-
-  if (message.includes('network') || message.includes('timeout') || message.includes('connection')) {
-    return ErrorCategory.NETWORK;
-  }
-
-  if (message.includes('http') || /\b[45]\d{2}\b/.test(message)) {
-    return ErrorCategory.API;
-  }
-
-  if (message.includes('data') || message.includes('malformed') || message.includes('parse')) {
-    return ErrorCategory.DATA;
-  }
-
-  return ErrorCategory.SYSTEM;
+  return globalErrorHandler;
 }
 
 /**
- * Create error context from request information
+ * Initialize the global NewsData error handler
  */
-export function createErrorContext(
-  endpoint?: string,
-  operation?: string,
-  parameters?: Record<string, any>,
-  additionalInfo?: Record<string, any>
-): ErrorContext {
-  return {
-    timestamp: Date.now(),
-    endpoint,
-    operation,
-    parameters,
-    additionalInfo
-  };
+export function initializeNewsDataErrorHandler(
+  config: Partial<ErrorHandlingConfig> = {},
+  newsDataLogger?: NewsDataObservabilityLogger,
+  logger?: MonitorLogger
+): NewsDataErrorHandler {
+  globalErrorHandler = createNewsDataErrorHandler(config, newsDataLogger, logger);
+  return globalErrorHandler;
 }

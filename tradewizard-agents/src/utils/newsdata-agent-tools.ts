@@ -20,6 +20,8 @@ import type {
   MarketNewsParams
 } from './newsdata-client.js';
 import type { AdvancedObservabilityLogger } from './audit-logger.js';
+import type { NewsDataObservabilityLogger } from './newsdata-observability-logger.js';
+import { getNewsDataObservabilityLogger } from './newsdata-observability-logger.js';
 
 // ============================================================================
 // Validation and Processing Types
@@ -68,7 +70,7 @@ export interface BaseNewsTool {
   name: string;
   description: string;
   parameters: Record<string, any>;
-  execute(params: any): Promise<NewsArticle[]>;
+  execute(params: any, agentName?: string): Promise<NewsArticle[]>;
 }
 
 /**
@@ -623,14 +625,17 @@ export class LatestNewsTool implements BaseNewsTool {
 
   constructor(
     private newsDataClient: NewsDataClient,
-    private logger?: AdvancedObservabilityLogger
-  ) {}
-
-  async execute(params: LatestNewsToolParams): Promise<NewsArticle[]> {
-    return this.executeWithFormatting(params);
+    private logger?: AdvancedObservabilityLogger,
+    private newsDataLogger?: NewsDataObservabilityLogger
+  ) {
+    this.newsDataLogger = newsDataLogger || getNewsDataObservabilityLogger();
   }
 
-  async executeWithFormatting(params: LatestNewsToolParams): Promise<NewsArticle[]> {
+  async execute(params: LatestNewsToolParams, agentName?: string): Promise<NewsArticle[]> {
+    return this.executeWithFormatting(params, agentName);
+  }
+
+  async executeWithFormatting(params: LatestNewsToolParams, agentName?: string): Promise<NewsArticle[]> {
     const startTime = Date.now();
     
     try {
@@ -650,7 +655,7 @@ export class LatestNewsTool implements BaseNewsTool {
       const clientParams: LatestNewsParams = this.transformLatestParams(processingResult.processed!);
       
       // Execute request through NewsData client
-      const response = await this.newsDataClient.fetchLatestNews(clientParams);
+      const response = await this.newsDataClient.fetchLatestNews(clientParams, agentName);
       
       // Transform response to standardized format
       const articles = transformArticles(response.results || []);
@@ -658,7 +663,7 @@ export class LatestNewsTool implements BaseNewsTool {
       // Sanitize articles
       const sanitizedArticles = articles.map(article => ResponseFormatter.sanitizeArticle(article));
       
-      // Log successful execution
+      // Log successful execution (legacy logger)
       this.logger?.logDataFetch({
         timestamp: Date.now(),
         source: 'news',
@@ -674,7 +679,7 @@ export class LatestNewsTool implements BaseNewsTool {
       return sanitizedArticles;
       
     } catch (error) {
-      // Log failed execution
+      // Log failed execution (legacy logger)
       this.logger?.logDataFetch({
         timestamp: Date.now(),
         source: 'news',
@@ -779,14 +784,17 @@ export class ArchiveNewsTool implements BaseNewsTool {
 
   constructor(
     private newsDataClient: NewsDataClient,
-    private logger?: AdvancedObservabilityLogger
-  ) {}
-
-  async execute(params: ArchiveNewsToolParams): Promise<NewsArticle[]> {
-    return this.executeWithFormatting(params);
+    private logger?: AdvancedObservabilityLogger,
+    private newsDataLogger?: NewsDataObservabilityLogger
+  ) {
+    this.newsDataLogger = newsDataLogger || getNewsDataObservabilityLogger();
   }
 
-  async executeWithFormatting(params: ArchiveNewsToolParams): Promise<NewsArticle[]> {
+  async execute(params: ArchiveNewsToolParams, agentName?: string): Promise<NewsArticle[]> {
+    return this.executeWithFormatting(params, agentName);
+  }
+
+  async executeWithFormatting(params: ArchiveNewsToolParams, agentName?: string): Promise<NewsArticle[]> {
     const startTime = Date.now();
     
     try {
@@ -806,7 +814,7 @@ export class ArchiveNewsTool implements BaseNewsTool {
       const clientParams: ArchiveNewsParams = this.transformArchiveParams(processingResult.processed!);
       
       // Execute request through NewsData client
-      const response = await this.newsDataClient.fetchArchiveNews(clientParams);
+      const response = await this.newsDataClient.fetchArchiveNews(clientParams, agentName);
       
       // Transform response to standardized format
       const articles = transformArticles(response.results || []);
@@ -928,14 +936,17 @@ export class CryptoNewsTool implements BaseNewsTool {
 
   constructor(
     private newsDataClient: NewsDataClient,
-    private logger?: AdvancedObservabilityLogger
-  ) {}
-
-  async execute(params: CryptoNewsToolParams): Promise<NewsArticle[]> {
-    return this.executeWithFormatting(params);
+    private logger?: AdvancedObservabilityLogger,
+    private newsDataLogger?: NewsDataObservabilityLogger
+  ) {
+    this.newsDataLogger = newsDataLogger || getNewsDataObservabilityLogger();
   }
 
-  async executeWithFormatting(params: CryptoNewsToolParams): Promise<NewsArticle[]> {
+  async execute(params: CryptoNewsToolParams, agentName?: string): Promise<NewsArticle[]> {
+    return this.executeWithFormatting(params, agentName);
+  }
+
+  async executeWithFormatting(params: CryptoNewsToolParams, agentName?: string): Promise<NewsArticle[]> {
     const startTime = Date.now();
     
     try {
@@ -955,7 +966,7 @@ export class CryptoNewsTool implements BaseNewsTool {
       const clientParams: CryptoNewsParams = this.transformCryptoParams(processingResult.processed!);
       
       // Execute request through NewsData client
-      const response = await this.newsDataClient.fetchCryptoNews(clientParams);
+      const response = await this.newsDataClient.fetchCryptoNews(clientParams, agentName);
       
       // Transform response to standardized format
       const articles = transformArticles(response.results || []);
@@ -1082,14 +1093,17 @@ export class MarketNewsTool implements BaseNewsTool {
 
   constructor(
     private newsDataClient: NewsDataClient,
-    private logger?: AdvancedObservabilityLogger
-  ) {}
-
-  async execute(params: MarketNewsToolParams): Promise<NewsArticle[]> {
-    return this.executeWithFormatting(params);
+    private logger?: AdvancedObservabilityLogger,
+    private newsDataLogger?: NewsDataObservabilityLogger
+  ) {
+    this.newsDataLogger = newsDataLogger || getNewsDataObservabilityLogger();
   }
 
-  async executeWithFormatting(params: MarketNewsToolParams): Promise<NewsArticle[]> {
+  async execute(params: MarketNewsToolParams, agentName?: string): Promise<NewsArticle[]> {
+    return this.executeWithFormatting(params, agentName);
+  }
+
+  async executeWithFormatting(params: MarketNewsToolParams, agentName?: string): Promise<NewsArticle[]> {
     const startTime = Date.now();
     
     try {
@@ -1109,7 +1123,7 @@ export class MarketNewsTool implements BaseNewsTool {
       const clientParams: MarketNewsParams = this.transformMarketParams(processingResult.processed!);
       
       // Execute request through NewsData client
-      const response = await this.newsDataClient.fetchMarketNews(clientParams);
+      const response = await this.newsDataClient.fetchMarketNews(clientParams, agentName);
       
       // Transform response to standardized format
       const articles = transformArticles(response.results || []);
@@ -2001,12 +2015,13 @@ export class NewsToolsManager {
 
   constructor(
     newsDataClient: NewsDataClient,
-    logger?: AdvancedObservabilityLogger
+    logger?: AdvancedObservabilityLogger,
+    newsDataLogger?: NewsDataObservabilityLogger
   ) {
-    this.latestNewsTool = new LatestNewsTool(newsDataClient, logger);
-    this.archiveNewsTool = new ArchiveNewsTool(newsDataClient, logger);
-    this.cryptoNewsTool = new CryptoNewsTool(newsDataClient, logger);
-    this.marketNewsTool = new MarketNewsTool(newsDataClient, logger);
+    this.latestNewsTool = new LatestNewsTool(newsDataClient, logger, newsDataLogger);
+    this.archiveNewsTool = new ArchiveNewsTool(newsDataClient, logger, newsDataLogger);
+    this.cryptoNewsTool = new CryptoNewsTool(newsDataClient, logger, newsDataLogger);
+    this.marketNewsTool = new MarketNewsTool(newsDataClient, logger, newsDataLogger);
   }
 
   /**
@@ -2032,29 +2047,29 @@ export class NewsToolsManager {
   /**
    * Execute tool by name
    */
-  async executeTool(name: string, params: any): Promise<NewsArticle[]> {
+  async executeTool(name: string, params: any, agentName?: string): Promise<NewsArticle[]> {
     const tool = this.getTool(name);
     if (!tool) {
       throw new Error(`Tool not found: ${name}`);
     }
-    return await tool.execute(params);
+    return await tool.execute(params, agentName);
   }
 
   // Direct access methods for convenience
-  async fetchLatestNews(params: LatestNewsToolParams): Promise<NewsArticle[]> {
-    return await this.latestNewsTool.execute(params);
+  async fetchLatestNews(params: LatestNewsToolParams, agentName?: string): Promise<NewsArticle[]> {
+    return await this.latestNewsTool.execute(params, agentName);
   }
 
-  async fetchArchiveNews(params: ArchiveNewsToolParams): Promise<NewsArticle[]> {
-    return await this.archiveNewsTool.execute(params);
+  async fetchArchiveNews(params: ArchiveNewsToolParams, agentName?: string): Promise<NewsArticle[]> {
+    return await this.archiveNewsTool.execute(params, agentName);
   }
 
-  async fetchCryptoNews(params: CryptoNewsToolParams): Promise<NewsArticle[]> {
-    return await this.cryptoNewsTool.execute(params);
+  async fetchCryptoNews(params: CryptoNewsToolParams, agentName?: string): Promise<NewsArticle[]> {
+    return await this.cryptoNewsTool.execute(params, agentName);
   }
 
-  async fetchMarketNews(params: MarketNewsToolParams): Promise<NewsArticle[]> {
-    return await this.marketNewsTool.execute(params);
+  async fetchMarketNews(params: MarketNewsToolParams, agentName?: string): Promise<NewsArticle[]> {
+    return await this.marketNewsTool.execute(params, agentName);
   }
 }
 
@@ -2067,9 +2082,10 @@ export class NewsToolsManager {
  */
 export function createNewsToolsManager(
   newsDataClient: NewsDataClient,
-  logger?: AdvancedObservabilityLogger
+  logger?: AdvancedObservabilityLogger,
+  newsDataLogger?: NewsDataObservabilityLogger
 ): NewsToolsManager {
-  return new NewsToolsManager(newsDataClient, logger);
+  return new NewsToolsManager(newsDataClient, logger, newsDataLogger);
 }
 
 /**
@@ -2077,28 +2093,32 @@ export function createNewsToolsManager(
  */
 export function createLatestNewsTool(
   newsDataClient: NewsDataClient,
-  logger?: AdvancedObservabilityLogger
+  logger?: AdvancedObservabilityLogger,
+  newsDataLogger?: NewsDataObservabilityLogger
 ): LatestNewsTool {
-  return new LatestNewsTool(newsDataClient, logger);
+  return new LatestNewsTool(newsDataClient, logger, newsDataLogger);
 }
 
 export function createArchiveNewsTool(
   newsDataClient: NewsDataClient,
-  logger?: AdvancedObservabilityLogger
+  logger?: AdvancedObservabilityLogger,
+  newsDataLogger?: NewsDataObservabilityLogger
 ): ArchiveNewsTool {
-  return new ArchiveNewsTool(newsDataClient, logger);
+  return new ArchiveNewsTool(newsDataClient, logger, newsDataLogger);
 }
 
 export function createCryptoNewsTool(
   newsDataClient: NewsDataClient,
-  logger?: AdvancedObservabilityLogger
+  logger?: AdvancedObservabilityLogger,
+  newsDataLogger?: NewsDataObservabilityLogger
 ): CryptoNewsTool {
-  return new CryptoNewsTool(newsDataClient, logger);
+  return new CryptoNewsTool(newsDataClient, logger, newsDataLogger);
 }
 
 export function createMarketNewsTool(
   newsDataClient: NewsDataClient,
-  logger?: AdvancedObservabilityLogger
+  logger?: AdvancedObservabilityLogger,
+  newsDataLogger?: NewsDataObservabilityLogger
 ): MarketNewsTool {
-  return new MarketNewsTool(newsDataClient, logger);
+  return new MarketNewsTool(newsDataClient, logger, newsDataLogger);
 }

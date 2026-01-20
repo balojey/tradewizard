@@ -18,6 +18,12 @@ import type { NewsDataCacheManager } from './newsdata-cache-manager.js';
 import type { NewsDataRateLimiter } from './newsdata-rate-limiter.js';
 import type { NewsDataCircuitBreaker } from './newsdata-circuit-breaker.js';
 import type { NewsDataFallbackManager } from './newsdata-fallback-manager.js';
+import type { NewsDataObservabilityLogger } from './newsdata-observability-logger.js';
+import { getNewsDataObservabilityLogger } from './newsdata-observability-logger.js';
+import type { NewsDataErrorHandler } from './newsdata-error-handler.js';
+import { getNewsDataErrorHandler } from './newsdata-error-handler.js';
+import type { NewsDataAgentUsageTracker } from './newsdata-agent-usage-tracker.js';
+import { getNewsDataAgentUsageTracker } from './newsdata-agent-usage-tracker.js';
 
 // ============================================================================
 // Core Configuration Types
@@ -273,6 +279,9 @@ export const DEFAULT_NEWSDATA_CONFIG: Partial<NewsDataConfig> = {
 export class NewsDataClient {
   private config: NewsDataConfig;
   private observabilityLogger?: AdvancedObservabilityLogger;
+  private newsDataLogger: NewsDataObservabilityLogger;
+  private errorHandler: NewsDataErrorHandler;
+  private usageTracker: NewsDataAgentUsageTracker;
   private cacheManager?: NewsDataCacheManager;
   // private rateLimiter?: NewsDataRateLimiter; // TODO: Implement rate limiting
   private circuitBreaker?: NewsDataCircuitBreaker;
@@ -284,7 +293,10 @@ export class NewsDataClient {
     cacheManager?: NewsDataCacheManager,
     _rateLimiter?: NewsDataRateLimiter, // TODO: Implement rate limiting
     circuitBreaker?: NewsDataCircuitBreaker,
-    fallbackManager?: NewsDataFallbackManager
+    fallbackManager?: NewsDataFallbackManager,
+    newsDataLogger?: NewsDataObservabilityLogger,
+    errorHandler?: NewsDataErrorHandler,
+    usageTracker?: NewsDataAgentUsageTracker
   ) {
     // Validate required configuration
     if (!config.apiKey) {
@@ -314,6 +326,9 @@ export class NewsDataClient {
     };
     
     this.observabilityLogger = observabilityLogger;
+    this.newsDataLogger = newsDataLogger || getNewsDataObservabilityLogger();
+    this.errorHandler = errorHandler || getNewsDataErrorHandler();
+    this.usageTracker = usageTracker || getNewsDataAgentUsageTracker();
     this.cacheManager = cacheManager;
     // Rate limiter will be implemented in future iterations
     this.circuitBreaker = circuitBreaker;
@@ -506,7 +521,7 @@ export class NewsDataClient {
   /**
    * Make HTTP request with circuit breaker protection and fallback mechanisms
    */
-  private async makeRequest(url: string, endpoint: string): Promise<NewsDataResponse> {
+  private async makeRequest(url: string, endpoint: string, agentName?: string): Promise<NewsDataResponse> {
     // const startTime = Date.now(); // TODO: Use for performance monitoring
     
     // Generate cache key for fallback purposes
@@ -515,7 +530,7 @@ export class NewsDataClient {
     // If circuit breaker is available, use it with fallback
     if (this.circuitBreaker && this.fallbackManager) {
       const result = await this.circuitBreaker.execute(
-        () => this.makeDirectRequest(url),
+        () => this.makeDirectRequest(url, endpoint, agentName),
         () => this.executeFallback(cacheKey)
       );
       
@@ -529,7 +544,7 @@ export class NewsDataClient {
     }
     
     // Fallback to direct request if circuit breaker not available
-    return await this.makeDirectRequest(url);
+    return await this.makeDirectRequest(url, endpoint, agentName);
   }
   
   /**
@@ -572,9 +587,13 @@ export class NewsDataClient {
   /**
    * Make direct HTTP request with error handling and retries
    */
-  private async makeDirectRequest(url: string): Promise<NewsDataResponse> {
+  private async makeDirectRequest(url: string, endpoint?: string, agentName?: string): Promise<NewsDataResponse> {
     const startTime = Date.now();
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     let lastError: Error | null = null;
+    
+    // Extract parameters for logging
+    const params = this.extractParamsFromUrl(url);
     
     for (let attempt = 1; attempt <= (this.config.retryAttempts || 3); attempt++) {
       try {
@@ -599,27 +618,70 @@ export class NewsDataClient {
             errorData = { message: errorText };
           }
           
-          // Handle specific error codes
+          // Create error context for detailed logging
+          const errorContext = {
+            requestId,
+            endpoint: endpoint as any,
+            agentName,
+            parameters: params,
+            url: url.replace(/apikey=[^&]+/, 'apikey=***'),
+            httpStatus: response.status,
+            apiErrorCode: errorData.code,
+            retryAttempt: attempt,
+            maxRetries: this.config.retryAttempts || 3,
+            fallbackUsed: false,
+            performanceInfo: {
+              responseTime: duration,
+              requestStartTime: startTime,
+            },
+            additionalContext: {
+              responseData: errorData,
+              statusText: response.statusText,
+            },
+          };
+
+          // Create appropriate error
+          let error: Error;
           switch (response.status) {
             case 400:
-              throw new NewsDataValidationError(errorData.message || 'Bad request - parameter missing or invalid');
+              error = new NewsDataValidationError(errorData.message || 'Bad request - parameter missing or invalid');
+              break;
             case 401:
-              throw new NewsDataError('Unauthorized - invalid API key', 'INVALID_API_KEY', 401, errorData);
+              error = new NewsDataError('Unauthorized - invalid API key', 'INVALID_API_KEY', 401, errorData);
+              break;
             case 403:
-              throw new NewsDataError('Forbidden - CORS policy failed or IP/Domain restricted', 'FORBIDDEN', 403, errorData);
+              error = new NewsDataError('Forbidden - CORS policy failed or IP/Domain restricted', 'FORBIDDEN', 403, errorData);
+              break;
             case 409:
-              throw new NewsDataValidationError('Parameter duplicate - duplicate parameter values detected');
+              error = new NewsDataValidationError('Parameter duplicate - duplicate parameter values detected');
+              break;
             case 415:
-              throw new NewsDataError('Unsupported type - request format not supported', 'UNSUPPORTED_TYPE', 415, errorData);
+              error = new NewsDataError('Unsupported type - request format not supported', 'UNSUPPORTED_TYPE', 415, errorData);
+              break;
             case 422:
-              throw new NewsDataValidationError('Unprocessable entity - semantic error in request');
+              error = new NewsDataValidationError('Unprocessable entity - semantic error in request');
+              break;
             case 429:
-              throw new NewsDataRateLimitError(errorData.message || 'Too many requests - rate limit exceeded');
+              error = new NewsDataRateLimitError(errorData.message || 'Too many requests - rate limit exceeded');
+              // Handle rate limit specifically
+              await this.errorHandler.handleRateLimitExceeded({
+                requestsInWindow: 0, // TODO: Get from rate limiter
+                windowSizeMs: 15 * 60 * 1000, // 15 minutes
+                limitExceeded: true,
+                retryAfter: this.extractRetryAfter(response),
+              }, errorContext);
+              break;
             case 500:
-              throw new NewsDataError('Internal server error - temporary issue', 'SERVER_ERROR', 500, errorData);
+              error = new NewsDataError('Internal server error - temporary issue', 'SERVER_ERROR', 500, errorData);
+              break;
             default:
-              throw new NewsDataError(`HTTP ${response.status}: ${response.statusText}`, 'HTTP_ERROR', response.status, errorData);
+              error = new NewsDataError(`HTTP ${response.status}: ${response.statusText}`, 'HTTP_ERROR', response.status, errorData);
           }
+
+          // Handle error with comprehensive logging
+          await this.errorHandler.handleApiError(error, errorContext);
+          
+          throw error;
         }
         
         // Parse response
@@ -627,10 +689,60 @@ export class NewsDataClient {
         
         // Handle API-level errors
         if (data.status === 'error') {
-          throw new NewsDataError(data.message || 'API error', data.code, response.status, data);
+          const errorContext = {
+            requestId,
+            endpoint: endpoint as any,
+            agentName,
+            parameters: params,
+            url: url.replace(/apikey=[^&]+/, 'apikey=***'),
+            httpStatus: response.status,
+            apiErrorCode: data.code,
+            retryAttempt: attempt,
+            maxRetries: this.config.retryAttempts || 3,
+            fallbackUsed: false,
+            performanceInfo: {
+              responseTime: duration,
+              requestStartTime: startTime,
+            },
+            additionalContext: {
+              responseData: data,
+            },
+          };
+
+          const error = new NewsDataError(data.message || 'API error', data.code, response.status, data);
+          await this.errorHandler.handleApiError(error, errorContext);
+          throw error;
         }
         
         // Log successful request
+        this.newsDataLogger.logNewsRequest({
+          timestamp: Date.now(),
+          requestId,
+          endpoint: endpoint as any || 'unknown',
+          agentName,
+          parameters: params,
+          success: true,
+          responseTime: duration,
+          itemCount: data.results?.length || 0,
+          cached: false,
+          stale: false,
+          freshness: 0,
+          quotaUsed: 1, // Assume 1 credit per request
+        });
+
+        // Track agent usage
+        if (agentName) {
+          this.usageTracker.trackRequest(agentName, endpoint as any || 'latest', params, {
+            success: true,
+            responseTime: duration,
+            itemCount: data.results?.length || 0,
+            quotaUsed: 1,
+            cached: false,
+            stale: false,
+          });
+        }
+        
+        // Also log to legacy observability logger if available
         this.observabilityLogger?.logDataFetch({
           timestamp: Date.now(),
           source: 'news',
@@ -671,6 +783,37 @@ export class NewsDataClient {
     
     // Log failed request
     const duration = Date.now() - startTime;
+    this.newsDataLogger.logNewsRequest({
+      timestamp: Date.now(),
+      requestId,
+      endpoint: endpoint as any || 'unknown',
+      agentName,
+      parameters: params,
+      success: false,
+      responseTime: duration,
+      itemCount: 0,
+      cached: false,
+      stale: false,
+      freshness: 0,
+      error: (lastError as Error)?.message || 'Unknown error',
+      errorCode: lastError instanceof NewsDataError ? lastError.code : 'UNKNOWN_ERROR',
+      quotaUsed: 0,
+    });
+
+    // Track agent usage for failed request
+    if (agentName) {
+      this.usageTracker.trackRequest(agentName, endpoint as any || 'latest', params, {
+        success: false,
+        responseTime: duration,
+        itemCount: 0,
+        quotaUsed: 0,
+        cached: false,
+        stale: false,
+        error: (lastError as Error)?.message || 'Unknown error',
+      });
+    }
+    
+    // Also log to legacy observability logger if available
     this.observabilityLogger?.logDataFetch({
       timestamp: Date.now(),
       source: 'news',
@@ -688,57 +831,91 @@ export class NewsDataClient {
   }
 
   /**
+   * Extract retry-after header from response
+   */
+  private extractRetryAfter(response: Response): number | undefined {
+    const retryAfter = response.headers.get('retry-after');
+    if (retryAfter) {
+      const seconds = parseInt(retryAfter, 10);
+      return isNaN(seconds) ? undefined : seconds * 1000; // Convert to milliseconds
+    }
+    return undefined;
+  }
+
+  /**
+   * Categorize HTTP error for logging
+   */
+  private categorizeHttpError(status: number): 'api' | 'network' | 'validation' | 'rate_limit' | 'quota' | 'system' {
+    if (status === 400 || status === 409 || status === 422) return 'validation';
+    if (status === 401 || status === 403) return 'api';
+    if (status === 429) return 'rate_limit';
+    if (status >= 500) return 'system';
+    return 'network';
+  }
+
+  /**
+   * Get error impact level for logging
+   */
+  private getErrorImpactLevel(status: number): 'low' | 'medium' | 'high' | 'critical' {
+    if (status === 401) return 'critical'; // Invalid API key
+    if (status === 429) return 'high'; // Rate limit exceeded
+    if (status >= 500) return 'high'; // Server errors
+    if (status === 400 || status === 422) return 'medium'; // Validation errors
+    return 'low';
+  }
+
+  /**
    * Fetch latest news
    */
-  async fetchLatestNews(params: LatestNewsParams = {}): Promise<NewsDataResponse> {
+  async fetchLatestNews(params: LatestNewsParams = {}, agentName?: string): Promise<NewsDataResponse> {
     this.validateApiKey();
     this.validateParams(params, 'latest');
     
     const url = this.buildUrl('latest', params);
-    return await this.makeRequest(url, 'latest');
+    return await this.makeRequest(url, 'latest', agentName);
   }
 
   /**
    * Fetch crypto news
    */
-  async fetchCryptoNews(params: CryptoNewsParams = {}): Promise<NewsDataResponse> {
+  async fetchCryptoNews(params: CryptoNewsParams = {}, agentName?: string): Promise<NewsDataResponse> {
     this.validateApiKey();
     this.validateParams(params, 'crypto');
     
     const url = this.buildUrl('crypto', params);
-    return await this.makeRequest(url, 'crypto');
+    return await this.makeRequest(url, 'crypto', agentName);
   }
 
   /**
    * Fetch market news
    */
-  async fetchMarketNews(params: MarketNewsParams = {}): Promise<NewsDataResponse> {
+  async fetchMarketNews(params: MarketNewsParams = {}, agentName?: string): Promise<NewsDataResponse> {
     this.validateApiKey();
     this.validateParams(params, 'market');
     
     const url = this.buildUrl('market', params);
-    return await this.makeRequest(url, 'market');
+    return await this.makeRequest(url, 'market', agentName);
   }
 
   /**
    * Fetch archive news
    */
-  async fetchArchiveNews(params: ArchiveNewsParams): Promise<NewsDataResponse> {
+  async fetchArchiveNews(params: ArchiveNewsParams, agentName?: string): Promise<NewsDataResponse> {
     this.validateApiKey();
     this.validateParams(params, 'archive');
     
     const url = this.buildUrl('archive', params);
-    return await this.makeRequest(url, 'archive');
+    return await this.makeRequest(url, 'archive', agentName);
   }
 
   /**
    * Fetch news sources
    */
-  async fetchNewsSources(params: { language?: string | string[] } = {}): Promise<NewsDataResponse> {
+  async fetchNewsSources(params: { language?: string | string[] } = {}, agentName?: string): Promise<NewsDataResponse> {
     this.validateApiKey();
     
     const url = this.buildUrl('sources', params);
-    return await this.makeRequest(url, 'sources');
+    return await this.makeRequest(url, 'sources', agentName);
   }
 
   // ============================================================================
@@ -899,9 +1076,12 @@ export function createNewsDataClient(
   cacheManager?: NewsDataCacheManager,
   rateLimiter?: NewsDataRateLimiter,
   circuitBreaker?: NewsDataCircuitBreaker,
-  fallbackManager?: NewsDataFallbackManager
+  fallbackManager?: NewsDataFallbackManager,
+  newsDataLogger?: NewsDataObservabilityLogger,
+  errorHandler?: NewsDataErrorHandler,
+  usageTracker?: NewsDataAgentUsageTracker
 ): NewsDataClient {
-  return new NewsDataClient(config, observabilityLogger, cacheManager, rateLimiter, circuitBreaker, fallbackManager);
+  return new NewsDataClient(config, observabilityLogger, cacheManager, rateLimiter, circuitBreaker, fallbackManager, newsDataLogger, errorHandler, usageTracker);
 }
 
 /**
