@@ -154,27 +154,27 @@ This implementation plan converts the NewsData.io agent tools design into a seri
   - Property 20: Invalid Data Exclusion
   - Validates: Requirements 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7
 
-- [ ] 8. Create agent news tools interface
-  - [ ] 8.1 Implement news tools for agents
+- [-] 8. Create agent news tools interface
+  - [x] 8.1 Implement news tools for agents
     - Create LatestNewsTool with comprehensive parameter support
     - Create ArchiveNewsTool with date range filtering
     - Create CryptoNewsTool with coin-specific filtering
     - Create MarketNewsTool with symbol and organization filtering
     - _Requirements: 2.1, 2.2, 2.3, 2.4_
 
-  - [ ] 8.2 Add parameter validation and processing
+  - [x] 8.2 Add parameter validation and processing
     - Implement comprehensive parameter validation for all tools
     - Add parameter transformation and normalization
     - Implement filter combination logic
     - _Requirements: 2.5, 3.1-3.10_
 
-  - [ ] 8.3 Add structured response formatting
+  - [x] 8.3 Add structured response formatting
     - Implement consistent response format across all tools
     - Add response field validation and type checking
     - Implement error response formatting
     - _Requirements: 2.6, 2.7_
 
-- [ ] 8.4 Write property tests for agent tools
+- [x] 8.4 Write property tests for agent tools
   - Property 2: Tool Interface Completeness
   - Property 3: Parameter Acceptance
   - Property 4: Response Structure Validation
