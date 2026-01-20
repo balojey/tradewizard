@@ -2,12 +2,17 @@
  * NewsData Cache Manager
  *
  * Enhanced caching system for NewsData.io API responses with intelligent TTL,
- * stale data handling, and LRU eviction policy.
+ * stale data handling, LRU eviction policy, compression, and cache warming.
  *
  * Requirements: 4.1, 4.3, 4.4, 4.5, 4.6
  */
 
 import { getLogger } from './logger.js';
+import { gzip, gunzip } from 'zlib';
+import { promisify } from 'util';
+
+const gzipAsync = promisify(gzip);
+const gunzipAsync = promisify(gunzip);
 
 // ============================================================================
 // Types and Interfaces
@@ -34,14 +39,37 @@ export interface CacheConfig {
   defaultTTL: number;
   staleTTL: number; // How long to keep stale data
   evictionPolicy: 'lru' | 'lfu' | 'ttl';
+  compressionThreshold: number; // Compress entries larger than this (bytes)
+  enableCompression: boolean;
+  warmingEnabled: boolean;
+  warmingBatchSize: number;
+  keyOptimization: boolean;
 }
 
 interface CacheEntry<T> {
-  data: T;
+  data: T | Buffer; // Can be compressed data
   timestamp: number;
   ttl: number;
   hitCount: number;
   lastAccessed: number;
+  compressed: boolean;
+  originalSize?: number;
+  compressedSize?: number;
+}
+
+interface CacheWarmingSpec<T> {
+  key: string;
+  dataFactory: () => Promise<T>;
+  ttl?: number;
+  priority: number;
+  dependencies?: string[]; // Keys this entry depends on
+}
+
+interface CacheKeyPattern {
+  endpoint: string;
+  commonParams: string[];
+  variableParams: string[];
+  keyTemplate: string;
 }
 
 // ============================================================================
@@ -55,6 +83,14 @@ export class NewsDataCacheManager {
   private misses: number = 0;
   private config: CacheConfig;
   private logger;
+  private warmingQueue: Map<string, CacheWarmingSpec<any>> = new Map();
+  private keyPatterns: Map<string, CacheKeyPattern> = new Map();
+  private compressionStats = {
+    totalCompressed: 0,
+    totalOriginalSize: 0,
+    totalCompressedSize: 0,
+    compressionRatio: 0,
+  };
 
   constructor(config: Partial<CacheConfig> = {}) {
     this.config = {
@@ -62,10 +98,102 @@ export class NewsDataCacheManager {
       defaultTTL: config.defaultTTL || 15 * 60 * 1000, // 15 minutes
       staleTTL: config.staleTTL || 60 * 60 * 1000, // 1 hour for stale data
       evictionPolicy: config.evictionPolicy || 'lru',
+      compressionThreshold: config.compressionThreshold || 10 * 1024, // 10KB
+      enableCompression: config.enableCompression ?? true,
+      warmingEnabled: config.warmingEnabled ?? true,
+      warmingBatchSize: config.warmingBatchSize || 10,
+      keyOptimization: config.keyOptimization ?? true,
     };
     this.logger = getLogger();
+    this.initializeKeyPatterns();
   }
 
+  /**
+   * Initialize key patterns for optimization
+   */
+  private initializeKeyPatterns(): void {
+    // Define common patterns for NewsData endpoints
+    this.keyPatterns.set('latest', {
+      endpoint: 'latest',
+      commonParams: ['language', 'country', 'category'],
+      variableParams: ['q', 'qInTitle', 'timeframe', 'size'],
+      keyTemplate: 'newsdata:latest:{language}:{country}:{category}:{hash}',
+    });
+
+    this.keyPatterns.set('archive', {
+      endpoint: 'archive',
+      commonParams: ['language', 'country', 'category'],
+      variableParams: ['q', 'qInTitle', 'from_date', 'to_date', 'size'],
+      keyTemplate: 'newsdata:archive:{language}:{country}:{category}:{hash}',
+    });
+
+    this.keyPatterns.set('crypto', {
+      endpoint: 'crypto',
+      commonParams: ['language', 'coin'],
+      variableParams: ['q', 'qInTitle', 'timeframe', 'size'],
+      keyTemplate: 'newsdata:crypto:{language}:{coin}:{hash}',
+    });
+
+    this.keyPatterns.set('market', {
+      endpoint: 'market',
+      commonParams: ['language', 'country', 'symbol'],
+      variableParams: ['q', 'qInTitle', 'organization', 'timeframe', 'size'],
+      keyTemplate: 'newsdata:market:{language}:{country}:{symbol}:{hash}',
+    });
+  }
+
+  /**
+   * Compress data if it exceeds threshold
+   */
+  private async compressData<T>(data: T): Promise<{ data: T | Buffer; compressed: boolean; originalSize: number; compressedSize?: number }> {
+    if (!this.config.enableCompression) {
+      return { data, compressed: false, originalSize: 0 };
+    }
+
+    const serialized = JSON.stringify(data);
+    const originalSize = Buffer.byteLength(serialized, 'utf8');
+
+    if (originalSize < this.config.compressionThreshold) {
+      return { data, compressed: false, originalSize };
+    }
+
+    try {
+      const compressed = await gzipAsync(serialized);
+      const compressedSize = compressed.length;
+
+      // Only use compression if it actually saves space
+      if (compressedSize < originalSize * 0.8) {
+        this.compressionStats.totalCompressed++;
+        this.compressionStats.totalOriginalSize += originalSize;
+        this.compressionStats.totalCompressedSize += compressedSize;
+        this.compressionStats.compressionRatio = 
+          this.compressionStats.totalCompressedSize / this.compressionStats.totalOriginalSize;
+
+        return { data: compressed, compressed: true, originalSize, compressedSize };
+      }
+    } catch (error) {
+      this.logger.warn(`Compression failed: ${error}`);
+    }
+
+    return { data, compressed: false, originalSize };
+  }
+
+  /**
+   * Decompress data if needed
+   */
+  private async decompressData<T>(entry: CacheEntry<T>): Promise<T> {
+    if (!entry.compressed || !(entry.data instanceof Buffer)) {
+      return entry.data as T;
+    }
+
+    try {
+      const decompressed = await gunzipAsync(entry.data);
+      return JSON.parse(decompressed.toString('utf8'));
+    } catch (error) {
+      this.logger.error(`Decompression failed: ${error}`);
+      throw new Error('Failed to decompress cached data');
+    }
+  }
   /**
    * Get cached data with stale handling
    */
@@ -96,8 +224,12 @@ export class NewsDataCacheManager {
     }
 
     this.hits++;
+    
+    // Decompress data if needed
+    const data = await this.decompressData(entry);
+
     return {
-      data: entry.data,
+      data,
       timestamp: entry.timestamp,
       ttl: entry.ttl,
       isStale: isStale,
@@ -106,7 +238,7 @@ export class NewsDataCacheManager {
   }
 
   /**
-   * Set cached data with TTL
+   * Set cached data with TTL and compression
    */
   async set<T>(key: string, data: T, ttl?: number): Promise<void> {
     // Evict entries if cache is full
@@ -115,18 +247,23 @@ export class NewsDataCacheManager {
     }
 
     const now = Date.now();
+    const { data: processedData, compressed, originalSize, compressedSize } = await this.compressData(data);
+
     const entry: CacheEntry<T> = {
-      data,
+      data: processedData,
       timestamp: now,
       ttl: ttl || this.config.defaultTTL,
       hitCount: 0,
       lastAccessed: now,
+      compressed,
+      originalSize,
+      compressedSize,
     };
 
     this.cache.set(key, entry);
     this.updateAccessOrder(key);
 
-    this.logger.debug(`Cache set: ${key} (TTL: ${entry.ttl}ms)`);
+    this.logger.debug(`Cache set: ${key} (TTL: ${entry.ttl}ms, Compressed: ${compressed}, Size: ${compressedSize || originalSize} bytes)`);
   }
 
   /**
@@ -245,7 +382,7 @@ export class NewsDataCacheManager {
   }
 
   /**
-   * Get memory usage breakdown
+   * Get memory usage breakdown with compression statistics
    */
   async getMemoryBreakdown(): Promise<{
     totalMemory: number;
@@ -254,6 +391,13 @@ export class NewsDataCacheManager {
     smallestEntrySize: number;
     keyMemory: number;
     dataMemory: number;
+    compressionStats: {
+      totalCompressed: number;
+      totalOriginalSize: number;
+      totalCompressedSize: number;
+      compressionRatio: number;
+      spaceSaved: number;
+    };
   }> {
     let totalMemory = 0;
     let keyMemory = 0;
@@ -263,7 +407,19 @@ export class NewsDataCacheManager {
 
     for (const [key, entry] of this.cache.entries()) {
       const keySize = key.length * 2; // Rough UTF-16 size
-      const dataSize = JSON.stringify(entry.data).length * 2;
+      let dataSize: number;
+      
+      if (entry.compressed && entry.compressedSize) {
+        dataSize = entry.compressedSize;
+      } else if (entry.originalSize) {
+        dataSize = entry.originalSize;
+      } else {
+        // Fallback calculation
+        dataSize = entry.data instanceof Buffer 
+          ? entry.data.length 
+          : JSON.stringify(entry.data).length * 2;
+      }
+      
       const entrySize = keySize + dataSize;
 
       keyMemory += keySize;
@@ -275,6 +431,7 @@ export class NewsDataCacheManager {
     }
 
     const averageEntrySize = this.cache.size > 0 ? totalMemory / this.cache.size : 0;
+    const spaceSaved = this.compressionStats.totalOriginalSize - this.compressionStats.totalCompressedSize;
 
     return {
       totalMemory,
@@ -283,6 +440,10 @@ export class NewsDataCacheManager {
       smallestEntrySize: smallestEntrySize === Infinity ? 0 : smallestEntrySize,
       keyMemory,
       dataMemory,
+      compressionStats: {
+        ...this.compressionStats,
+        spaceSaved,
+      },
     };
   }
 
@@ -302,7 +463,7 @@ export class NewsDataCacheManager {
 
     if (isStale) {
       this.logger.warn(`Returning stale data for key: ${key} (age: ${age}ms)`);
-      return entry.data;
+      return await this.decompressData(entry);
     }
 
     return null;
@@ -312,6 +473,52 @@ export class NewsDataCacheManager {
    * Generate optimized cache key for sharing between similar requests
    */
   generateCacheKey(endpoint: string, params: Record<string, any>): string {
+    if (!this.config.keyOptimization) {
+      return this.generateBasicCacheKey(endpoint, params);
+    }
+
+    const pattern = this.keyPatterns.get(endpoint);
+    if (!pattern) {
+      return this.generateBasicCacheKey(endpoint, params);
+    }
+
+    // Extract common parameters for the template
+    const commonValues: Record<string, string> = {};
+    for (const param of pattern.commonParams) {
+      const value = params[param];
+      if (Array.isArray(value)) {
+        commonValues[param] = value.sort().join(',');
+      } else if (value !== undefined && value !== null) {
+        commonValues[param] = String(value);
+      } else {
+        commonValues[param] = 'any';
+      }
+    }
+
+    // Create hash for variable parameters
+    const variableParams: Record<string, any> = {};
+    for (const param of pattern.variableParams) {
+      if (params[param] !== undefined && params[param] !== null) {
+        variableParams[param] = params[param];
+      }
+    }
+
+    const variableHash = this.hashObject(variableParams);
+
+    // Build key from template
+    let key = pattern.keyTemplate;
+    for (const [param, value] of Object.entries(commonValues)) {
+      key = key.replace(`{${param}}`, value);
+    }
+    key = key.replace('{hash}', variableHash);
+
+    return key;
+  }
+
+  /**
+   * Generate basic cache key (fallback method)
+   */
+  private generateBasicCacheKey(endpoint: string, params: Record<string, any>): string {
     // Sort parameters for consistent key generation
     const sortedParams = Object.keys(params)
       .sort()
@@ -328,6 +535,20 @@ export class NewsDataCacheManager {
 
     const paramString = new URLSearchParams(sortedParams).toString();
     return `newsdata:${endpoint}:${paramString}`;
+  }
+
+  /**
+   * Create hash for object (simple hash function)
+   */
+  private hashObject(obj: Record<string, any>): string {
+    const str = JSON.stringify(obj, Object.keys(obj).sort());
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return Math.abs(hash).toString(36);
   }
 
   /**
@@ -382,8 +603,169 @@ export class NewsDataCacheManager {
   }
 
   /**
-   * Preload cache with multiple keys
+   * Add cache warming specification
    */
+  addWarmingSpec<T>(spec: CacheWarmingSpec<T>): void {
+    if (!this.config.warmingEnabled) {
+      return;
+    }
+
+    this.warmingQueue.set(spec.key, spec);
+    this.logger.debug(`Added cache warming spec for key: ${spec.key} (priority: ${spec.priority})`);
+  }
+
+  /**
+   * Execute cache warming for queued specifications
+   */
+  async executeWarmingQueue(): Promise<{ successful: number; failed: number; errors: Error[] }> {
+    if (!this.config.warmingEnabled || this.warmingQueue.size === 0) {
+      return { successful: 0, failed: 0, errors: [] };
+    }
+
+    // Sort by priority and resolve dependencies
+    const sortedSpecs = this.resolveDependencies(Array.from(this.warmingQueue.values()));
+    
+    let successful = 0;
+    let failed = 0;
+    const errors: Error[] = [];
+
+    // Process in batches
+    for (let i = 0; i < sortedSpecs.length; i += this.config.warmingBatchSize) {
+      const batch = sortedSpecs.slice(i, i + this.config.warmingBatchSize);
+      
+      const batchPromises = batch.map(async (spec) => {
+        try {
+          // Check if already cached and fresh
+          const existing = await this.get(spec.key);
+          if (existing && !existing.isStale) {
+            return { success: true, key: spec.key };
+          }
+
+          // Warm the cache
+          const data = await spec.dataFactory();
+          await this.set(spec.key, data, spec.ttl);
+          return { success: true, key: spec.key };
+        } catch (error) {
+          return { success: false, key: spec.key, error: error as Error };
+        }
+      });
+
+      const batchResults = await Promise.allSettled(batchPromises);
+      
+      for (const result of batchResults) {
+        if (result.status === 'fulfilled') {
+          if (result.value.success) {
+            successful++;
+            this.logger.debug(`Cache warmed: ${result.value.key}`);
+          } else {
+            failed++;
+            const error = result.value.error || new Error('Unknown warming error');
+            errors.push(error);
+            this.logger.warn(`Failed to warm cache: ${result.value.key} - ${error.message}`);
+          }
+        } else {
+          failed++;
+          errors.push(result.reason);
+        }
+      }
+
+      // Small delay between batches to avoid overwhelming the system
+      if (i + this.config.warmingBatchSize < sortedSpecs.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+
+    // Clear the warming queue
+    this.warmingQueue.clear();
+
+    this.logger.info(`Cache warming completed: ${successful} successful, ${failed} failed`);
+    return { successful, failed, errors };
+  }
+
+  /**
+   * Resolve dependencies and sort warming specifications
+   */
+  private resolveDependencies(specs: CacheWarmingSpec<any>[]): CacheWarmingSpec<any>[] {
+    const resolved: CacheWarmingSpec<any>[] = [];
+    const remaining = new Map(specs.map(spec => [spec.key, spec]));
+    const processing = new Set<string>();
+
+    const resolve = (key: string): void => {
+      if (processing.has(key)) {
+        // Circular dependency, skip
+        return;
+      }
+
+      const spec = remaining.get(key);
+      if (!spec) {
+        return;
+      }
+
+      processing.add(key);
+
+      // Resolve dependencies first
+      if (spec.dependencies) {
+        for (const dep of spec.dependencies) {
+          resolve(dep);
+        }
+      }
+
+      // Add to resolved list
+      resolved.push(spec);
+      remaining.delete(key);
+      processing.delete(key);
+    };
+
+    // Resolve all specs
+    for (const spec of specs) {
+      resolve(spec.key);
+    }
+
+    // Add any remaining specs (those with unresolvable dependencies)
+    resolved.push(...remaining.values());
+
+    // Sort by priority within dependency groups
+    return resolved.sort((a, b) => b.priority - a.priority);
+  }
+
+  /**
+   * Smart cache warming based on usage patterns
+   */
+  async smartWarmCache(
+    patterns: Array<{
+      endpoint: string;
+      baseParams: Record<string, any>;
+      variations: Array<Record<string, any>>;
+      priority?: number;
+    }>
+  ): Promise<{ successful: number; failed: number }> {
+    for (const pattern of patterns) {
+      for (const variation of pattern.variations) {
+        const params = { ...pattern.baseParams, ...variation };
+        const key = this.generateCacheKey(pattern.endpoint, params);
+        
+        // Check if this key is frequently accessed
+        const existing = this.cache.get(key);
+        const shouldWarm = !existing || 
+          existing.hitCount > 2 || 
+          (existing.hitCount > 0 && Date.now() - existing.timestamp > existing.ttl * 0.8);
+
+        if (shouldWarm) {
+          this.addWarmingSpec({
+            key,
+            dataFactory: async () => {
+              // This would be replaced with actual API call in real usage
+              throw new Error('Data factory not implemented for smart warming');
+            },
+            priority: pattern.priority || 1,
+          });
+        }
+      }
+    }
+
+    const result = await this.executeWarmingQueue();
+    return { successful: result.successful, failed: result.failed };
+  }
   async preloadCache<T>(
     preloadSpecs: Array<{
       key: string;
@@ -686,7 +1068,7 @@ export function createNewsDataCacheManager(config?: Partial<CacheConfig>): NewsD
 }
 
 /**
- * Create cache manager with NewsData-specific TTL settings
+ * Create cache manager with NewsData-specific TTL settings and optimizations
  */
 export function createNewsDataCacheWithTTLs(): NewsDataCacheManager {
   return new NewsDataCacheManager({
@@ -694,5 +1076,27 @@ export function createNewsDataCacheWithTTLs(): NewsDataCacheManager {
     defaultTTL: 15 * 60 * 1000, // 15 minutes for latest news
     staleTTL: 60 * 60 * 1000, // 1 hour for stale data
     evictionPolicy: 'lru',
+    compressionThreshold: 5 * 1024, // 5KB threshold for news articles
+    enableCompression: true,
+    warmingEnabled: true,
+    warmingBatchSize: 5,
+    keyOptimization: true,
+  });
+}
+
+/**
+ * Create high-performance cache manager for production use
+ */
+export function createHighPerformanceNewsDataCache(): NewsDataCacheManager {
+  return new NewsDataCacheManager({
+    maxSize: 5000,
+    defaultTTL: 10 * 60 * 1000, // 10 minutes for faster refresh
+    staleTTL: 2 * 60 * 60 * 1000, // 2 hours for stale data
+    evictionPolicy: 'lru',
+    compressionThreshold: 2 * 1024, // 2KB threshold for aggressive compression
+    enableCompression: true,
+    warmingEnabled: true,
+    warmingBatchSize: 10,
+    keyOptimization: true,
   });
 }

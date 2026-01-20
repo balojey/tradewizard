@@ -41,6 +41,47 @@ export interface RateLimiterConfig {
   // Coordination settings
   coordinationEnabled: boolean; // Enable multi-agent coordination
   coordinationWindow: number; // Time window for coordination (ms)
+  
+  // Batching settings
+  batchingEnabled: boolean; // Enable intelligent request batching
+  batchSize: number; // Maximum requests per batch
+  batchWindow: number; // Time window to collect requests for batching (ms)
+  
+  // Priority queue settings
+  priorityQueueEnabled: boolean; // Enable priority-based request queuing
+  maxQueueSize: number; // Maximum queued requests per bucket
+  priorityLevels: number; // Number of priority levels (1-10)
+  
+  // Advanced token bucket settings
+  adaptiveRefill: boolean; // Enable adaptive refill rate based on usage patterns
+  burstMultiplier: number; // Multiplier for burst capacity during low usage
+  throttleThreshold: number; // Quota percentage to start throttling (0-1)
+}
+
+export interface RequestPriority {
+  level: number; // 1 (highest) to 10 (lowest)
+  agentId?: string; // Requesting agent identifier
+  requestType?: string; // Type of request for prioritization
+  timestamp: number; // When request was queued
+}
+
+export interface BatchedRequest<T> {
+  id: string;
+  bucket: string;
+  tokens: number;
+  priority: RequestPriority;
+  executor: () => Promise<T>;
+  resolve: (value: T) => void;
+  reject: (error: Error) => void;
+}
+
+export interface QueueStats {
+  bucket: string;
+  queueSize: number;
+  averageWaitTime: number;
+  priorityDistribution: Record<number, number>;
+  batchesProcessed: number;
+  averageBatchSize: number;
 }
 
 export interface RateLimitStatus {
@@ -72,12 +113,17 @@ class TokenBucket {
   private lastRefill: number;
   private dailyUsage: number;
   private lastReset: number;
+  private usageHistory: number[] = []; // Track usage over time for adaptive refill
+  private adaptiveRefillRate: number;
+  private burstCapacity: number;
   
-  constructor(private config: TokenBucketConfig) {
+  constructor(private config: TokenBucketConfig, private adaptiveRefill: boolean = false, private burstMultiplier: number = 1.5) {
     this.tokens = config.capacity;
     this.lastRefill = Date.now();
     this.dailyUsage = 0;
     this.lastReset = this.getResetTime();
+    this.adaptiveRefillRate = config.refillRate;
+    this.burstCapacity = Math.floor(config.capacity * burstMultiplier);
   }
   
   /**
@@ -99,15 +145,50 @@ class TokenBucket {
   }
   
   /**
-   * Refill tokens based on elapsed time
+   * Update adaptive refill rate based on usage patterns
+   */
+  private updateAdaptiveRefillRate(): void {
+    if (!this.adaptiveRefill || this.usageHistory.length < 10) {
+      return;
+    }
+
+    const now = Date.now();
+    const oneHourAgo = now - 60 * 60 * 1000;
+    
+    // Filter usage to last hour
+    this.usageHistory = this.usageHistory.filter(timestamp => timestamp > oneHourAgo);
+    
+    const recentUsage = this.usageHistory.length;
+    const expectedUsage = this.config.refillRate * 3600; // Expected usage per hour
+    
+    // Adjust refill rate based on usage patterns
+    if (recentUsage < expectedUsage * 0.5) {
+      // Low usage - increase burst capacity, maintain refill rate
+      this.burstCapacity = Math.floor(this.config.capacity * this.burstMultiplier);
+    } else if (recentUsage > expectedUsage * 0.8) {
+      // High usage - optimize for steady flow
+      this.adaptiveRefillRate = Math.min(this.config.refillRate * 1.2, this.config.refillRate * 2);
+      this.burstCapacity = this.config.capacity;
+    } else {
+      // Normal usage - use default settings
+      this.adaptiveRefillRate = this.config.refillRate;
+      this.burstCapacity = this.config.capacity;
+    }
+  }
+
+  /**
+   * Refill tokens based on elapsed time with adaptive rate
    */
   private refill(): void {
     const now = Date.now();
     const elapsed = (now - this.lastRefill) / 1000; // Convert to seconds
     
     if (elapsed > 0) {
-      const tokensToAdd = elapsed * this.config.refillRate;
-      this.tokens = Math.min(this.config.capacity, this.tokens + tokensToAdd);
+      this.updateAdaptiveRefillRate();
+      
+      const tokensToAdd = elapsed * this.adaptiveRefillRate;
+      const maxCapacity = Math.max(this.config.capacity, this.burstCapacity);
+      this.tokens = Math.min(maxCapacity, this.tokens + tokensToAdd);
       this.lastRefill = now;
     }
   }
@@ -125,7 +206,7 @@ class TokenBucket {
   }
   
   /**
-   * Try to consume tokens from the bucket
+   * Try to consume tokens from the bucket with usage tracking
    */
   tryConsume(tokens: number = 1): RequestResult {
     this.refill();
@@ -147,6 +228,15 @@ class TokenBucket {
       this.tokens -= tokens;
       this.dailyUsage += tokens;
       
+      // Track usage for adaptive refill
+      if (this.adaptiveRefill) {
+        this.usageHistory.push(Date.now());
+        // Keep only last 1000 entries to prevent memory bloat
+        if (this.usageHistory.length > 1000) {
+          this.usageHistory = this.usageHistory.slice(-1000);
+        }
+      }
+      
       return {
         allowed: true,
         tokensConsumed: tokens,
@@ -155,7 +245,7 @@ class TokenBucket {
     
     // Calculate time until enough tokens are available
     const tokensNeeded = tokens - this.tokens;
-    const timeToWait = (tokensNeeded / this.config.refillRate) * 1000; // Convert to ms
+    const timeToWait = (tokensNeeded / this.adaptiveRefillRate) * 1000; // Convert to ms
     
     return {
       allowed: false,
@@ -225,16 +315,45 @@ export class NewsDataRateLimiter {
   private coordinationQueue: Map<string, number[]> = new Map(); // Track request timestamps per bucket
   private observabilityLogger?: AdvancedObservabilityLogger;
   
+  // Priority queue and batching
+  private requestQueues: Map<string, BatchedRequest<any>[][]> = new Map(); // [bucket][priority][]
+  private batchTimers: Map<string, NodeJS.Timeout> = new Map();
+  private queueStats: Map<string, QueueStats> = new Map();
+  private requestIdCounter = 0;
+  
   constructor(
     private config: RateLimiterConfig,
     observabilityLogger?: AdvancedObservabilityLogger
   ) {
     this.observabilityLogger = observabilityLogger;
     
-    // Initialize buckets
+    // Initialize buckets with adaptive settings
     Object.entries(config.buckets).forEach(([name, bucketConfig]) => {
-      this.buckets.set(name, new TokenBucket(bucketConfig));
+      this.buckets.set(name, new TokenBucket(
+        bucketConfig, 
+        config.adaptiveRefill || false,
+        config.burstMultiplier || 1.5
+      ));
       this.coordinationQueue.set(name, []);
+      
+      // Initialize priority queues
+      if (config.priorityQueueEnabled) {
+        const priorityQueues: BatchedRequest<any>[][] = [];
+        for (let i = 0; i < (config.priorityLevels || 10); i++) {
+          priorityQueues.push([]);
+        }
+        this.requestQueues.set(name, priorityQueues);
+        
+        // Initialize queue stats
+        this.queueStats.set(name, {
+          bucket: name,
+          queueSize: 0,
+          averageWaitTime: 0,
+          priorityDistribution: {},
+          batchesProcessed: 0,
+          averageBatchSize: 0,
+        });
+      }
     });
     
     // Start coordination cleanup interval
@@ -242,12 +361,182 @@ export class NewsDataRateLimiter {
       this.startCoordinationCleanup();
     }
     
-    console.log('[NewsDataRateLimiter] Initialized with buckets:', Object.keys(config.buckets));
+    // Start batch processing
+    if (config.batchingEnabled) {
+      this.startBatchProcessing();
+    }
+    
+    console.log('[NewsDataRateLimiter] Initialized with enhanced coordination and batching');
   }
   
   /**
-   * Start periodic cleanup of coordination queue
+   * Start batch processing for all buckets
    */
+  private startBatchProcessing(): void {
+    for (const bucket of this.buckets.keys()) {
+      this.scheduleBatchProcessing(bucket);
+    }
+  }
+
+  /**
+   * Schedule batch processing for a specific bucket
+   */
+  private scheduleBatchProcessing(bucket: string): void {
+    const timer = setTimeout(() => {
+      this.processBatch(bucket);
+      this.scheduleBatchProcessing(bucket); // Reschedule
+    }, this.config.batchWindow);
+    
+    this.batchTimers.set(bucket, timer);
+  }
+
+  /**
+   * Process batched requests for a bucket
+   */
+  private async processBatch(bucket: string): Promise<void> {
+    if (!this.config.priorityQueueEnabled) {
+      return;
+    }
+
+    const priorityQueues = this.requestQueues.get(bucket);
+    if (!priorityQueues) {
+      return;
+    }
+
+    const stats = this.queueStats.get(bucket)!;
+    let processedCount = 0;
+    // const batchStartTime = Date.now();
+
+    // Process requests by priority (highest first)
+    for (let priority = 0; priority < priorityQueues.length; priority++) {
+      const queue = priorityQueues[priority];
+      
+      if (queue.length === 0) {
+        continue;
+      }
+
+      // Determine batch size based on available tokens and configuration
+      const availableTokens = this.getTokens(bucket);
+      const maxBatchSize = Math.min(
+        this.config.batchSize,
+        availableTokens,
+        queue.length
+      );
+
+      if (maxBatchSize === 0) {
+        break; // No tokens available
+      }
+
+      // Extract batch
+      const batch = queue.splice(0, maxBatchSize);
+      
+      // Process batch concurrently
+      const batchPromises = batch.map(async (request) => {
+        const startTime = Date.now();
+        
+        try {
+          // Try to consume tokens
+          const result = await this.tryConsume(bucket, request.tokens);
+          
+          if (result.allowed) {
+            // Execute the request
+            const response = await request.executor();
+            request.resolve(response);
+            
+            // Update wait time stats
+            const waitTime = startTime - request.priority.timestamp;
+            this.updateWaitTimeStats(bucket, waitTime);
+            
+            processedCount++;
+          } else {
+            // Re-queue the request if rate limited
+            queue.unshift(request);
+          }
+        } catch (error) {
+          request.reject(error instanceof Error ? error : new Error(String(error)));
+        }
+      });
+
+      await Promise.allSettled(batchPromises);
+
+      // Update queue size
+      stats.queueSize = priorityQueues.reduce((total, q) => total + q.length, 0);
+
+      // Stop if we've processed enough for this cycle
+      if (processedCount >= this.config.batchSize) {
+        break;
+      }
+    }
+
+    // Update batch processing stats
+    if (processedCount > 0) {
+      stats.batchesProcessed++;
+      const currentAvg = stats.averageBatchSize;
+      stats.averageBatchSize = (currentAvg * (stats.batchesProcessed - 1) + processedCount) / stats.batchesProcessed;
+    }
+  }
+
+  /**
+   * Update wait time statistics
+   */
+  private updateWaitTimeStats(bucket: string, waitTime: number): void {
+    const stats = this.queueStats.get(bucket);
+    if (!stats) return;
+
+    // Simple moving average
+    const alpha = 0.1; // Smoothing factor
+    stats.averageWaitTime = stats.averageWaitTime * (1 - alpha) + waitTime * alpha;
+  }
+
+  /**
+   * Add request to priority queue
+   */
+  private queueRequest<T>(
+    bucket: string,
+    tokens: number,
+    priority: RequestPriority,
+    executor: () => Promise<T>
+  ): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const request: BatchedRequest<T> = {
+        id: `req_${++this.requestIdCounter}`,
+        bucket,
+        tokens,
+        priority,
+        executor,
+        resolve,
+        reject,
+      };
+
+      const priorityQueues = this.requestQueues.get(bucket);
+      if (!priorityQueues) {
+        reject(new Error(`No priority queue for bucket: ${bucket}`));
+        return;
+      }
+
+      // Add to appropriate priority queue (priority.level - 1 for 0-based indexing)
+      const queueIndex = Math.max(0, Math.min(priority.level - 1, priorityQueues.length - 1));
+      priorityQueues[queueIndex].push(request);
+
+      // Update stats
+      const stats = this.queueStats.get(bucket)!;
+      stats.queueSize++;
+      stats.priorityDistribution[priority.level] = (stats.priorityDistribution[priority.level] || 0) + 1;
+
+      // Check if queue is full
+      if (stats.queueSize > this.config.maxQueueSize) {
+        // Remove lowest priority request
+        for (let i = priorityQueues.length - 1; i >= 0; i--) {
+          if (priorityQueues[i].length > 0) {
+            const removed = priorityQueues[i].pop()!;
+            removed.reject(new Error('Queue full, request dropped'));
+            stats.queueSize--;
+            break;
+          }
+        }
+      }
+    });
+  }
   private startCoordinationCleanup(): void {
     setInterval(() => {
       const cutoff = Date.now() - this.config.coordinationWindow;
@@ -493,7 +782,7 @@ export class NewsDataRateLimiter {
   }
   
   /**
-   * Execute function with rate limiting and retry logic
+   * Execute function with enhanced rate limiting, batching, and priority queue
    */
   async executeWithRateLimit<T>(
     bucket: string,
@@ -501,19 +790,42 @@ export class NewsDataRateLimiter {
     options: {
       tokens?: number;
       maxRetries?: number;
+      priority?: RequestPriority;
+      agentId?: string;
+      requestType?: string;
       onRetry?: (attempt: number, delay: number, reason: string) => void;
     } = {}
   ): Promise<T> {
     const {
       tokens = 1,
       maxRetries = this.config.maxRetryAttempts,
+      priority,
+      // agentId,
+      // requestType,
       onRetry,
     } = options;
-    
+
+    // Use priority queue if enabled and priority is specified
+    if (this.config.priorityQueueEnabled && priority) {
+      return this.queueRequest(bucket, tokens, priority, fn);
+    }
+
+    // Fallback to direct execution with rate limiting
     let lastError: Error | null = null;
     
     for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
       try {
+        // Check if we should throttle based on quota usage
+        const bucketStatus = this.getBucketStatus(bucket);
+        if (bucketStatus.quotaPercentage / 100 > this.config.throttleThreshold) {
+          // Apply intelligent throttling
+          const throttleDelay = this.calculateThrottleDelay(bucketStatus);
+          if (throttleDelay > 0) {
+            onRetry?.(attempt, throttleDelay, 'Quota throttling');
+            await new Promise(resolve => setTimeout(resolve, throttleDelay));
+          }
+        }
+
         // Try to consume tokens
         const result = await this.tryConsume(bucket, tokens);
         
@@ -554,6 +866,107 @@ export class NewsDataRateLimiter {
     }
     
     throw lastError || new Error('Maximum retry attempts exceeded');
+  }
+
+  /**
+   * Calculate throttle delay based on quota usage
+   */
+  private calculateThrottleDelay(bucketStatus: RateLimitStatus): number {
+    const quotaUsage = bucketStatus.quotaPercentage / 100;
+    
+    if (quotaUsage < this.config.throttleThreshold) {
+      return 0;
+    }
+
+    // Progressive throttling based on quota usage
+    const throttleIntensity = (quotaUsage - this.config.throttleThreshold) / (1 - this.config.throttleThreshold);
+    const maxThrottleDelay = 5000; // 5 seconds max
+    
+    return Math.floor(throttleIntensity * maxThrottleDelay);
+  }
+
+  /**
+   * Execute multiple requests with intelligent batching
+   */
+  async executeBatch<T>(
+    bucket: string,
+    requests: Array<{
+      fn: () => Promise<T>;
+      tokens?: number;
+      priority?: RequestPriority;
+      agentId?: string;
+    }>
+  ): Promise<Array<{ success: boolean; result?: T; error?: Error }>> {
+    if (!this.config.batchingEnabled) {
+      // Execute sequentially if batching is disabled
+      const results: Array<{ success: boolean; result?: T; error?: Error }> = [];
+      
+      for (const request of requests) {
+        try {
+          const result = await this.executeWithRateLimit(bucket, request.fn, {
+            tokens: request.tokens,
+            priority: request.priority,
+            agentId: request.agentId,
+          });
+          results.push({ success: true, result });
+        } catch (error) {
+          results.push({ success: false, error: error as Error });
+        }
+      }
+      
+      return results;
+    }
+
+    // Use priority queue for batched execution
+    const promises = requests.map(async (request) => {
+      try {
+        const result = await this.executeWithRateLimit(bucket, request.fn, {
+          tokens: request.tokens,
+          priority: request.priority || { level: 5, timestamp: Date.now() },
+          agentId: request.agentId,
+        });
+        return { success: true, result };
+      } catch (error) {
+        return { success: false, error: error as Error };
+      }
+    });
+
+    return Promise.all(promises);
+  }
+
+  /**
+   * Get queue statistics for a bucket
+   */
+  getQueueStats(bucket: string): QueueStats | null {
+    return this.queueStats.get(bucket) || null;
+  }
+
+  /**
+   * Get queue statistics for all buckets
+   */
+  getAllQueueStats(): QueueStats[] {
+    return Array.from(this.queueStats.values());
+  }
+
+  /**
+   * Clear queue for a bucket
+   */
+  clearQueue(bucket: string): void {
+    const priorityQueues = this.requestQueues.get(bucket);
+    if (priorityQueues) {
+      priorityQueues.forEach(queue => {
+        queue.forEach(request => {
+          request.reject(new Error('Queue cleared'));
+        });
+        queue.length = 0;
+      });
+      
+      const stats = this.queueStats.get(bucket);
+      if (stats) {
+        stats.queueSize = 0;
+        stats.priorityDistribution = {};
+      }
+    }
   }
   
   /**
@@ -614,6 +1027,19 @@ export const DEFAULT_RATE_LIMITER_CONFIG: RateLimiterConfig = {
   
   coordinationEnabled: true,
   coordinationWindow: 5000, // 5 second window
+  
+  // Enhanced settings
+  batchingEnabled: true,
+  batchSize: 5, // Process up to 5 requests per batch
+  batchWindow: 1000, // 1 second batch collection window
+  
+  priorityQueueEnabled: true,
+  maxQueueSize: 100, // Maximum 100 queued requests per bucket
+  priorityLevels: 10, // 10 priority levels (1-10)
+  
+  adaptiveRefill: true,
+  burstMultiplier: 1.5, // 50% burst capacity increase during low usage
+  throttleThreshold: 0.8, // Start throttling at 80% quota usage
 };
 
 // ============================================================================

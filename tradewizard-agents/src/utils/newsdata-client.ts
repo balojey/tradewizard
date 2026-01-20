@@ -24,6 +24,7 @@ import type { NewsDataErrorHandler } from './newsdata-error-handler.js';
 import { getNewsDataErrorHandler } from './newsdata-error-handler.js';
 import type { NewsDataAgentUsageTracker } from './newsdata-agent-usage-tracker.js';
 import { getNewsDataAgentUsageTracker } from './newsdata-agent-usage-tracker.js';
+import type { NewsDataPerformanceMonitor } from './newsdata-performance-monitor.js';
 
 // ============================================================================
 // Core Configuration Types
@@ -286,6 +287,7 @@ export class NewsDataClient {
   // private rateLimiter?: NewsDataRateLimiter; // TODO: Implement rate limiting
   private circuitBreaker?: NewsDataCircuitBreaker;
   private fallbackManager?: NewsDataFallbackManager;
+  private performanceMonitor?: NewsDataPerformanceMonitor;
   
   constructor(
     config: NewsDataConfig, 
@@ -296,7 +298,8 @@ export class NewsDataClient {
     fallbackManager?: NewsDataFallbackManager,
     newsDataLogger?: NewsDataObservabilityLogger,
     errorHandler?: NewsDataErrorHandler,
-    usageTracker?: NewsDataAgentUsageTracker
+    usageTracker?: NewsDataAgentUsageTracker,
+    performanceMonitor?: NewsDataPerformanceMonitor
   ) {
     // Validate required configuration
     if (!config.apiKey) {
@@ -333,6 +336,7 @@ export class NewsDataClient {
     // Rate limiter will be implemented in future iterations
     this.circuitBreaker = circuitBreaker;
     this.fallbackManager = fallbackManager;
+    this.performanceMonitor = performanceMonitor;
     
     // Log client initialization
     console.log('[NewsDataClient] Initialized with configuration:', {
@@ -522,29 +526,65 @@ export class NewsDataClient {
    * Make HTTP request with circuit breaker protection and fallback mechanisms
    */
   private async makeRequest(url: string, endpoint: string, agentName?: string): Promise<NewsDataResponse> {
-    // const startTime = Date.now(); // TODO: Use for performance monitoring
+    const startTime = Date.now();
+    let success = false;
+    let timeout = false;
     
-    // Generate cache key for fallback purposes
-    const cacheKey = this.cacheManager?.generateCacheKey(endpoint, this.extractParamsFromUrl(url)) || url;
-    
-    // If circuit breaker is available, use it with fallback
-    if (this.circuitBreaker && this.fallbackManager) {
-      const result = await this.circuitBreaker.execute(
-        () => this.makeDirectRequest(url, endpoint, agentName),
-        () => this.executeFallback(cacheKey)
+    try {
+      // Generate cache key for fallback purposes
+      const cacheKey = this.cacheManager?.generateCacheKey(endpoint, this.extractParamsFromUrl(url)) || url;
+      
+      let result: NewsDataResponse;
+      
+      // If circuit breaker is available, use it with fallback
+      if (this.circuitBreaker && this.fallbackManager) {
+        const circuitResult = await this.circuitBreaker.execute(
+          () => this.makeDirectRequest(url, endpoint, agentName),
+          () => this.executeFallback(cacheKey)
+        );
+        
+        if (circuitResult.success && circuitResult.data) {
+          result = circuitResult.data;
+          success = true;
+        } else if (circuitResult.fromFallback && circuitResult.data) {
+          result = circuitResult.data;
+          success = true;
+        } else {
+          throw circuitResult.error || new Error('Request failed and no fallback available');
+        }
+      } else {
+        // Fallback to direct request if circuit breaker not available
+        result = await this.makeDirectRequest(url, endpoint, agentName);
+        success = true;
+      }
+      
+      // Record performance metrics
+      const responseTime = Date.now() - startTime;
+      this.performanceMonitor?.recordResponseTime(endpoint, responseTime, success, timeout);
+      
+      // Record throughput metrics
+      if (result.results) {
+        const responseSize = JSON.stringify(result).length;
+        this.performanceMonitor?.recordThroughput(endpoint, responseSize, result.results.length);
+      }
+      
+      return result;
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      
+      // Check if it's a timeout error
+      timeout = error instanceof Error && (
+        error.message.includes('timeout') || 
+        error.message.includes('ETIMEDOUT') ||
+        error.name === 'TimeoutError'
       );
       
-      if (result.success && result.data) {
-        return result.data;
-      } else if (result.fromFallback && result.data) {
-        return result.data;
-      } else {
-        throw result.error || new Error('Request failed and no fallback available');
-      }
+      // Record performance metrics for failed requests
+      this.performanceMonitor?.recordResponseTime(endpoint, responseTime, success, timeout);
+      
+      throw error;
     }
-    
-    // Fallback to direct request if circuit breaker not available
-    return await this.makeDirectRequest(url, endpoint, agentName);
   }
   
   /**
@@ -843,28 +883,6 @@ export class NewsDataClient {
   }
 
   /**
-   * Categorize HTTP error for logging
-   */
-  private categorizeHttpError(status: number): 'api' | 'network' | 'validation' | 'rate_limit' | 'quota' | 'system' {
-    if (status === 400 || status === 409 || status === 422) return 'validation';
-    if (status === 401 || status === 403) return 'api';
-    if (status === 429) return 'rate_limit';
-    if (status >= 500) return 'system';
-    return 'network';
-  }
-
-  /**
-   * Get error impact level for logging
-   */
-  private getErrorImpactLevel(status: number): 'low' | 'medium' | 'high' | 'critical' {
-    if (status === 401) return 'critical'; // Invalid API key
-    if (status === 429) return 'high'; // Rate limit exceeded
-    if (status >= 500) return 'high'; // Server errors
-    if (status === 400 || status === 422) return 'medium'; // Validation errors
-    return 'low';
-  }
-
-  /**
    * Fetch latest news
    */
   async fetchLatestNews(params: LatestNewsParams = {}, agentName?: string): Promise<NewsDataResponse> {
@@ -1064,6 +1082,46 @@ export class NewsDataClient {
     });
 
     return response.results || [];
+  }
+
+  /**
+   * Get performance metrics snapshot
+   */
+  async getPerformanceSnapshot() {
+    if (!this.performanceMonitor) {
+      throw new Error('Performance monitor not available');
+    }
+    return await this.performanceMonitor.getPerformanceSnapshot();
+  }
+
+  /**
+   * Get performance report
+   */
+  async getPerformanceReport() {
+    if (!this.performanceMonitor) {
+      throw new Error('Performance monitor not available');
+    }
+    return await this.performanceMonitor.getPerformanceReport();
+  }
+
+  /**
+   * Add performance alert callback
+   */
+  onPerformanceAlert(callback: (alert: any) => void) {
+    if (!this.performanceMonitor) {
+      throw new Error('Performance monitor not available');
+    }
+    this.performanceMonitor.onAlert(callback);
+  }
+
+  /**
+   * Reset performance metrics
+   */
+  resetPerformanceMetrics() {
+    if (!this.performanceMonitor) {
+      throw new Error('Performance monitor not available');
+    }
+    this.performanceMonitor.reset();
   }
 }
 
