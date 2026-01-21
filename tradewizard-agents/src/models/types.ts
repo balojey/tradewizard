@@ -21,6 +21,327 @@ export const Ok = <T>(value: T): Result<T, never> => ({ ok: true, value });
 export const Err = <E>(error: E): Result<never, E> => ({ ok: false, error });
 
 // ============================================================================
+// Polymarket Event-Based Data Models
+// ============================================================================
+
+/**
+ * Polymarket Tag - represents event categorization and filtering
+ */
+export interface PolymarketTag {
+  id: number;
+  label: string;
+  slug: string;
+  forceShow?: boolean;
+  forceHide?: boolean;
+  publishedAt?: string;
+  updatedBy?: number;
+  createdAt: string;
+  updatedAt: string;
+  isCarousel?: boolean;
+  requiresTranslation: boolean;
+}
+
+/**
+ * Polymarket Market - individual market within an event
+ */
+export interface PolymarketMarket {
+  // Core Market Data
+  id: string;
+  question: string;
+  conditionId: string;
+  slug: string;
+  description: string;
+  resolutionSource: string;
+  
+  // Market Status
+  active: boolean;
+  closed: boolean;
+  archived: boolean;
+  new: boolean;
+  featured: boolean;
+  restricted: boolean;
+  
+  // Financial Data
+  liquidity?: string;
+  liquidityNum?: number;
+  volume: string;
+  volumeNum: number;
+  volume24hr?: number;
+  volume1wk?: number;
+  volume1mo?: number;
+  volume1yr?: number;
+  
+  // Pricing Data
+  outcomes: string;  // JSON array as string
+  outcomePrices: string;  // JSON array as string
+  lastTradePrice?: number;
+  bestBid?: number;
+  bestAsk?: number;
+  spread?: number;
+  
+  // Price Changes
+  oneDayPriceChange?: number;
+  oneHourPriceChange?: number;
+  oneWeekPriceChange?: number;
+  oneMonthPriceChange?: number;
+  oneYearPriceChange?: number;
+  
+  // Market Quality Metrics
+  competitive?: number;
+  
+  // Temporal Data
+  startDate: string;
+  endDate: string;
+  createdAt: string;
+  updatedAt: string;
+  closedTime?: string;
+  
+  // Market Maker and Trading
+  marketMakerAddress: string;
+  submitted_by: string;
+  resolvedBy?: string;
+  
+  // Group/Series Information (for event context)
+  groupItemTitle?: string;
+  groupItemThreshold?: string;
+  
+  // UMA Resolution
+  questionID?: string;
+  umaEndDate?: string;
+  umaResolutionStatus?: string;
+  umaResolutionStatuses?: string;
+  umaBond?: string;
+  umaReward?: string;
+  
+  // Trading Configuration
+  enableOrderBook: boolean;
+  orderPriceMinTickSize?: number;
+  orderMinSize?: number;
+  acceptingOrders?: boolean;
+  acceptingOrdersTimestamp?: string;
+  
+  // CLOB Token Information
+  clobTokenIds?: string;
+  liquidityClob?: number;
+  volumeClob?: number;
+  volume24hrClob?: number;
+  volume1wkClob?: number;
+  volume1moClob?: number;
+  volume1yrClob?: number;
+  
+  // Additional Configuration
+  customLiveness?: number;
+  negRisk: boolean;
+  negRiskRequestID?: string;
+  negRiskMarketID?: string;
+  ready: boolean;
+  funded: boolean;
+  cyom: boolean;
+  pagerDutyNotificationEnabled: boolean;
+  approved: boolean;
+  rewardsMinSize?: number;
+  rewardsMaxSpread?: number;
+  automaticallyResolved?: boolean;
+  automaticallyActive: boolean;
+  clearBookOnStart: boolean;
+  seriesColor: string;
+  showGmpSeries: boolean;
+  showGmpOutcome: boolean;
+  manualActivation: boolean;
+  negRiskOther: boolean;
+  pendingDeployment: boolean;
+  deploying: boolean;
+  deployingTimestamp?: string;
+  rfqEnabled: boolean;
+  holdingRewardsEnabled: boolean;
+  feesEnabled: boolean;
+  requiresTranslation: boolean;
+  
+  // Visual Elements
+  image?: string;
+  icon?: string;
+  
+  // Date Helpers
+  endDateIso?: string;
+  startDateIso?: string;
+  hasReviewedDates?: boolean;
+}
+
+/**
+ * Polymarket Event - contains multiple related markets with shared context
+ */
+export interface PolymarketEvent {
+  // Core Event Data
+  id: string;
+  ticker: string;
+  slug: string;
+  title: string;
+  description: string;
+  resolutionSource: string;
+  
+  // Event Status
+  active: boolean;
+  closed: boolean;
+  archived: boolean;
+  new: boolean;
+  featured: boolean;
+  restricted: boolean;
+  
+  // Temporal Data
+  startDate: string;
+  creationDate: string;
+  endDate: string;
+  createdAt: string;
+  updatedAt: string;
+  
+  // Event Metrics (aggregated from all markets)
+  liquidity: number;
+  volume: number;
+  openInterest: number;
+  competitive: number;
+  volume24hr: number;
+  volume1wk: number;
+  volume1mo: number;
+  volume1yr: number;
+  
+  // Event Configuration
+  enableOrderBook: boolean;
+  liquidityClob: number;
+  negRisk: boolean;
+  negRiskMarketID?: string;
+  commentCount: number;
+  
+  // Visual Elements
+  image?: string;
+  icon?: string;
+  
+  // Nested Markets (key difference from individual market approach)
+  markets: PolymarketMarket[];
+  
+  // Event Tags and Classification
+  tags: PolymarketTag[];
+  
+  // Event-Specific Configuration
+  cyom: boolean;
+  showAllOutcomes: boolean;
+  showMarketImages: boolean;
+  enableNegRisk: boolean;
+  automaticallyActive: boolean;
+  gmpChartMode: string;
+  negRiskAugmented: boolean;
+  cumulativeMarkets: boolean;
+  pendingDeployment: boolean;
+  deploying: boolean;
+  requiresTranslation: boolean;
+}
+
+/**
+ * Event Discovery Options for API queries
+ */
+export interface EventDiscoveryOptions {
+  tagId?: number;
+  relatedTags?: boolean;
+  active?: boolean;
+  closed?: boolean;
+  limit?: number;
+  offset?: number;
+  startDateMin?: string;
+  startDateMax?: string;
+  endDateMin?: string;
+  endDateMax?: string;
+  sortBy?: 'volume24hr' | 'liquidity' | 'competitive' | 'createdAt';
+  sortOrder?: 'asc' | 'desc';
+  archived?: boolean;
+  featured?: boolean;
+}
+
+/**
+ * Event with enhanced analysis data
+ */
+export interface EventWithMarkets {
+  event: PolymarketEvent;
+  markets: PolymarketMarket[];
+  crossMarketCorrelations: MarketCorrelation[];
+  eventLevelMetrics: EventMetrics;
+}
+
+/**
+ * Market correlation analysis
+ */
+export interface MarketCorrelation {
+  market1Id: string;
+  market2Id: string;
+  correlationCoefficient: number;
+  correlationType: 'positive' | 'negative' | 'neutral';
+}
+
+/**
+ * Event-level aggregated metrics
+ */
+export interface EventMetrics {
+  totalVolume: number;
+  totalLiquidity: number;
+  averageCompetitive: number;
+  marketCount: number;
+  activeMarketCount: number;
+  volumeDistribution: MarketVolumeDistribution[];
+  priceCorrelations: MarketCorrelation[];
+}
+
+/**
+ * Market volume distribution within an event
+ */
+export interface MarketVolumeDistribution {
+  marketId: string;
+  volumePercentage: number;
+  liquidityPercentage: number;
+}
+
+/**
+ * Event-based keywords extracted from event and market data
+ */
+export interface EventKeywords {
+  eventLevel: string[];      // From event title, description, tags
+  marketLevel: string[];     // From all constituent markets
+  combined: string[];        // Merged and deduplicated
+  themes: ThemeKeywords[];   // Cross-market themes
+  concepts: ConceptKeywords[]; // Event-level concepts
+  ranked: RankedKeyword[];
+}
+
+/**
+ * Keywords grouped by theme across markets
+ */
+export interface ThemeKeywords {
+  theme: string;
+  keywords: string[];
+  marketIds: string[];    // Markets that share this theme
+  relevanceScore: number;
+}
+
+/**
+ * Conceptual keywords derived from event analysis
+ */
+export interface ConceptKeywords {
+  concept: string;
+  keywords: string[];
+  source: 'event_title' | 'event_description' | 'event_tags' | 'market_pattern';
+  confidence: number;
+}
+
+/**
+ * Ranked keyword with relevance scoring
+ */
+export interface RankedKeyword {
+  keyword: string;
+  relevanceScore: number;
+  source: 'event_tag' | 'event_title' | 'event_description' | 'market_question' | 'market_outcome' | 'derived';
+  tagId?: number;
+  marketIds?: string[];   // Markets where this keyword appears
+  frequency: number;      // How often it appears across markets
+}
+
+// ============================================================================
 // Error Types
 // ============================================================================
 
@@ -31,6 +352,7 @@ export type IngestionError =
   | { type: 'API_UNAVAILABLE'; message: string }
   | { type: 'RATE_LIMIT_EXCEEDED'; retryAfter: number }
   | { type: 'INVALID_MARKET_ID'; marketId: MarketId }
+  | { type: 'INVALID_EVENT_ID'; eventId: string }
   | { type: 'VALIDATION_FAILED'; field: string; reason: string };
 
 /**
@@ -49,7 +371,7 @@ export type RecommendationError =
   | { type: 'NO_EDGE'; edge: number };
 
 // ============================================================================
-// Market Briefing Document (MBD)
+// Market Briefing Document (MBD) - Enhanced for Event-Based Analysis
 // ============================================================================
 
 /**
@@ -84,10 +406,11 @@ export interface Catalyst {
 export type MarketId = string | number;
 
 /**
- * Market Briefing Document - standardized market data structure
- * This is the primary input to all intelligence agents
+ * Enhanced Market Briefing Document - supports event-based analysis with multiple markets
+ * This is the primary input to all intelligence agents, now enhanced for event context
  */
 export interface MarketBriefingDocument {
+  // Core Market Data
   marketId: MarketId;
   conditionId: string;
   eventType: EventType;
@@ -99,10 +422,95 @@ export interface MarketBriefingDocument {
   bidAskSpread: number; // In cents
   volatilityRegime: VolatilityRegime;
   volume24h: number;
-  metadata: {
-    ambiguityFlags: string[];
-    keyCatalysts: Catalyst[];
+  
+  // Event-Based Enhancement
+  eventData?: {
+    event: PolymarketEvent;
+    markets: PolymarketMarket[];
+    eventMetrics: EventMetrics;
+    marketRelationships: MarketRelationship[];
+    crossMarketOpportunities: CrossMarketOpportunity[];
   };
+  
+  // Enhanced Keywords (from event and all markets)
+  keywords?: EventKeywords;
+  
+  // Enhanced Metadata
+  metadata: EnhancedEventMetadata;
+}
+
+/**
+ * Market relationship within an event
+ */
+export interface MarketRelationship {
+  market1: PolymarketMarket;
+  market2: PolymarketMarket;
+  relationshipType: 'complementary' | 'competitive' | 'independent' | 'correlated';
+  strength: number;
+  description: string;
+}
+
+/**
+ * Cross-market opportunity detection
+ */
+export interface CrossMarketOpportunity {
+  type: 'arbitrage' | 'hedge' | 'correlation_play';
+  markets: PolymarketMarket[];
+  expectedReturn: number;
+  riskLevel: 'low' | 'medium' | 'high';
+  description: string;
+}
+
+/**
+ * Enhanced metadata supporting event-based analysis
+ */
+export interface EnhancedEventMetadata {
+  // Original metadata
+  ambiguityFlags: string[];
+  keyCatalysts: Catalyst[];
+  
+  // Event-specific metadata
+  eventId?: string;
+  eventTitle?: string;
+  eventDescription?: string;
+  marketIds?: string[];
+  
+  // Enhanced catalysts from event analysis
+  eventCatalysts?: EventCatalyst[];
+  marketCatalysts?: MarketCatalyst[];
+  
+  // Tag-derived information
+  politicalCategory?: string;
+  subCategories?: string[];
+  eventThemes?: string[];
+  
+  // Cross-market information
+  marketRelationships?: MarketRelationship[];
+  dominantMarketId?: string;
+  opportunityMarkets?: string[];
+}
+
+/**
+ * Event-level catalyst
+ */
+export interface EventCatalyst {
+  event: string;
+  timestamp: number;
+  source: 'polymarket_event' | 'news' | 'market_activity' | 'external';
+  impact: 'high' | 'medium' | 'low';
+  affectedMarkets: string[];
+  eventId?: string;
+}
+
+/**
+ * Market-specific catalyst
+ */
+export interface MarketCatalyst {
+  marketId: string;
+  catalyst: string;
+  timestamp: number;
+  source: 'market_specific' | 'event_level' | 'external';
+  impact: 'high' | 'medium' | 'low';
 }
 
 // ============================================================================

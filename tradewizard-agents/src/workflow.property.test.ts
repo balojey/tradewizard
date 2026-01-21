@@ -38,6 +38,8 @@ function createMinimalConfig(): EngineConfig {
     polymarket: {
       gammaApiUrl: 'https://gamma-api.polymarket.com',
       clobApiUrl: 'https://clob.polymarket.com',
+      rateLimitBuffer: 80,
+      politicsTagId: 2,
     },
     agents: {
       timeoutMs: 10000,
@@ -53,9 +55,13 @@ function createMinimalConfig(): EngineConfig {
     },
     langgraph: {
       checkpointer: 'memory',
+      recursionLimit: 25,
+      streamMode: 'values',
     },
     opik: {
       projectName: 'test-project',
+      tags: [],
+      trackCosts: true,
     },
     advancedAgents: {
       eventIntelligence: {

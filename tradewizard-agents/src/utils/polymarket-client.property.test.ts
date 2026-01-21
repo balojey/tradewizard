@@ -30,6 +30,7 @@ describe('PolymarketClient - Property-Based Tests', () => {
       gammaApiUrl: 'https://test-gamma.polymarket.com',
       clobApiUrl: 'https://test-clob.polymarket.com',
       rateLimitBuffer: 80,
+      politicsTagId: 2,
     };
 
     client = new PolymarketClient(config);

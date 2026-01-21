@@ -24,6 +24,7 @@ const EngineConfigSchema = z
       gammaApiUrl: z.string().url(),
       clobApiUrl: z.string().url(),
       rateLimitBuffer: z.number().min(0).max(100),
+      politicsTagId: z.number().positive().default(2),
     }),
     langgraph: z.object({
       checkpointer: z.enum(['memory', 'sqlite', 'postgres']).default('memory'),
@@ -281,6 +282,7 @@ export function loadConfig(): EngineConfig {
       gammaApiUrl: process.env.POLYMARKET_GAMMA_API_URL || 'https://gamma-api.polymarket.com',
       clobApiUrl: process.env.POLYMARKET_CLOB_API_URL || 'https://clob.polymarket.com',
       rateLimitBuffer: parseInt(process.env.POLYMARKET_RATE_LIMIT_BUFFER || '80', 10),
+      politicsTagId: parseInt(process.env.POLYMARKET_POLITICS_TAG_ID || '2', 10),
     },
     langgraph: {
       checkpointer:
@@ -690,6 +692,7 @@ export function getDefaultConfig(): Partial<EngineConfig> {
       gammaApiUrl: 'https://gamma-api.polymarket.com',
       clobApiUrl: 'https://clob.polymarket.com',
       rateLimitBuffer: 80,
+      politicsTagId: 2,
     },
     langgraph: {
       checkpointer: 'memory',

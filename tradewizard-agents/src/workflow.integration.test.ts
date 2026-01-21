@@ -22,6 +22,7 @@ describe('LangGraph Workflow Integration Tests', () => {
         gammaApiUrl: 'https://gamma-api.polymarket.com',
         clobApiUrl: 'https://clob.polymarket.com',
         rateLimitBuffer: 80,
+        politicsTagId: 2,
       },
       langgraph: {
         checkpointer: 'memory',
