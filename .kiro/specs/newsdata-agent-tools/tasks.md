@@ -279,7 +279,7 @@ This implementation plan converts the NewsData.io agent tools design into a seri
   - Test performance under concurrent agent requests
   - _Requirements: Complete system validation_
 
-- [ ] 14. Final checkpoint - System validation
+- [x] 14. Final checkpoint - System validation
   - Ensure all tests pass and system meets performance requirements
   - Verify migration from NewsAPI is complete and successful
   - Validate that all agents can successfully fetch news using new tools
@@ -287,7 +287,7 @@ This implementation plan converts the NewsData.io agent tools design into a seri
 
 ## Notes
 
-- Tasks marked with `` are optional and can be skipped for faster MVP
+- Tasks marked with `*` are optional and can be skipped for faster MVP
 - Each task references specific requirements for traceability
 - Checkpoints ensure incremental validation and allow for user feedback
 - Property tests validate universal correctness properties
