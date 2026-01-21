@@ -249,10 +249,14 @@ export interface EventDiscoveryOptions {
   startDateMax?: string;
   endDateMin?: string;
   endDateMax?: string;
-  sortBy?: 'volume24hr' | 'liquidity' | 'competitive' | 'createdAt';
+  sortBy?: 'volume24hr' | 'liquidity' | 'competitive' | 'createdAt' | 'id' | 'marketCount' | 'totalVolume';
   sortOrder?: 'asc' | 'desc';
   archived?: boolean;
   featured?: boolean;
+  order?: string;
+  ascending?: boolean;
+  minMarkets?: number;
+  maxMarkets?: number;
 }
 
 /**

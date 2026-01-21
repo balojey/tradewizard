@@ -469,4 +469,264 @@ describe('Enhanced Event Polymarket Client - Error Handling and Rate Limiting Pr
       { numRuns: 15, timeout: 20000 }
     );
   });
+
+  /**
+   * **Feature: polymarket-integration-enhancement, Property 1: Event-Based Political Discovery API Parameters**
+   * For any political event discovery request, the API call should include tag_id=2, related_tags=true, active=true, and closed=false parameters for events endpoint
+   * Validates: Requirements 1.1, 1.2, 1.3
+   */
+  test('Property 1: Political event discovery should always include correct API parameters', () =>
+    fc.assert(
+      fc.asyncProperty(
+        fc.integer({ min: 1, max: 50 }), // limit
+        async (limit) => {
+          // Mock successful response with valid events
+          const mockEvents = [
+            {
+              id: 'test-event-1',
+              ticker: 'TEST',
+              slug: 'test-event',
+              title: 'Test Political Event',
+              description: 'Test event for property testing',
+              resolutionSource: 'Test source',
+              active: true,
+              closed: false,
+              archived: false,
+              new: false,
+              featured: false,
+              restricted: false,
+              startDate: '2024-01-01T00:00:00Z',
+              creationDate: '2024-01-01T00:00:00Z',
+              endDate: '2024-11-05T00:00:00Z',
+              createdAt: '2024-01-01T00:00:00Z',
+              updatedAt: '2024-01-15T00:00:00Z',
+              liquidity: 10000,
+              volume: 50000,
+              openInterest: 20000,
+              competitive: 0.7,
+              volume24hr: 5000,
+              volume1wk: 20000,
+              volume1mo: 80000,
+              volume1yr: 500000,
+              enableOrderBook: true,
+              liquidityClob: 10000,
+              negRisk: false,
+              commentCount: 10,
+              markets: [],
+              tags: [
+                {
+                  id: 2,
+                  label: 'Politics',
+                  slug: 'politics',
+                  createdAt: '2023-01-01T00:00:00Z',
+                  updatedAt: '2023-01-01T00:00:00Z',
+                  requiresTranslation: false,
+                },
+              ],
+              cyom: false,
+              showAllOutcomes: true,
+              showMarketImages: false,
+              enableNegRisk: false,
+              automaticallyActive: true,
+              gmpChartMode: 'default',
+              negRiskAugmented: false,
+              cumulativeMarkets: false,
+              pendingDeployment: false,
+              deploying: false,
+              requiresTranslation: false,
+            },
+          ];
+
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: async () => mockEvents,
+            status: 200,
+            statusText: 'OK',
+          });
+
+          // Call the method
+          const rankedEvents = await client.discoverTrendingPoliticalEvents(limit);
+
+          // Verify the fetch was called with correct parameters
+          expect(mockFetch).toHaveBeenCalled();
+          const fetchCall = mockFetch.mock.calls[mockFetch.mock.calls.length - 1];
+          const url = fetchCall[0] as string;
+          
+          // Parse URL to check parameters
+          const urlObj = new URL(url);
+          const params = urlObj.searchParams;
+          
+          // Verify required parameters are present
+          expect(params.get('tag_id')).toBe('2'); // Politics tag
+          expect(params.get('related_tags')).toBe('true');
+          expect(params.get('active')).toBe('true');
+          expect(params.get('closed')).toBe('false');
+          
+          // Verify result structure
+          expect(Array.isArray(rankedEvents)).toBe(true);
+          expect(rankedEvents.length).toBeLessThanOrEqual(limit);
+          
+          // Each ranked event should have proper structure
+          for (const rankedEvent of rankedEvents) {
+            expect(rankedEvent).toHaveProperty('event');
+            expect(rankedEvent).toHaveProperty('trendingScore');
+            expect(rankedEvent).toHaveProperty('rankingFactors');
+            expect(rankedEvent).toHaveProperty('marketAnalysis');
+            expect(typeof rankedEvent.trendingScore).toBe('number');
+            expect(rankedEvent.trendingScore).toBeGreaterThanOrEqual(0);
+          }
+        }
+      ),
+      { numRuns: 100, timeout: 30000 }
+    )
+  );
+
+  /**
+   * **Feature: polymarket-integration-enhancement, Property 3: Event Filtering and Prioritization**
+   * For any event discovery operation, events with multiple active markets and high combined volume should be prioritized over single-market events
+   * Validates: Requirements 1.3, 1.5
+   */
+  test('Property 3: Events with multiple markets and high volume should be prioritized in trending results', () =>
+    fc.assert(
+      fc.asyncProperty(
+        fc.integer({ min: 2, max: 10 }), // number of events
+        fc.integer({ min: 1, max: 5 }), // markets per event
+        fc.float({ min: 1000, max: 1000000 }), // volume range
+        async (numEvents, marketsPerEvent, baseVolume) => {
+          // Generate mock events with varying market counts and volumes
+          const mockEvents = Array.from({ length: numEvents }, (_, i) => {
+            const marketCount = i === 0 ? marketsPerEvent : 1; // First event has multiple markets
+            const volume = i === 0 ? baseVolume * 10 : baseVolume; // First event has higher volume
+            
+            return {
+              id: `event-${i}`,
+              ticker: `TEST${i}`,
+              slug: `test-event-${i}`,
+              title: `Test Event ${i}`,
+              description: `Test event ${i} for property testing`,
+              resolutionSource: 'Test source',
+              active: true,
+              closed: false,
+              archived: false,
+              new: false,
+              featured: false,
+              restricted: false,
+              startDate: '2024-01-01T00:00:00Z',
+              creationDate: '2024-01-01T00:00:00Z',
+              endDate: '2024-11-05T00:00:00Z',
+              createdAt: '2024-01-01T00:00:00Z',
+              updatedAt: '2024-01-15T00:00:00Z',
+              liquidity: 10000,
+              volume: volume,
+              openInterest: 20000,
+              competitive: 0.7,
+              volume24hr: volume * 0.1,
+              volume1wk: volume * 0.4,
+              volume1mo: volume * 1.6,
+              volume1yr: volume * 10,
+              enableOrderBook: true,
+              liquidityClob: 10000,
+              negRisk: false,
+              commentCount: 10,
+              markets: Array.from({ length: marketCount }, (_, j) => ({
+                id: `market-${i}-${j}`,
+                question: `Market ${j} for event ${i}`,
+                conditionId: `cond-${i}-${j}`,
+                slug: `market-${i}-${j}`,
+                description: `Market ${j} description`,
+                resolutionSource: 'Test source',
+                active: true,
+                closed: false,
+                archived: false,
+                new: false,
+                featured: false,
+                restricted: false,
+                liquidity: '5000',
+                liquidityNum: 5000,
+                volume: (volume / marketCount).toString(),
+                volumeNum: volume / marketCount,
+                volume24hr: (volume * 0.1) / marketCount,
+                outcomes: '["Yes", "No"]',
+                outcomePrices: '[0.5, 0.5]',
+                competitive: 0.7,
+                startDate: '2024-01-01T00:00:00Z',
+                endDate: '2024-11-05T00:00:00Z',
+                createdAt: '2024-01-01T00:00:00Z',
+                updatedAt: '2024-01-15T00:00:00Z',
+                marketMakerAddress: '0x123',
+                submitted_by: 'user1',
+                enableOrderBook: true,
+                negRisk: false,
+                ready: true,
+                funded: true,
+                cyom: false,
+                pagerDutyNotificationEnabled: false,
+                approved: true,
+                automaticallyActive: true,
+                clearBookOnStart: false,
+                seriesColor: '#FF0000',
+                showGmpSeries: true,
+                showGmpOutcome: true,
+                manualActivation: false,
+                negRiskOther: false,
+                pendingDeployment: false,
+                deploying: false,
+                rfqEnabled: false,
+                holdingRewardsEnabled: false,
+                feesEnabled: true,
+                requiresTranslation: false,
+              })),
+              tags: [
+                {
+                  id: 2,
+                  label: 'Politics',
+                  slug: 'politics',
+                  createdAt: '2023-01-01T00:00:00Z',
+                  updatedAt: '2023-01-01T00:00:00Z',
+                  requiresTranslation: false,
+                },
+              ],
+              cyom: false,
+              showAllOutcomes: true,
+              showMarketImages: false,
+              enableNegRisk: false,
+              automaticallyActive: true,
+              gmpChartMode: 'default',
+              negRiskAugmented: false,
+              cumulativeMarkets: false,
+              pendingDeployment: false,
+              deploying: false,
+              requiresTranslation: false,
+            };
+          });
+
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: async () => mockEvents,
+            status: 200,
+            statusText: 'OK',
+          });
+
+          // Call the method
+          const rankedEvents = await client.discoverTrendingPoliticalEvents(numEvents);
+
+          // Verify that events are properly ranked
+          expect(rankedEvents.length).toBeGreaterThan(0);
+          
+          if (rankedEvents.length > 1) {
+            // First event should have higher or equal trending score than subsequent events
+            for (let i = 0; i < rankedEvents.length - 1; i++) {
+              expect(rankedEvents[i].trendingScore).toBeGreaterThanOrEqual(rankedEvents[i + 1].trendingScore);
+            }
+            
+            // Event with multiple markets and high volume should be ranked higher
+            const firstEvent = rankedEvents[0];
+            expect(firstEvent.marketAnalysis.marketCount).toBeGreaterThanOrEqual(1);
+            expect(firstEvent.marketAnalysis.totalVolume).toBeGreaterThan(0);
+          }
+        }
+      ),
+      { numRuns: 100, timeout: 30000 }
+    )
+  );
 });

@@ -511,4 +511,237 @@ describe('Enhanced Event Polymarket Client - Error Handling and Rate Limiting', 
       expect(results[1].id).toBe('event3');
     });
   });
+
+  describe('Trending Political Events Discovery', () => {
+    test('should discover and rank trending political events', async () => {
+      const mockEvents = [
+        {
+          id: 'event1',
+          ticker: 'TRUMP2024',
+          slug: 'trump-2024-election',
+          title: 'Trump 2024 Election',
+          description: 'Will Trump win the 2024 election?',
+          resolutionSource: 'Official results',
+          active: true,
+          closed: false,
+          archived: false,
+          new: false,
+          featured: true,
+          restricted: false,
+          startDate: '2024-01-01T00:00:00Z',
+          creationDate: '2024-01-01T00:00:00Z',
+          endDate: '2024-11-05T00:00:00Z',
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-01-15T00:00:00Z',
+          liquidity: 100000,
+          volume: 500000,
+          openInterest: 200000,
+          competitive: 0.85,
+          volume24hr: 50000,
+          volume1wk: 200000,
+          volume1mo: 800000,
+          volume1yr: 5000000,
+          enableOrderBook: true,
+          liquidityClob: 100000,
+          negRisk: false,
+          commentCount: 150,
+          markets: [
+            {
+              id: 'market1',
+              question: 'Will Trump win the 2024 election?',
+              conditionId: 'cond1',
+              slug: 'trump-win-2024',
+              description: 'Market for Trump winning 2024 election',
+              resolutionSource: 'Official results',
+              active: true,
+              closed: false,
+              archived: false,
+              new: false,
+              featured: false,
+              restricted: false,
+              liquidity: '50000',
+              liquidityNum: 50000,
+              volume: '250000',
+              volumeNum: 250000,
+              volume24hr: 25000,
+              outcomes: '["Yes", "No"]',
+              outcomePrices: '[0.65, 0.35]',
+              competitive: 0.85,
+              startDate: '2024-01-01T00:00:00Z',
+              endDate: '2024-11-05T00:00:00Z',
+              createdAt: '2024-01-01T00:00:00Z',
+              updatedAt: '2024-01-15T00:00:00Z',
+              marketMakerAddress: '0x123',
+              submitted_by: 'user1',
+              enableOrderBook: true,
+              negRisk: false,
+              ready: true,
+              funded: true,
+              cyom: false,
+              pagerDutyNotificationEnabled: false,
+              approved: true,
+              automaticallyActive: true,
+              clearBookOnStart: false,
+              seriesColor: '#FF0000',
+              showGmpSeries: true,
+              showGmpOutcome: true,
+              manualActivation: false,
+              negRiskOther: false,
+              pendingDeployment: false,
+              deploying: false,
+              rfqEnabled: false,
+              holdingRewardsEnabled: false,
+              feesEnabled: true,
+              requiresTranslation: false,
+            },
+          ],
+          tags: [
+            {
+              id: 2,
+              label: 'Politics',
+              slug: 'politics',
+              createdAt: '2023-01-01T00:00:00Z',
+              updatedAt: '2023-01-01T00:00:00Z',
+              requiresTranslation: false,
+            },
+          ],
+          cyom: false,
+          showAllOutcomes: true,
+          showMarketImages: false,
+          enableNegRisk: false,
+          automaticallyActive: true,
+          gmpChartMode: 'default',
+          negRiskAugmented: false,
+          cumulativeMarkets: false,
+          pendingDeployment: false,
+          deploying: false,
+          requiresTranslation: false,
+        },
+      ];
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockEvents,
+        status: 200,
+        statusText: 'OK',
+      });
+
+      const rankedEvents = await client.discoverTrendingPoliticalEvents(5);
+
+      expect(rankedEvents).toBeDefined();
+      expect(Array.isArray(rankedEvents)).toBe(true);
+      expect(rankedEvents.length).toBeGreaterThan(0);
+      
+      // Check that each ranked event has the required structure
+      const firstEvent = rankedEvents[0];
+      expect(firstEvent).toHaveProperty('event');
+      expect(firstEvent).toHaveProperty('trendingScore');
+      expect(firstEvent).toHaveProperty('rankingFactors');
+      expect(firstEvent).toHaveProperty('marketAnalysis');
+      
+      // Check ranking factors structure
+      expect(firstEvent.rankingFactors).toHaveProperty('totalVolumeScore');
+      expect(firstEvent.rankingFactors).toHaveProperty('totalLiquidityScore');
+      expect(firstEvent.rankingFactors).toHaveProperty('averageCompetitiveScore');
+      expect(firstEvent.rankingFactors).toHaveProperty('marketCountScore');
+      expect(firstEvent.rankingFactors).toHaveProperty('recencyScore');
+      expect(firstEvent.rankingFactors).toHaveProperty('activityScore');
+      
+      // Check market analysis structure
+      expect(firstEvent.marketAnalysis).toHaveProperty('marketCount');
+      expect(firstEvent.marketAnalysis).toHaveProperty('activeMarketCount');
+      expect(firstEvent.marketAnalysis).toHaveProperty('totalVolume');
+      expect(firstEvent.marketAnalysis).toHaveProperty('totalLiquidity');
+      expect(firstEvent.marketAnalysis).toHaveProperty('averageCompetitive');
+      
+      // Verify trending score is a number
+      expect(typeof firstEvent.trendingScore).toBe('number');
+      expect(firstEvent.trendingScore).toBeGreaterThanOrEqual(0);
+    });
+
+    test('should handle empty events list for trending discovery', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+        status: 200,
+        statusText: 'OK',
+      });
+
+      const rankedEvents = await client.discoverTrendingPoliticalEvents(5);
+
+      expect(rankedEvents).toBeDefined();
+      expect(Array.isArray(rankedEvents)).toBe(true);
+      expect(rankedEvents).toHaveLength(0);
+    });
+
+    test('should use fallback for trending events when API fails', async () => {
+      // First call succeeds to populate cache
+      const mockEvents = [
+        {
+          id: 'cached-event',
+          ticker: 'CACHED',
+          slug: 'cached-event',
+          title: 'Cached Event',
+          description: 'Cached event for fallback test',
+          resolutionSource: 'Test source',
+          active: true,
+          closed: false,
+          archived: false,
+          new: false,
+          featured: false,
+          restricted: false,
+          startDate: '2024-01-01T00:00:00Z',
+          creationDate: '2024-01-01T00:00:00Z',
+          endDate: '2024-11-05T00:00:00Z',
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-01-15T00:00:00Z',
+          liquidity: 10000,
+          volume: 50000,
+          openInterest: 20000,
+          competitive: 0.7,
+          volume24hr: 5000,
+          volume1wk: 20000,
+          volume1mo: 80000,
+          volume1yr: 500000,
+          enableOrderBook: true,
+          liquidityClob: 10000,
+          negRisk: false,
+          commentCount: 10,
+          markets: [],
+          tags: [],
+          cyom: false,
+          showAllOutcomes: true,
+          showMarketImages: false,
+          enableNegRisk: false,
+          automaticallyActive: true,
+          gmpChartMode: 'default',
+          negRiskAugmented: false,
+          cumulativeMarkets: false,
+          pendingDeployment: false,
+          deploying: false,
+          requiresTranslation: false,
+        },
+      ];
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockEvents,
+        status: 200,
+        statusText: 'OK',
+      });
+
+      // First call to populate cache
+      await client.discoverTrendingPoliticalEvents(1);
+
+      // Second call fails
+      mockFetch.mockRejectedValueOnce(new Error('API unavailable'));
+
+      // Should use fallback
+      const fallbackEvents = await client.discoverTrendingPoliticalEvents(1);
+
+      expect(fallbackEvents).toBeDefined();
+      expect(Array.isArray(fallbackEvents)).toBe(true);
+      // Should get fallback data (empty array or cached data)
+    });
+  });
 });
