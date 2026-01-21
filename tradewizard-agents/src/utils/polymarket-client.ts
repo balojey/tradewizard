@@ -3,11 +3,20 @@
  *
  * This module provides a wrapper around Polymarket's Gamma API and CLOB API
  * with built-in rate limiting, retry logic, exponential backoff, and circuit breaker.
+ * Enhanced with event-based analysis using proper Gamma API events endpoint integration.
  */
 
 import type { EngineConfig } from '../config/index.js';
 import type { IngestionError, MarketBriefingDocument } from '../models/types.js';
-import { EnhancedEventPolymarketClient } from './enhanced-event-polymarket-client.js';
+import { 
+  EnhancedEventPolymarketClient,
+  type PolymarketEvent,
+  type EventDiscoveryOptions,
+  type RankedEvent,
+  type EventWithMarkets,
+  type ApiHealthStatus,
+  type RateLimitStatus
+} from './enhanced-event-polymarket-client.js';
 import { EnhancedEventBriefingGenerator } from './enhanced-event-briefing-generator.js';
 
 // ============================================================================
@@ -74,6 +83,7 @@ export class PolymarketClient {
   private circuitState: CircuitState = 'CLOSED';
   private failureCount = 0;
   private lastFailureTime = 0;
+  private totalCalls = 0; // Track total calls for enhanced status
   private readonly failureThreshold = 5;
   private readonly resetTimeout = 60000; // 60 seconds
 
@@ -100,11 +110,200 @@ export class PolymarketClient {
   }
 
   // ==========================================================================
-  // Public API
+  // Enhanced Event-Based API Methods
   // ==========================================================================
 
   /**
-   * Fetch market data for a given condition ID
+   * Discover trending political events using enhanced event-based analysis
+   * Implements Requirements 4.1, 4.2 with comprehensive event discovery and ranking
+   * @param limit - Maximum number of events to return
+   * @returns Array of ranked events with trending scores and analysis
+   */
+  async discoverTrendingPoliticalEvents(limit: number = 20): Promise<RankedEvent[]> {
+    // Check circuit breaker
+    if (!this.canMakeRequest()) {
+      return [];
+    }
+
+    // Wait for rate limit
+    await this.waitForRateLimit();
+
+    try {
+      const rankedEvents = await this.enhancedEventClient.discoverTrendingPoliticalEvents(limit);
+      
+      // Reset circuit breaker on success
+      this.onSuccess();
+      
+      return rankedEvents;
+    } catch (error) {
+      // Record failure for circuit breaker
+      this.onFailure();
+      
+      // Return empty array on error to maintain graceful degradation
+      return [];
+    }
+  }
+
+  /**
+   * Discover political events with enhanced filtering options
+   * Implements Requirements 4.1, 4.2 with comprehensive event discovery
+   * @param options - Event discovery options including date ranges and filtering
+   * @returns Array of political events matching criteria
+   */
+  async discoverPoliticalEvents(options: EventDiscoveryOptions = {}): Promise<PolymarketEvent[]> {
+    // Check circuit breaker
+    if (!this.canMakeRequest()) {
+      return [];
+    }
+
+    // Wait for rate limit
+    await this.waitForRateLimit();
+
+    try {
+      const events = await this.enhancedEventClient.discoverPoliticalEvents(options);
+      
+      // Reset circuit breaker on success
+      this.onSuccess();
+      
+      return events;
+    } catch (error) {
+      // Record failure for circuit breaker
+      this.onFailure();
+      
+      // Return empty array on error to maintain graceful degradation
+      return [];
+    }
+  }
+
+  /**
+   * Fetch event details with all nested markets using enhanced event client
+   * Implements Requirements 4.1, 4.2 with comprehensive event data retrieval
+   * @param eventId - Polymarket event ID
+   * @returns Event with all nested markets and metadata
+   */
+  async fetchEventDetails(eventId: string): Promise<PolymarketEvent | null> {
+    // Check circuit breaker
+    if (!this.canMakeRequest()) {
+      return null;
+    }
+
+    // Wait for rate limit
+    await this.waitForRateLimit();
+
+    try {
+      const event = await this.enhancedEventClient.fetchEventDetails(eventId);
+      
+      // Reset circuit breaker on success
+      this.onSuccess();
+      
+      return event;
+    } catch (error) {
+      // Record failure for circuit breaker
+      this.onFailure();
+      
+      // Return null on error to maintain graceful degradation
+      return null;
+    }
+  }
+
+  /**
+   * Fetch event with enhanced market analysis including correlations
+   * Implements Requirements 4.1, 4.2 with cross-market analysis
+   * @param eventId - Polymarket event ID
+   * @returns Event with enhanced market analysis
+   */
+  async fetchEventWithAllMarkets(eventId: string): Promise<EventWithMarkets | null> {
+    // Check circuit breaker
+    if (!this.canMakeRequest()) {
+      return null;
+    }
+
+    // Wait for rate limit
+    await this.waitForRateLimit();
+
+    try {
+      const eventWithMarkets = await this.enhancedEventClient.fetchEventWithAllMarkets(eventId);
+      
+      // Reset circuit breaker on success
+      this.onSuccess();
+      
+      return eventWithMarkets;
+    } catch (error) {
+      // Record failure for circuit breaker
+      this.onFailure();
+      
+      // Return null on error to maintain graceful degradation
+      return null;
+    }
+  }
+
+  /**
+   * Fetch multiple events in batch with enhanced error handling
+   * Implements Requirements 4.3, 4.4 with batch processing and resilience
+   * @param eventIds - Array of event IDs to fetch
+   * @param options - Batch processing options
+   * @returns Array of successfully fetched events
+   */
+  async fetchEventsBatch(
+    eventIds: string[], 
+    options: {
+      includeMarkets?: boolean;
+      batchSize?: number;
+      maxConcurrency?: number;
+      includeAnalysis?: boolean;
+    } = {}
+  ): Promise<PolymarketEvent[]> {
+    // Check circuit breaker
+    if (!this.canMakeRequest()) {
+      return [];
+    }
+
+    try {
+      const events = await this.enhancedEventClient.fetchEventsBatch(eventIds, options);
+      
+      // Reset circuit breaker on success
+      this.onSuccess();
+      
+      return events;
+    } catch (error) {
+      // Record failure for circuit breaker
+      this.onFailure();
+      
+      // Return empty array on error to maintain graceful degradation
+      return [];
+    }
+  }
+
+  /**
+   * Check enhanced events API health with comprehensive diagnostics
+   * Implements Requirements 4.3, 4.4 with health monitoring
+   * @returns API health status with response time and availability
+   */
+  async checkEventsApiHealth(): Promise<ApiHealthStatus> {
+    try {
+      return await this.enhancedEventClient.checkEventsApiHealth();
+    } catch (error) {
+      return {
+        healthy: false,
+        responseTime: 0,
+        timestamp: Date.now(),
+      };
+    }
+  }
+
+  /**
+   * Get enhanced rate limit status from event client
+   * Implements Requirements 4.3, 4.4 with rate limit monitoring
+   * @returns Current rate limit status and usage metrics
+   */
+  getEventsApiRateLimitStatus(): RateLimitStatus {
+    return this.enhancedEventClient.getRateLimitStatus();
+  }
+
+  /**
+   * Fetch market data for a given condition ID with enhanced event-based analysis
+   * Enhanced to use event-based analysis when available, falling back to traditional market analysis
+   * Implements Requirements 4.1, 4.2 with event-centric approach
    * @param conditionId - Polymarket condition ID
    * @returns Market briefing document or error
    */
@@ -125,6 +324,79 @@ export class PolymarketClient {
     // Wait for rate limit
     await this.waitForRateLimit();
 
+    try {
+      // First, try to find the event containing this market for enhanced analysis
+      const event = await this.findEventByMarketCondition(conditionId);
+      
+      if (event) {
+        // Use enhanced event-based briefing generation
+        const enhancedBriefing = await this.eventBriefingGenerator.generateEventBriefing(event, conditionId);
+        
+        // Reset circuit breaker on success
+        this.onSuccess();
+        
+        return { ok: true, data: enhancedBriefing };
+      } else {
+        // Fall back to traditional market analysis if event not found
+        return this.fetchTraditionalMarketData(conditionId);
+      }
+    } catch (error) {
+      // Record failure for circuit breaker
+      this.onFailure();
+
+      // Try fallback to traditional market analysis
+      try {
+        return this.fetchTraditionalMarketData(conditionId);
+      } catch (fallbackError) {
+        // Determine error type
+        if (error instanceof Error) {
+          if (error.message.includes('rate limit')) {
+            return {
+              ok: false,
+              error: {
+                type: 'RATE_LIMIT_EXCEEDED',
+                retryAfter: 60, // seconds
+              },
+            };
+          }
+          if (error.message.includes('404') || error.message.includes('not found')) {
+            return {
+              ok: false,
+              error: {
+                type: 'INVALID_MARKET_ID',
+                marketId: conditionId,
+              },
+            };
+          }
+          return {
+            ok: false,
+            error: {
+              type: 'API_UNAVAILABLE',
+              message: error.message,
+            },
+          };
+        }
+
+        return {
+          ok: false,
+          error: {
+            type: 'API_UNAVAILABLE',
+            message: 'Unknown error occurred',
+          },
+        };
+      }
+    }
+  }
+
+  /**
+   * Traditional market data fetching (fallback method)
+   * Maintains backward compatibility with existing market-only approach
+   * @param conditionId - Polymarket condition ID
+   * @returns Market briefing document or error
+   */
+  private async fetchTraditionalMarketData(
+    conditionId: string
+  ): Promise<{ ok: true; data: MarketBriefingDocument } | { ok: false; error: IngestionError }> {
     try {
       // Fetch market data with retry logic from CLOB API (supports condition ID)
       const marketData = await this.fetchWithRetry<any>(
@@ -157,45 +429,7 @@ export class PolymarketClient {
 
       return { ok: true, data: mbd };
     } catch (error) {
-      // Record failure for circuit breaker
-      this.onFailure();
-
-      // Determine error type
-      if (error instanceof Error) {
-        if (error.message.includes('rate limit')) {
-          return {
-            ok: false,
-            error: {
-              type: 'RATE_LIMIT_EXCEEDED',
-              retryAfter: 60, // seconds
-            },
-          };
-        }
-        if (error.message.includes('404') || error.message.includes('not found')) {
-          return {
-            ok: false,
-            error: {
-              type: 'INVALID_MARKET_ID',
-              marketId: conditionId,
-            },
-          };
-        }
-        return {
-          ok: false,
-          error: {
-            type: 'API_UNAVAILABLE',
-            message: error.message,
-          },
-        };
-      }
-
-      return {
-        ok: false,
-        error: {
-          type: 'API_UNAVAILABLE',
-          message: 'Unknown error occurred',
-        },
-      };
+      throw error; // Re-throw to be handled by caller
     }
   }
 
@@ -293,13 +527,14 @@ export class PolymarketClient {
   }
 
   /**
-   * Find event containing a specific market by condition ID
+   * Find event containing a specific market by condition ID using enhanced event client
+   * Enhanced to use the event-based discovery capabilities
    * @param conditionId - Market condition ID to search for
    * @returns Event containing the market, or null if not found
    */
-  private async findEventByMarketCondition(conditionId: string) {
+  private async findEventByMarketCondition(conditionId: string): Promise<PolymarketEvent | null> {
     try {
-      // Search for political events that might contain this market
+      // Search for political events that might contain this market using enhanced client
       const events = await this.enhancedEventClient.discoverPoliticalEvents({
         limit: 100, // Search more events to find the right one
         active: true,
@@ -402,20 +637,21 @@ export class PolymarketClient {
   }
 
   /**
-   * Health check endpoint
+   * Health check endpoint with enhanced events API monitoring
+   * Enhanced to check both traditional APIs and events API health
+   * Implements Requirements 4.3, 4.4 with comprehensive health monitoring
    * @returns true if APIs are reachable, false otherwise
    */
   async healthCheck(): Promise<boolean> {
     try {
-      // Check Gamma API
+      // Check enhanced events API health first
+      const eventsApiHealth = await this.checkEventsApiHealth();
+      
+      // Check traditional Gamma API
       const gammaResponse = await fetch(`${this.gammaApiUrl}/health`, {
         method: 'GET',
         signal: AbortSignal.timeout(5000),
       });
-
-      if (!gammaResponse.ok) {
-        return false;
-      }
 
       // Check CLOB API
       const clobResponse = await fetch(`${this.clobApiUrl}/health`, {
@@ -423,11 +659,97 @@ export class PolymarketClient {
         signal: AbortSignal.timeout(5000),
       });
 
-      return clobResponse.ok;
+      // Return true if events API and at least one traditional API is healthy
+      return eventsApiHealth.healthy && (gammaResponse.ok || clobResponse.ok);
     } catch {
       return false;
     }
   }
+
+  /**
+   * Get comprehensive client status including enhanced event client metrics
+   * Implements Requirements 4.3, 4.4 with comprehensive monitoring
+   * @returns Combined status from both traditional and enhanced event clients
+   */
+  getClientStatus(): {
+    traditional: {
+      circuitBreaker: {
+        state: CircuitState;
+        failureCount: number;
+        successCount: number;
+        lastFailureTime?: number;
+      };
+      rateLimiter: {
+        tokensRemaining: number;
+        maxTokens: number;
+        refillRate: number;
+      };
+    };
+    enhanced: {
+      eventsApi: ApiHealthStatus | null;
+      rateLimiter: RateLimitStatus;
+    };
+  } {
+    // Get traditional client status
+    const traditionalStatus = {
+      circuitBreaker: {
+        state: this.circuitState,
+        failureCount: this.failureCount,
+        successCount: this.totalCalls - this.failureCount,
+        lastFailureTime: this.lastFailureTime || undefined,
+      },
+      rateLimiter: {
+        tokensRemaining: Math.floor(this.rateLimiter.tokens),
+        maxTokens: this.rateLimiter.maxTokens,
+        refillRate: this.rateLimiter.refillRate,
+      },
+    };
+
+    // Get enhanced client status
+    let eventsApiHealth: ApiHealthStatus | null = null;
+    try {
+      // Don't await to avoid blocking - just get cached status if available
+      eventsApiHealth = {
+        healthy: this.circuitState === 'CLOSED',
+        responseTime: 0,
+        timestamp: Date.now(),
+      };
+    } catch {
+      eventsApiHealth = null;
+    }
+
+    const enhancedStatus = {
+      eventsApi: eventsApiHealth,
+      rateLimiter: this.enhancedEventClient.getRateLimitStatus(),
+    };
+
+    return {
+      traditional: traditionalStatus,
+      enhanced: enhancedStatus,
+    };
+  }
+
+  /**
+   * Get enhanced event client instance for direct access
+   * Provides access to the underlying enhanced event client for advanced operations
+   * @returns Enhanced event client instance
+   */
+  getEnhancedEventClient(): EnhancedEventPolymarketClient {
+    return this.enhancedEventClient;
+  }
+
+  /**
+   * Get event briefing generator instance for direct access
+   * Provides access to the briefing generator for custom briefing operations
+   * @returns Event briefing generator instance
+   */
+  getEventBriefingGenerator(): EnhancedEventBriefingGenerator {
+    return this.eventBriefingGenerator;
+  }
+
+  // ==========================================================================
+  // Enhanced Data Transformation Methods
+  // ==========================================================================
 
   // ==========================================================================
   // Circuit Breaker Logic
@@ -463,6 +785,7 @@ export class PolymarketClient {
    * Record a successful request
    */
   private onSuccess(): void {
+    this.totalCalls++;
     this.failureCount = 0;
     this.circuitState = 'CLOSED';
   }
@@ -471,6 +794,7 @@ export class PolymarketClient {
    * Record a failed request
    */
   private onFailure(): void {
+    this.totalCalls++;
     this.failureCount++;
     this.lastFailureTime = Date.now();
 
