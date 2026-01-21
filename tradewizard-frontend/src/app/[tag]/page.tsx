@@ -2,20 +2,32 @@ import { MarketCard } from "@/components/market-card";
 import { getEvents } from "@/lib/polymarket";
 
 // Server Component
-export default async function PoliticsPage() {
-    // Fetch politics events using tag_id="2"
+export default async function TagPage({
+    params,
+}: {
+    params: Promise<{ tag: string }>;
+}) {
+    const { tag } = await params;
+
+    // Logic to determine query params based on tag
+    const isPolitics = tag.toLowerCase() === "politics";
+    // You can add more ID mappings here if needed
+
     const events = await getEvents({
         limit: 20,
         active: true,
         closed: false,
-        tag_id: "2" // Politics tag ID
+        tag_id: isPolitics ? "2" : undefined,
+        tag_slug: !isPolitics ? tag : undefined,
     });
+
+    const displayTitle = tag.charAt(0).toUpperCase() + tag.slice(1).replace(/-/g, " ");
 
     return (
         <div className="min-h-screen bg-background pb-12">
             <section className="container max-w-screen-2xl mx-auto px-4 py-8">
                 <h2 className="mb-6 text-xl font-bold tracking-tight">
-                    Politics Markets
+                    {displayTitle} Markets
                 </h2>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -51,8 +63,10 @@ export default async function PoliticsPage() {
                 </div>
 
                 {events.length === 0 && (
-                    <div className="py-20 text-center text-muted-foreground">
-                        No active politics markets found.
+                    <div className="py-20 text-center text-muted-foreground flex flex-col items-center gap-2">
+                        <span className="text-4xl">🔍</span>
+                        <p>No active markets found for "{displayTitle}".</p>
+                        <p className="text-sm text-muted-foreground/60">Try checking back later or explore other categories.</p>
                     </div>
                 )}
             </section>

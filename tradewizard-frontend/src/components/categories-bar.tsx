@@ -20,8 +20,8 @@ const TAGS = [
 
 export function CategoriesBar() {
     const router = useRouter();
-    const searchParams = useSearchParams();
-    const currentTag = searchParams.get("tag") || "All";
+    const pathname = usePathname();
+    const currentTag = pathname?.split('/').pop() || "all";
 
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -53,7 +53,7 @@ export function CategoriesBar() {
                         {CATEGORIES.slice(0, 3).map((cat) => (
                             <Link
                                 key={cat.slug}
-                                href={cat.slug === "politics" ? "/politics" : `/?tag=${cat.slug}`}
+                                href={`/${cat.slug}`}
                                 passHref
                             >
                                 <Button
@@ -79,15 +79,16 @@ export function CategoriesBar() {
 
                         <div ref={scrollContainerRef} className="flex gap-2 overflow-x-auto scrollbar-hide py-1 px-1">
                             {TAGS.map((tag) => (
-                                <button
-                                    key={tag}
-                                    className={cn(
-                                        "whitespace-nowrap rounded-md px-3 py-1 text-xs font-medium transition-colors hover:bg-muted/60 hover:text-foreground",
-                                        currentTag === tag ? "bg-muted text-foreground" : "text-muted-foreground"
-                                    )}
-                                >
-                                    {tag}
-                                </button>
+                                <Link key={tag} href={`/${tag.toLowerCase()}`} passHref>
+                                    <button
+                                        className={cn(
+                                            "whitespace-nowrap rounded-md px-3 py-1 text-xs font-medium transition-colors hover:bg-muted/60 hover:text-foreground",
+                                            currentTag === tag.toLowerCase() ? "bg-muted text-foreground" : "text-muted-foreground"
+                                        )}
+                                    >
+                                        {tag}
+                                    </button>
+                                </Link>
                             ))}
                         </div>
 

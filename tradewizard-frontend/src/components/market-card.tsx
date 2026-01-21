@@ -1,8 +1,9 @@
+"use client";
+
 import Link from "next/link";
-import Image from "next/image";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { TrendingUp, Users } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 
 interface Outcome {
     name: string;
@@ -21,68 +22,73 @@ interface MarketCardProps {
 
 export function MarketCard({ id, title, image, volume, outcomes, isNew }: MarketCardProps) {
     return (
-        <Link href={`/market/${id}`} className="group block">
-            <Card className="h-full overflow-hidden border-border/60 bg-card/50 transition-all hover:bg-card/80 hover:border-border/80 hover:shadow-md hover:shadow-primary/5">
-                <div className="relative h-32 w-full overflow-hidden bg-muted">
-                    {/* Placeholder for real image or next/image if we had remote allowed domains */}
-                    <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900 text-muted-foreground">
-                        {image ? (
-                            // In a real app, use Next/Image with configured domains. For now, using a stylized div or generic placeholder if provided.
-                            // Assuming image is a URL, but for safety in this demo without external requests, we rely on CSS or passed generated images.
-                            <div className="relative h-full w-full">
-                                {/* We will use a colorful gradient placeholder instead of broken external images */}
-                                <div className={cn("h-full w-full opacity-60", image)} />
-                            </div>
-                        ) : (
-                            <span className="text-4xl">🗳️</span>
-                        )}
-                    </div>
+        <Link href={`/market/${id}`} className="group block h-full">
+            <Card className="h-full flex flex-col overflow-hidden border-border/40 bg-card transition-all duration-300 hover:border-primary/50 hover:shadow-lg hover:-translate-y-0.5">
+                <div className="relative aspect-[1.91/1] w-full overflow-hidden bg-muted">
+                    {image ? (
+                        <div className="relative h-full w-full">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                                src={image}
+                                alt={title}
+                                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                }}
+                            />
+                            {/* Fallback gradient if image fails to load */}
+                            <div className="absolute inset-0 bg-gradient-to-br from-blue-900 to-slate-900 hidden" />
+                        </div>
+                    ) : (
+                        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-900 to-slate-900 text-4xl">
+                            🗳️
+                        </div>
+                    )}
 
                     {isNew && (
-                        <div className="absolute left-2 top-2 rounded-full bg-primary/90 px-2 py-0.5 text-[10px] font-bold uppercase text-primary-foreground backdrop-blur-sm">
+                        <div className="absolute left-2 top-2 rounded-full bg-blue-600/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-sm">
                             New
                         </div>
                     )}
+
+                    <div className="absolute bottom-2 right-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm flex items-center gap-1">
+                        <TrendingUp className="h-3 w-3" />
+                        {volume}
+                    </div>
                 </div>
 
-                <CardHeader className="p-4 pb-2">
-                    <h3 className="line-clamp-2 text-lg font-semibold leading-tight tracking-tight group-hover:text-primary transition-colors">
+                <CardContent className="flex-1 p-4 space-y-4">
+                    <h3 className="line-clamp-2 text-base font-semibold leading-snug tracking-tight text-foreground group-hover:text-primary transition-colors">
                         {title}
                     </h3>
-                </CardHeader>
 
-                <CardContent className="p-4 pt-2 space-y-3">
-                    {outcomes.map((outcome, idx) => (
-                        <div key={idx} className="space-y-1">
-                            <div className="flex justify-between text-sm font-medium">
-                                <span className="text-muted-foreground">{outcome.name}</span>
-                                <span className={cn(
-                                    outcome.color === 'yes' ? "text-outcome-yes" :
-                                        outcome.color === 'no' ? "text-outcome-no" : "text-foreground"
-                                )}>
-                                    {outcome.probability}%
-                                </span>
+                    <div className="space-y-2.5">
+                        {outcomes.map((outcome, idx) => (
+                            <div key={idx} className="space-y-1.5">
+                                <div className="flex justify-between text-sm">
+                                    <span className="font-medium text-muted-foreground">{outcome.name}</span>
+                                    <span className={cn(
+                                        "font-bold font-mono",
+                                        outcome.color === 'yes' ? "text-emerald-500 dark:text-emerald-400" :
+                                            outcome.color === 'no' ? "text-red-500 dark:text-red-400" : "text-foreground"
+                                    )}>
+                                        {outcome.probability}%
+                                    </span>
+                                </div>
+                                <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+                                    <div
+                                        className={cn("h-full rounded-full transition-all duration-500 ease-out",
+                                            outcome.color === 'yes' ? "bg-emerald-500 dark:bg-emerald-500" :
+                                                outcome.color === 'no' ? "bg-red-500 dark:bg-red-500" : "bg-primary"
+                                        )}
+                                        style={{ width: `${outcome.probability}%` }}
+                                    />
+                                </div>
                             </div>
-                            <div className="h-2 w-full overflow-hidden rounded-full bg-secondary/50">
-                                <div
-                                    className={cn("h-full rounded-full transition-all",
-                                        outcome.color === 'yes' ? "bg-outcome-yes" :
-                                            outcome.color === 'no' ? "bg-outcome-no" : "bg-primary"
-                                    )}
-                                    style={{ width: `${outcome.probability}%` }}
-                                />
-                            </div>
-                        </div>
-                    ))}
-                </CardContent>
-
-                <CardFooter className="flex items-center justify-between border-t border-border/40 bg-muted/20 p-3 px-4 text-xs font-medium text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                        <TrendingUp className="h-3 w-3" />
-                        <span>Vol. {volume}</span>
+                        ))}
                     </div>
-                    {/* Maybe add comments or other metadata */}
-                </CardFooter>
+                </CardContent>
             </Card>
         </Link>
     );
