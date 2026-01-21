@@ -2,18 +2,39 @@
  * Market Discovery Engine
  *
  * This module discovers and ranks trending political markets from Polymarket.
- * It filters markets by event type, ranks them by trending score, and selects
- * the top N markets for analysis.
+ * Enhanced to use event-based discovery with proper Gamma API events endpoint,
+ * while maintaining backward compatibility with existing interfaces.
+ * 
+ * Features:
+ * - Event-based discovery using Polymarket's events API with nested markets
+ * - Event-level tag discovery replacing hardcoded political keywords
+ * - Cross-market analysis and correlation detection within events
+ * - Backward compatibility with existing MarketDiscoveryEngine interface
+ * - Enhanced ranking algorithm incorporating event-level metrics
  */
 
 import type { EngineConfig } from '../config/index.js';
+import { 
+  createEnhancedEventPolymarketClient,
+  type EnhancedEventPolymarketClient,
+  type PolymarketEvent,
+  type RankedEvent,
+} from './enhanced-event-polymarket-client.js';
+import { 
+  EventMultiMarketKeywordExtractor,
+} from './event-multi-market-keyword-extractor.js';
+import type { EventKeywords } from '../models/types.js';
+import { getLogger } from './logger.js';
+
+const logger = getLogger();
 
 // ============================================================================
-// Types
+// Types - Maintaining Backward Compatibility
 // ============================================================================
 
 /**
- * Raw market data from Polymarket API
+ * Raw market data from Polymarket API (backward compatibility)
+ * Enhanced to support both individual markets and markets within events
  */
 export interface PolymarketMarket {
   conditionId: string;
@@ -30,11 +51,38 @@ export interface PolymarketMarket {
   trades24h?: number;
   active: boolean;
   closed: boolean;
+  // Enhanced fields for event-based analysis
+  id?: string;
+  volumeNum?: number;
+  liquidityNum?: number;
+  competitive?: number;
+  eventId?: string;
+  eventTitle?: string;
+  // Legacy snake_case fields for backward compatibility
+  condition_id?: string;
+  end_date_iso?: string;
+  created_at?: string;
+  market_slug?: string;
+  outcome_prices?: string[];
+  volume_24h?: number | string;
+  trades_24h?: number;
+  // Internal context for enhanced processing
+  _eventContext?: {
+    event: PolymarketEvent;
+    marketAnalysis: any;
+    eventKeywords: EventKeywords | null;
+    eventTags: string[];
+    totalEventVolume: number;
+    totalEventLiquidity: number;
+    marketCount: number;
+    crossMarketCorrelations: number;
+  };
   [key: string]: unknown;
 }
 
 /**
- * Market with calculated ranking score
+ * Market with calculated ranking score (backward compatibility)
+ * Enhanced with event-level context and cross-market analysis
  */
 export interface RankedMarket {
   conditionId: string;
@@ -44,10 +92,20 @@ export interface RankedMarket {
   volume24h: number;
   liquidity: number;
   marketSlug: string;
+  // Enhanced fields for event-based analysis
+  eventId?: string;
+  eventTitle?: string;
+  eventContext?: {
+    totalEventVolume: number;
+    totalEventLiquidity: number;
+    marketCount: number;
+    eventTags: string[];
+    crossMarketCorrelations: number;
+  };
 }
 
 // ============================================================================
-// Market Discovery Engine
+// Market Discovery Engine Interface - Maintaining Backward Compatibility
 // ============================================================================
 
 export interface MarketDiscoveryEngine {
@@ -60,112 +118,479 @@ export interface MarketDiscoveryEngine {
 
   /**
    * Fetch all active political markets from Polymarket
+   * Enhanced to use event-based discovery while maintaining interface
    */
   fetchPoliticalMarkets(): Promise<PolymarketMarket[]>;
 
   /**
    * Rank markets by trending score
+   * Enhanced with event-level context and cross-market analysis
    */
   rankMarkets(markets: PolymarketMarket[]): RankedMarket[];
 }
 
 /**
- * Political keywords for filtering markets
- */
-const POLITICAL_KEYWORDS = [
-  'election',
-  'president',
-  'trump',
-  'biden',
-  'harris',
-  'senate',
-  'congress',
-  'governor',
-  'court',
-  'supreme court',
-  'ruling',
-  'verdict',
-  'policy',
-  'legislation',
-  'bill',
-  'law',
-  'geopolitical',
-  'war',
-  'conflict',
-  'treaty',
-  'vote',
-  'ballot',
-  'referendum',
-  'impeachment',
-  'cabinet',
-  'minister',
-  'parliament',
-  'immigration',
-  'deport',
-  'deportation',
-  'border',
-  'tariff',
-  'trade war',
-  'sanctions',
-  'nato',
-  'ukraine',
-  'russia',
-  'china',
-];
-
-/**
- * Market Discovery Engine Implementation
+ * Enhanced Market Discovery Engine Implementation
+ * 
+ * Replaces hardcoded political keywords with event-based tag discovery
+ * while maintaining backward compatibility with existing interfaces.
+ * 
+ * Key enhancements:
+ * - Uses Polymarket events API with tag_id=2 for political events
+ * - Leverages event-level metadata and cross-market analysis
+ * - Maintains existing interface for seamless integration
+ * - Enhanced ranking algorithm with event-level metrics
  */
 export class PolymarketDiscoveryEngine implements MarketDiscoveryEngine {
-  private readonly gammaApiUrl: string;
+  private readonly eventClient: EnhancedEventPolymarketClient;
+  private readonly keywordExtractor: EventMultiMarketKeywordExtractor;
+  private readonly config: EngineConfig['polymarket'];
 
   constructor(config: EngineConfig['polymarket']) {
-    this.gammaApiUrl = config.gammaApiUrl;
+    this.config = config;
+    this.eventClient = createEnhancedEventPolymarketClient(config);
+    this.keywordExtractor = new EventMultiMarketKeywordExtractor(config.keywordExtractionMode);
+    
+    logger.info({
+      politicsTagId: config.politicsTagId,
+      enableEventBasedKeywords: config.enableEventBasedKeywords,
+      enableCrossMarketAnalysis: config.enableCrossMarketAnalysis,
+    }, '[PolymarketDiscoveryEngine] Initialized with enhanced event-based discovery');
   }
 
   /**
-   * Discover and select top trending markets
+   * Discover and select top trending markets using event-based approach
+   * Implements Requirements 1.1, 1.2, 1.3 with backward compatibility
    */
   async discoverMarkets(limit: number): Promise<RankedMarket[]> {
-    // Fetch all political markets
-    const markets = await this.fetchPoliticalMarkets();
+    logger.info({ limit }, '[PolymarketDiscoveryEngine] Starting enhanced event-based market discovery');
 
-    // Rank markets by trending score
-    const rankedMarkets = this.rankMarkets(markets);
+    try {
+      // Use enhanced event-based discovery
+      const rankedEvents = await this.eventClient.discoverTrendingPoliticalEvents(
+        Math.ceil(limit * 1.5) // Fetch more events to ensure enough markets after filtering
+      );
+
+      // Convert events to markets while preserving event context
+      const marketsWithEventContext = this.convertEventsToMarkets(rankedEvents);
+
+      // Rank markets using enhanced algorithm with event context
+      const rankedMarkets = this.rankMarketsWithEventContext(marketsWithEventContext);
+
+      // Select top N markets
+      const selectedMarkets = rankedMarkets.slice(0, limit);
+
+      logger.info({
+        eventsProcessed: rankedEvents.length,
+        marketsGenerated: marketsWithEventContext.length,
+        finalSelection: selectedMarkets.length,
+      }, '[PolymarketDiscoveryEngine] Enhanced event-based discovery completed');
+
+      return selectedMarkets;
+    } catch (error) {
+      logger.error({ error: (error as Error).message }, 
+        '[PolymarketDiscoveryEngine] Enhanced discovery failed, falling back to legacy approach');
+      
+      // Fallback to legacy approach for backward compatibility
+      return this.discoverMarketsLegacy(limit);
+    }
+  }
+
+  /**
+   * Fetch all active political markets using event-based discovery
+   * Implements Requirements 1.1, 1.2, 1.3 while maintaining interface compatibility
+   */
+  async fetchPoliticalMarkets(): Promise<PolymarketMarket[]> {
+    logger.info('[PolymarketDiscoveryEngine] Fetching political markets using enhanced event-based approach');
+
+    try {
+      // Discover political events with comprehensive options
+      const events = await this.eventClient.discoverPoliticalEvents({
+        tagId: this.config.politicsTagId,
+        relatedTags: this.config.includeRelatedTags,
+        active: true,
+        closed: false,
+        limit: this.config.maxEventsPerDiscovery,
+        sortBy: this.config.defaultSortBy,
+        sortOrder: 'desc',
+      });
+
+      // Extract all markets from events
+      const markets = this.extractMarketsFromEvents(events);
+
+      logger.info({
+        eventsFound: events.length,
+        marketsExtracted: markets.length,
+      }, '[PolymarketDiscoveryEngine] Political markets fetched using event-based discovery');
+
+      return markets;
+    } catch (error) {
+      logger.error({ error: (error as Error).message }, 
+        '[PolymarketDiscoveryEngine] Event-based fetch failed, falling back to legacy approach');
+      
+      // Fallback to legacy approach for backward compatibility
+      return this.fetchPoliticalMarketsLegacy();
+    }
+  }
+
+  /**
+   * Rank markets by trending score with enhanced event-level analysis
+   * Implements Requirements 5.1, 5.2, 5.3 with backward compatibility
+   */
+  rankMarkets(markets: PolymarketMarket[]): RankedMarket[] {
+    logger.debug({ marketCount: markets.length }, 
+      '[PolymarketDiscoveryEngine] Ranking markets with enhanced algorithm');
+
+    // Enhanced ranking with event context when available
+    const rankedMarkets = markets.map((market) => {
+      const trendingScore = this.calculateEnhancedTrendingScore(market);
+      // Handle both camelCase and snake_case for backward compatibility
+      const volume24h = market.volume24hr || 
+                       parseFloat(market.volume_24h as string || '0') || 
+                       parseFloat(market.volume || '0');
+      const liquidity = parseFloat(market.liquidity || '0');
+
+      const rankedMarket: RankedMarket = {
+        conditionId: market.conditionId || market.condition_id || '',
+        question: market.question,
+        description: market.description,
+        trendingScore,
+        volume24h,
+        liquidity,
+        marketSlug: market.slug || market.market_slug || market.conditionId || market.condition_id || '',
+      };
+
+      // Add event context if available
+      if (market.eventId && market.eventTitle) {
+        rankedMarket.eventId = market.eventId;
+        rankedMarket.eventTitle = market.eventTitle;
+        rankedMarket.eventContext = this.buildEventContext(market);
+      }
+
+      return rankedMarket;
+    });
+
+    // Sort by trending score (descending)
+    const sorted = rankedMarkets.sort((a, b) => b.trendingScore - a.trendingScore);
+
+    logger.debug({ 
+      topScore: sorted[0]?.trendingScore,
+      bottomScore: sorted[sorted.length - 1]?.trendingScore,
+    }, '[PolymarketDiscoveryEngine] Market ranking completed');
+
+    return sorted;
+  }
+
+  // ==========================================================================
+  // Enhanced Event-Based Methods
+  // ==========================================================================
+
+  /**
+   * Convert ranked events to markets with event context
+   * Implements Requirements 1.2, 1.4 - event metadata extraction and market relationships
+   */
+  private convertEventsToMarkets(rankedEvents: RankedEvent[]): PolymarketMarket[] {
+    const markets: PolymarketMarket[] = [];
+
+    for (const rankedEvent of rankedEvents) {
+      const { event, marketAnalysis } = rankedEvent;
+      
+      // Extract keywords for enhanced context
+      let eventKeywords: EventKeywords | null = null;
+      if (this.config.enableEventBasedKeywords) {
+        try {
+          eventKeywords = this.keywordExtractor.extractKeywordsFromEvent(event);
+        } catch (error) {
+          logger.warn({ 
+            eventId: event.id, 
+            error: (error as Error).message 
+          }, '[PolymarketDiscoveryEngine] Failed to extract event keywords');
+        }
+      }
+
+      // Convert each market in the event
+      for (const market of event.markets) {
+        const enhancedMarket: PolymarketMarket = {
+          // Backward compatibility fields
+          conditionId: market.conditionId || market.id,
+          question: market.question,
+          description: market.description || '',
+          endDate: market.endDate,
+          createdAt: market.createdAt,
+          slug: market.slug,
+          outcomes: this.parseOutcomes(market.outcomes),
+          outcomePrices: this.parseOutcomePrices(market.outcomePrices),
+          volume: market.volume,
+          volume24hr: market.volume24hr,
+          liquidity: market.liquidity || '0',
+          trades24h: undefined, // Not available in events API
+          active: market.active,
+          closed: market.closed,
+          
+          // Enhanced fields for event-based analysis
+          id: market.id,
+          volumeNum: market.volumeNum,
+          liquidityNum: market.liquidityNum,
+          competitive: market.competitive,
+          eventId: event.id,
+          eventTitle: event.title,
+          
+          // Additional context for enhanced ranking
+          _eventContext: {
+            event,
+            marketAnalysis,
+            eventKeywords,
+            eventTags: event.tags.map(tag => tag.label),
+            totalEventVolume: marketAnalysis.totalVolume,
+            totalEventLiquidity: marketAnalysis.totalLiquidity,
+            marketCount: marketAnalysis.marketCount,
+            crossMarketCorrelations: marketAnalysis.correlations.length,
+          }
+        };
+
+        markets.push(enhancedMarket);
+      }
+    }
+
+    return markets;
+  }
+
+  /**
+   * Extract markets from events for backward compatibility
+   * Implements Requirements 1.2, 2.1 - event structure parsing and market extraction
+   */
+  private extractMarketsFromEvents(events: PolymarketEvent[]): PolymarketMarket[] {
+    const markets: PolymarketMarket[] = [];
+
+    for (const event of events) {
+      for (const market of event.markets) {
+        const compatibleMarket: PolymarketMarket = {
+          // Backward compatibility mapping - support both snake_case and camelCase
+          conditionId: market.conditionId || market.id,
+          condition_id: market.conditionId || market.id, // Legacy field
+          question: market.question,
+          description: market.description || '',
+          endDate: market.endDate,
+          end_date_iso: market.endDate, // Legacy field
+          createdAt: market.createdAt,
+          created_at: market.createdAt, // Legacy field
+          slug: market.slug,
+          market_slug: market.slug, // Legacy field
+          outcomes: this.parseOutcomes(market.outcomes),
+          outcomePrices: this.parseOutcomePrices(market.outcomePrices),
+          outcome_prices: this.parseOutcomePrices(market.outcomePrices), // Legacy field
+          volume: market.volume,
+          volume24hr: market.volume24hr,
+          volume_24h: market.volume24hr, // Legacy field
+          liquidity: market.liquidity || '0',
+          trades24h: undefined, // Not available in events API
+          trades_24h: undefined, // Legacy field
+          active: market.active,
+          closed: market.closed,
+          
+          // Enhanced fields
+          id: market.id,
+          volumeNum: market.volumeNum,
+          liquidityNum: market.liquidityNum,
+          competitive: market.competitive,
+          eventId: event.id,
+          eventTitle: event.title,
+        };
+
+        markets.push(compatibleMarket);
+      }
+    }
+
+    return markets;
+  }
+
+  /**
+   * Rank markets with enhanced event context
+   * Implements Requirements 5.1, 5.2, 5.3 - comprehensive ranking with event-level metrics
+   */
+  private rankMarketsWithEventContext(markets: PolymarketMarket[]): RankedMarket[] {
+    return markets.map((market) => {
+      const trendingScore = this.calculateEnhancedTrendingScore(market);
+      // Handle both camelCase and snake_case for backward compatibility
+      const volume24h = market.volume24hr || 
+                       parseFloat(market.volume_24h as string || '0') || 
+                       parseFloat(market.volume || '0');
+      const liquidity = parseFloat(market.liquidity || '0');
+
+      const rankedMarket: RankedMarket = {
+        conditionId: market.conditionId || market.condition_id || '',
+        question: market.question,
+        description: market.description,
+        trendingScore,
+        volume24h,
+        liquidity,
+        marketSlug: market.slug || market.market_slug || market.conditionId || market.condition_id || '',
+        eventId: market.eventId,
+        eventTitle: market.eventTitle,
+        eventContext: this.buildEventContext(market),
+      };
+
+      return rankedMarket;
+    }).sort((a, b) => b.trendingScore - a.trendingScore);
+  }
+
+  /**
+   * Calculate enhanced trending score with event-level context
+   * Implements Requirements 5.1, 5.2, 5.3 - enhanced ranking algorithm
+   */
+  private calculateEnhancedTrendingScore(market: PolymarketMarket): number {
+    // Base scoring factors - handle both camelCase and snake_case for compatibility
+    const volume24h = market.volume24hr || 
+                     parseFloat(market.volume_24h as string || '0') || 
+                     parseFloat(market.volume || '0');
+    const liquidity = parseFloat(market.liquidity || '0');
+    const competitive = market.competitive || 0;
+
+    // Calculate base component scores
+    const volumeScore = this.calculateVolumeScore(volume24h);
+    const liquidityScore = this.calculateLiquidityScore(liquidity);
+    const competitiveScore = competitive;
+    const recencyScore = this.calculateRecencyScore(
+      market.createdAt || market.created_at || market.endDate || market.end_date_iso || ''
+    );
+
+    // Enhanced event-level scoring
+    let eventBonus = 0;
+    let crossMarketBonus = 0;
+    let keywordBonus = 0;
+
+    if (market._eventContext && this.config.enableCrossMarketAnalysis) {
+      const eventContext = market._eventContext;
+      
+      // Event volume bonus (markets in high-volume events get boost)
+      if (eventContext.totalEventVolume > 10000) {
+        eventBonus += 0.2;
+      }
+      
+      // Multi-market bonus (markets in events with multiple markets get boost)
+      if (eventContext.marketCount > 1) {
+        crossMarketBonus += Math.min(0.3, eventContext.marketCount * 0.05);
+      }
+      
+      // Cross-market correlation bonus
+      if (eventContext.crossMarketCorrelations > 0) {
+        crossMarketBonus += Math.min(0.2, eventContext.crossMarketCorrelations * 0.02);
+      }
+      
+      // Event keyword relevance bonus
+      if (eventContext.eventKeywords && this.config.enableEventBasedKeywords) {
+        const politicalKeywords = eventContext.eventKeywords.ranked
+          .filter((kw: any) => kw.source === 'event_tag' || kw.relevanceScore > 0.7)
+          .length;
+        keywordBonus += Math.min(0.15, politicalKeywords * 0.03);
+      }
+    }
+
+    // Enhanced weighted scoring formula
+    const baseScore = (
+      volumeScore * 0.35 +           // Volume remains important
+      liquidityScore * 0.25 +        // Liquidity indicates market health
+      competitiveScore * 0.20 +      // Competitive markets are more interesting
+      recencyScore * 0.20            // Recent markets are more relevant
+    );
+
+    const enhancedScore = baseScore + eventBonus + crossMarketBonus + keywordBonus;
+
+    return Math.min(enhancedScore, 10.0); // Cap at 10.0
+  }
+
+  /**
+   * Build event context for ranked market
+   */
+  private buildEventContext(market: PolymarketMarket): RankedMarket['eventContext'] | undefined {
+    if (!market._eventContext) return undefined;
+
+    const eventContext = market._eventContext;
+    return {
+      totalEventVolume: eventContext.totalEventVolume,
+      totalEventLiquidity: eventContext.totalEventLiquidity,
+      marketCount: eventContext.marketCount,
+      eventTags: eventContext.eventTags,
+      crossMarketCorrelations: eventContext.crossMarketCorrelations,
+    };
+  }
+
+  /**
+   * Parse outcomes string to array for backward compatibility
+   */
+  private parseOutcomes(outcomes: string): string[] | undefined {
+    if (!outcomes) return undefined;
+    try {
+      return JSON.parse(outcomes);
+    } catch {
+      return [outcomes]; // Fallback to single outcome
+    }
+  }
+
+  /**
+   * Parse outcome prices string to array for backward compatibility
+   */
+  private parseOutcomePrices(outcomePrices: string): string[] | undefined {
+    if (!outcomePrices) return undefined;
+    try {
+      return JSON.parse(outcomePrices);
+    } catch {
+      return [outcomePrices]; // Fallback to single price
+    }
+  }
+
+  // ==========================================================================
+  // Legacy Fallback Methods - Maintaining Backward Compatibility
+  // ==========================================================================
+
+  /**
+   * Legacy market discovery fallback for backward compatibility
+   */
+  private async discoverMarketsLegacy(limit: number): Promise<RankedMarket[]> {
+    logger.warn('[PolymarketDiscoveryEngine] Using legacy market discovery fallback');
+    
+    // Fetch all political markets using legacy approach
+    const markets = await this.fetchPoliticalMarketsLegacy();
+
+    // Rank markets by trending score using legacy algorithm
+    const rankedMarkets = this.rankMarketsLegacy(markets);
 
     // Select top N markets
     return rankedMarkets.slice(0, limit);
   }
 
   /**
-   * Fetch all active political markets from Polymarket
+   * Legacy political markets fetch for backward compatibility
    */
-  async fetchPoliticalMarkets(): Promise<PolymarketMarket[]> {
+  private async fetchPoliticalMarketsLegacy(): Promise<PolymarketMarket[]> {
     // Fetch all active markets with retry logic
     const allMarkets = await this.fetchMarketsWithRetry();
 
-    // Filter for political markets
-    return this.filterPoliticalMarkets(allMarkets);
+    // Filter for political markets using legacy keywords
+    return this.filterPoliticalMarketsLegacy(allMarkets);
   }
 
   /**
-   * Rank markets by trending score
+   * Legacy market ranking for backward compatibility
    */
-  rankMarkets(markets: PolymarketMarket[]): RankedMarket[] {
-    // Calculate trending score for each market
+  private rankMarketsLegacy(markets: PolymarketMarket[]): RankedMarket[] {
+    // Calculate trending score for each market using legacy algorithm
     const rankedMarkets = markets.map((market) => {
-      const trendingScore = this.calculateTrendingScore(market);
-      const volume24h = market.volume24hr || parseFloat(market.volume || '0');
+      const trendingScore = this.calculateTrendingScoreLegacy(market);
+      // Handle both camelCase and snake_case for backward compatibility
+      const volume24h = market.volume24hr || 
+                       parseFloat(market.volume_24h as string || '0') || 
+                       parseFloat(market.volume || '0');
       const liquidity = parseFloat(market.liquidity || '0');
 
       return {
-        conditionId: market.conditionId,
+        conditionId: market.conditionId || market.condition_id || '',
         question: market.question,
         description: market.description,
         trendingScore,
         volume24h,
         liquidity,
-        marketSlug: market.slug || market.conditionId,
+        marketSlug: market.slug || market.market_slug || market.conditionId || market.condition_id || '',
       };
     });
 
@@ -173,12 +598,8 @@ export class PolymarketDiscoveryEngine implements MarketDiscoveryEngine {
     return rankedMarkets.sort((a, b) => b.trendingScore - a.trendingScore);
   }
 
-  // ==========================================================================
-  // Private Methods
-  // ==========================================================================
-
   /**
-   * Fetch markets from Polymarket API with retry logic
+   * Fetch markets from Polymarket API with retry logic (legacy fallback)
    */
   private async fetchMarketsWithRetry(): Promise<PolymarketMarket[]> {
     const maxRetries = 3;
@@ -188,7 +609,7 @@ export class PolymarketDiscoveryEngine implements MarketDiscoveryEngine {
       try {
         // Fetch markets from Gamma API
         // Note: This endpoint may vary based on Polymarket's actual API
-        const response = await fetch(`${this.gammaApiUrl}/markets?active=true&closed=false&limit=100`, {
+        const response = await fetch(`${this.config.gammaApiUrl}/markets?active=true&closed=false&limit=100`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -233,9 +654,18 @@ export class PolymarketDiscoveryEngine implements MarketDiscoveryEngine {
   }
 
   /**
-   * Filter markets for political event types
+   * Filter markets for political event types using legacy keywords (fallback)
    */
-  private filterPoliticalMarkets(markets: PolymarketMarket[]): PolymarketMarket[] {
+  private filterPoliticalMarketsLegacy(markets: PolymarketMarket[]): PolymarketMarket[] {
+    // Legacy political keywords for fallback
+    const POLITICAL_KEYWORDS = [
+      'election', 'president', 'trump', 'biden', 'harris', 'senate', 'congress', 'governor',
+      'court', 'supreme court', 'ruling', 'verdict', 'policy', 'legislation', 'bill', 'law',
+      'geopolitical', 'war', 'conflict', 'treaty', 'vote', 'ballot', 'referendum', 'impeachment',
+      'cabinet', 'minister', 'parliament', 'immigration', 'deport', 'deportation', 'border',
+      'tariff', 'trade war', 'sanctions', 'nato', 'ukraine', 'russia', 'china',
+    ];
+
     return markets.filter((market) => {
       // Skip closed or inactive markets
       if (market.closed || !market.active) {
@@ -249,14 +679,16 @@ export class PolymarketDiscoveryEngine implements MarketDiscoveryEngine {
   }
 
   /**
-   * Calculate trending score for a market
+   * Calculate trending score for a market using legacy algorithm (fallback)
    */
-  private calculateTrendingScore(market: PolymarketMarket): number {
-    // Extract metrics
-    const volume24h = market.volume24hr || parseFloat(market.volume || '0');
+  private calculateTrendingScoreLegacy(market: PolymarketMarket): number {
+    // Extract metrics - handle both camelCase and snake_case
+    const volume24h = market.volume24hr || 
+                     parseFloat(market.volume_24h as string || '0') || 
+                     parseFloat(market.volume || '0');
     const liquidity = parseFloat(market.liquidity || '0');
-    const trades24h = market.trades24h || 0;
-    const createdAt = market.createdAt || market.endDate;
+    const trades24h = market.trades24h || market.trades_24h || 0;
+    const createdAt = market.createdAt || market.created_at || market.endDate || market.end_date_iso || '';
 
     // Calculate component scores
     const volumeScore = this.calculateVolumeScore(volume24h);
@@ -270,6 +702,10 @@ export class PolymarketDiscoveryEngine implements MarketDiscoveryEngine {
 
     return trendingScore;
   }
+
+  // ==========================================================================
+  // Shared Helper Methods
+  // ==========================================================================
 
   /**
    * Calculate volume score (log scale)
@@ -314,7 +750,8 @@ export class PolymarketDiscoveryEngine implements MarketDiscoveryEngine {
 }
 
 /**
- * Create a market discovery engine instance
+ * Create a market discovery engine instance with enhanced event-based capabilities
+ * Maintains backward compatibility while providing enhanced event-based discovery
  */
 export function createMarketDiscoveryEngine(
   config: EngineConfig['polymarket']

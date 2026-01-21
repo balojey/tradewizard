@@ -63,7 +63,7 @@ This implementation plan enhances the TradeWizard system's Polymarket integratio
     - Create political relevance filtering for event-level keywords
     - _Requirements: 3.4, 3.5_
 
-- [ ] 5. Enhance market intelligence processing for event-based analysis
+- [x] 5. Enhance market intelligence processing for event-based analysis
   - [x] 5.1 Update market briefing document generation for events
     - Integrate enhanced event data with nested markets into MarketBriefingDocument
     - Add comprehensive volume trend analysis across all markets within events
@@ -77,7 +77,7 @@ This implementation plan enhances the TradeWizard system's Polymarket integratio
     - _Requirements: 5.4, 2.5, 3.1, 3.2, 3.3_
 
 - [ ] 6. Update existing integration points for event-based approach
-  - [ ] 6.1 Replace current market-discovery.ts implementation with event-based discovery
+  - [x] 6.1 Replace current market-discovery.ts implementation with event-based discovery
     - Update existing PolymarketDiscoveryEngine to use enhanced event client
     - Replace hardcoded political keywords with event-based tag discovery
     - Maintain backward compatibility with existing interfaces where possible while supporting events
