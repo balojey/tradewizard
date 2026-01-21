@@ -413,4 +413,138 @@ describe('Configuration Property Tests', () => {
       { numRuns: 100 }
     );
   });
+
+  // Generator for environment types
+  const environmentGen = fc.constantFrom('development' as const, 'staging' as const, 'production' as const);
+
+  // Generator for environment-specific configuration
+  const environmentConfigGen = fc.record({
+    eventsApiRateLimit: fc.integer({ min: 1, max: 1000 }),
+    maxRequestsPerMinute: fc.integer({ min: 1, max: 100 }),
+    eventCacheTTL: fc.integer({ min: 1, max: 3600 }),
+    enableDebugLogging: fc.boolean(),
+    enableMockData: fc.boolean(),
+  });
+
+  /**
+   * Property 17: Environment configuration validation
+   * 
+   * Environment-specific configurations should be properly validated and applied
+   * based on the current NODE_ENV setting.
+   */
+  it('should validate environment-specific configuration correctly', () => {
+    fc.assert(
+      fc.property(
+        validLLMConfigGen,
+        environmentGen,
+        environmentConfigGen,
+        (llmConfig, environment, envConfig) => {
+          const config: Partial<EngineConfig> = {
+            ...llmConfig,
+            polymarket: {
+              gammaApiUrl: 'https://gamma-api.polymarket.com',
+              clobApiUrl: 'https://clob.polymarket.com',
+              rateLimitBuffer: 80,
+              environment,
+              environmentConfigs: {
+                [environment]: envConfig,
+              },
+            },
+          };
+
+          // Should not throw - configuration is valid
+          expect(() => createConfig(config)).not.toThrow();
+        }
+      ),
+      { numRuns: 100 }
+    );
+  });
+
+  /**
+   * Property 18: Production environment validation
+   * 
+   * Production environment should have appropriate security settings
+   * (debug logging disabled, mock data disabled, reasonable rate limits).
+   */
+  it('should enforce production environment security settings', () => {
+    fc.assert(
+      fc.property(
+        validLLMConfigGen,
+        fc.boolean(),
+        fc.boolean(),
+        fc.integer({ min: 1, max: 50 }),
+        (llmConfig, enableDebugLogging, enableMockData, lowRateLimit) => {
+          const config: Partial<EngineConfig> = {
+            ...llmConfig,
+            polymarket: {
+              gammaApiUrl: 'https://gamma-api.polymarket.com',
+              clobApiUrl: 'https://clob.polymarket.com',
+              rateLimitBuffer: 80,
+              environment: 'production',
+              environmentConfigs: {
+                production: {
+                  eventsApiRateLimit: lowRateLimit,
+                  maxRequestsPerMinute: 60,
+                  eventCacheTTL: 300,
+                  enableDebugLogging,
+                  enableMockData,
+                },
+              },
+            },
+          };
+
+          const createdConfig = createConfig(config);
+          const { validateEnvironmentConfig } = require('./index.js');
+          const validation = validateEnvironmentConfig(createdConfig);
+
+          // Production should have security restrictions
+          if (enableDebugLogging || enableMockData || lowRateLimit < 100) {
+            expect(validation.valid).toBe(false);
+            expect(validation.errors.length).toBeGreaterThan(0);
+          }
+        }
+      ),
+      { numRuns: 100 }
+    );
+  });
+
+  /**
+   * Property 19: Environment configuration inheritance
+   * 
+   * When environment-specific configuration is missing, the system should
+   * fall back to reasonable defaults without throwing errors.
+   */
+  it('should handle missing environment configuration gracefully', () => {
+    fc.assert(
+      fc.property(
+        validLLMConfigGen,
+        environmentGen,
+        (llmConfig, environment) => {
+          const config: Partial<EngineConfig> = {
+            ...llmConfig,
+            polymarket: {
+              gammaApiUrl: 'https://gamma-api.polymarket.com',
+              clobApiUrl: 'https://clob.polymarket.com',
+              rateLimitBuffer: 80,
+              environment,
+              // No environmentConfigs provided
+            },
+          };
+
+          const createdConfig = createConfig(config);
+          const { getCurrentEnvironmentConfig } = require('./index.js');
+          
+          // Should not throw and should return default configuration
+          expect(() => getCurrentEnvironmentConfig(createdConfig)).not.toThrow();
+          const envConfig = getCurrentEnvironmentConfig(createdConfig);
+          
+          // Should have reasonable defaults
+          expect(envConfig.eventsApiRateLimit).toBeGreaterThan(0);
+          expect(envConfig.maxRequestsPerMinute).toBeGreaterThan(0);
+          expect(envConfig.eventCacheTTL).toBeGreaterThan(0);
+        }
+      ),
+      { numRuns: 100 }
+    );
+  });
 });

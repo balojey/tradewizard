@@ -76,7 +76,7 @@ This implementation plan enhances the TradeWizard system's Polymarket integratio
     - Integrate event-level intelligence that considers all constituent markets
     - _Requirements: 5.4, 2.5, 3.1, 3.2, 3.3_
 
-- [ ] 6. Update existing integration points for event-based approach
+- [x] 6. Update existing integration points for event-based approach
   - [x] 6.1 Replace current market-discovery.ts implementation with event-based discovery
     - Update existing PolymarketDiscoveryEngine to use enhanced event client
     - Replace hardcoded political keywords with event-based tag discovery
@@ -96,13 +96,13 @@ This implementation plan enhances the TradeWizard system's Polymarket integratio
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
 
 - [ ] 7. Add configuration management and environment setup for events
-  - [ ] 7.1 Update .env configuration for event-based integration
+  - [x] 7.1 Update .env configuration for event-based integration
     - Add POLYMARKET_POLITICS_TAG_ID=2 environment variable for event filtering
     - Add configurable rate limiting parameters for events API
     - Add feature flags for enhanced event discovery modes and multi-market analysis
     - _Requirements: 6.1, 6.2, 6.3_
   
-  - [ ] 7.2 Update configuration interfaces and validation for events
+  - [x] 7.2 Update configuration interfaces and validation for events
     - Extend EngineConfig interface to include enhanced event-based Polymarket configuration
     - Add environment variable validation and default value handling for events
     - Support development, staging, and production configurations for events API

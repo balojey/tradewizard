@@ -35,6 +35,8 @@ const EngineConfigSchema = z
       correlationThreshold: z.number().min(0).max(1).default(0.3),
       arbitrageThreshold: z.number().min(0).max(1).default(0.05),
       eventsApiRateLimit: z.number().positive().default(500),
+      maxRequestsPerMinute: z.number().positive().default(60),
+      rateLimitWindowMs: z.number().positive().default(60000),
       eventCacheTTL: z.number().positive().default(300),
       marketCacheTTL: z.number().positive().default(300),
       tagCacheTTL: z.number().positive().default(3600),
@@ -44,6 +46,10 @@ const EngineConfigSchema = z
       enableCrossMarketCorrelation: z.boolean().default(true),
       enableArbitrageDetection: z.boolean().default(true),
       enableEventLevelIntelligence: z.boolean().default(true),
+      enableEnhancedEventDiscovery: z.boolean().default(true),
+      enableMultiMarketFiltering: z.boolean().default(true),
+      enableEventRankingAlgorithm: z.boolean().default(true),
+      enableCrossMarketOpportunities: z.boolean().default(true),
       maxRetries: z.number().positive().default(3),
       circuitBreakerThreshold: z.number().positive().default(5),
       fallbackToCache: z.boolean().default(true),
@@ -51,6 +57,31 @@ const EngineConfigSchema = z
       keywordExtractionMode: z.enum(['event_priority', 'market_priority', 'balanced']).default('event_priority'),
       correlationAnalysisDepth: z.enum(['basic', 'advanced', 'comprehensive']).default('basic'),
       riskAssessmentLevel: z.enum(['conservative', 'moderate', 'aggressive']).default('moderate'),
+      // Environment-specific event API configuration
+      environment: z.enum(['development', 'staging', 'production']).default('development'),
+      environmentConfigs: z.object({
+        development: z.object({
+          eventsApiRateLimit: z.number().positive().default(100),
+          maxRequestsPerMinute: z.number().positive().default(30),
+          eventCacheTTL: z.number().positive().default(60),
+          enableDebugLogging: z.boolean().default(true),
+          enableMockData: z.boolean().default(false),
+        }).optional(),
+        staging: z.object({
+          eventsApiRateLimit: z.number().positive().default(300),
+          maxRequestsPerMinute: z.number().positive().default(45),
+          eventCacheTTL: z.number().positive().default(180),
+          enableDebugLogging: z.boolean().default(false),
+          enableMockData: z.boolean().default(false),
+        }).optional(),
+        production: z.object({
+          eventsApiRateLimit: z.number().positive().default(500),
+          maxRequestsPerMinute: z.number().positive().default(60),
+          eventCacheTTL: z.number().positive().default(300),
+          enableDebugLogging: z.boolean().default(false),
+          enableMockData: z.boolean().default(false),
+        }).optional(),
+      }).default({}),
     }),
     langgraph: z.object({
       checkpointer: z.enum(['memory', 'sqlite', 'postgres']).default('memory'),
@@ -294,6 +325,35 @@ export type PartialEngineConfig = z.infer<typeof EngineConfigSchema> extends inf
   : never;
 
 /**
+ * Get environment-specific default values for event configuration
+ * 
+ * @param environment - The current environment
+ * @param setting - The setting to get default for
+ * @returns Default value for the setting in the given environment
+ */
+function getEnvironmentDefault(environment: 'development' | 'staging' | 'production', setting: string): string {
+  const defaults = {
+    development: {
+      eventsApiRateLimit: '100',
+      maxRequestsPerMinute: '30',
+      eventCacheTTL: '60',
+    },
+    staging: {
+      eventsApiRateLimit: '300',
+      maxRequestsPerMinute: '45',
+      eventCacheTTL: '180',
+    },
+    production: {
+      eventsApiRateLimit: '500',
+      maxRequestsPerMinute: '60',
+      eventCacheTTL: '300',
+    },
+  };
+
+  return defaults[environment][setting as keyof typeof defaults[typeof environment]] || '0';
+}
+
+/**
  * Load and validate configuration from environment variables
  * 
  * Error handling:
@@ -303,6 +363,8 @@ export type PartialEngineConfig = z.infer<typeof EngineConfigSchema> extends inf
  * - Falls back to safe defaults when possible
  */
 export function loadConfig(): EngineConfig {
+  const nodeEnv = (process.env.NODE_ENV as 'development' | 'staging' | 'production') || 'development';
+  
   const config: EngineConfig = {
     polymarket: {
       gammaApiUrl: process.env.POLYMARKET_GAMMA_API_URL || 'https://gamma-api.polymarket.com',
@@ -318,8 +380,10 @@ export function loadConfig(): EngineConfig {
       enableCrossMarketAnalysis: process.env.POLYMARKET_ENABLE_CROSS_MARKET_ANALYSIS !== 'false',
       correlationThreshold: parseFloat(process.env.POLYMARKET_CORRELATION_THRESHOLD || '0.3'),
       arbitrageThreshold: parseFloat(process.env.POLYMARKET_ARBITRAGE_THRESHOLD || '0.05'),
-      eventsApiRateLimit: parseInt(process.env.POLYMARKET_EVENTS_API_RATE_LIMIT || '500', 10),
-      eventCacheTTL: parseInt(process.env.POLYMARKET_EVENT_CACHE_TTL || '300', 10),
+      eventsApiRateLimit: parseInt(process.env.POLYMARKET_EVENTS_API_RATE_LIMIT || getEnvironmentDefault(nodeEnv, 'eventsApiRateLimit'), 10),
+      maxRequestsPerMinute: parseInt(process.env.POLYMARKET_MAX_REQUESTS_PER_MINUTE || getEnvironmentDefault(nodeEnv, 'maxRequestsPerMinute'), 10),
+      rateLimitWindowMs: parseInt(process.env.POLYMARKET_RATE_LIMIT_WINDOW_MS || '60000', 10),
+      eventCacheTTL: parseInt(process.env.POLYMARKET_EVENT_CACHE_TTL || getEnvironmentDefault(nodeEnv, 'eventCacheTTL'), 10),
       marketCacheTTL: parseInt(process.env.POLYMARKET_MARKET_CACHE_TTL || '300', 10),
       tagCacheTTL: parseInt(process.env.POLYMARKET_TAG_CACHE_TTL || '3600', 10),
       correlationCacheTTL: parseInt(process.env.POLYMARKET_CORRELATION_CACHE_TTL || '1800', 10),
@@ -328,6 +392,10 @@ export function loadConfig(): EngineConfig {
       enableCrossMarketCorrelation: process.env.POLYMARKET_ENABLE_CROSS_MARKET_CORRELATION !== 'false',
       enableArbitrageDetection: process.env.POLYMARKET_ENABLE_ARBITRAGE_DETECTION !== 'false',
       enableEventLevelIntelligence: process.env.POLYMARKET_ENABLE_EVENT_LEVEL_INTELLIGENCE !== 'false',
+      enableEnhancedEventDiscovery: process.env.POLYMARKET_ENABLE_ENHANCED_EVENT_DISCOVERY !== 'false',
+      enableMultiMarketFiltering: process.env.POLYMARKET_ENABLE_MULTI_MARKET_FILTERING !== 'false',
+      enableEventRankingAlgorithm: process.env.POLYMARKET_ENABLE_EVENT_RANKING_ALGORITHM !== 'false',
+      enableCrossMarketOpportunities: process.env.POLYMARKET_ENABLE_CROSS_MARKET_OPPORTUNITIES !== 'false',
       maxRetries: parseInt(process.env.POLYMARKET_MAX_RETRIES || '3', 10),
       circuitBreakerThreshold: parseInt(process.env.POLYMARKET_CIRCUIT_BREAKER_THRESHOLD || '5', 10),
       fallbackToCache: process.env.POLYMARKET_FALLBACK_TO_CACHE !== 'false',
@@ -335,6 +403,31 @@ export function loadConfig(): EngineConfig {
       keywordExtractionMode: (process.env.POLYMARKET_KEYWORD_EXTRACTION_MODE as 'event_priority' | 'market_priority' | 'balanced') || 'event_priority',
       correlationAnalysisDepth: (process.env.POLYMARKET_CORRELATION_ANALYSIS_DEPTH as 'basic' | 'advanced' | 'comprehensive') || 'basic',
       riskAssessmentLevel: (process.env.POLYMARKET_RISK_ASSESSMENT_LEVEL as 'conservative' | 'moderate' | 'aggressive') || 'moderate',
+      // Environment-specific configuration
+      environment: nodeEnv,
+      environmentConfigs: {
+        development: {
+          eventsApiRateLimit: parseInt(process.env.POLYMARKET_DEV_EVENTS_API_RATE_LIMIT || '100', 10),
+          maxRequestsPerMinute: parseInt(process.env.POLYMARKET_DEV_MAX_REQUESTS_PER_MINUTE || '30', 10),
+          eventCacheTTL: parseInt(process.env.POLYMARKET_DEV_EVENT_CACHE_TTL || '60', 10),
+          enableDebugLogging: process.env.POLYMARKET_DEV_ENABLE_DEBUG_LOGGING !== 'false',
+          enableMockData: process.env.POLYMARKET_DEV_ENABLE_MOCK_DATA === 'true',
+        },
+        staging: {
+          eventsApiRateLimit: parseInt(process.env.POLYMARKET_STAGING_EVENTS_API_RATE_LIMIT || '300', 10),
+          maxRequestsPerMinute: parseInt(process.env.POLYMARKET_STAGING_MAX_REQUESTS_PER_MINUTE || '45', 10),
+          eventCacheTTL: parseInt(process.env.POLYMARKET_STAGING_EVENT_CACHE_TTL || '180', 10),
+          enableDebugLogging: process.env.POLYMARKET_STAGING_ENABLE_DEBUG_LOGGING === 'true',
+          enableMockData: process.env.POLYMARKET_STAGING_ENABLE_MOCK_DATA === 'true',
+        },
+        production: {
+          eventsApiRateLimit: parseInt(process.env.POLYMARKET_PROD_EVENTS_API_RATE_LIMIT || '500', 10),
+          maxRequestsPerMinute: parseInt(process.env.POLYMARKET_PROD_MAX_REQUESTS_PER_MINUTE || '60', 10),
+          eventCacheTTL: parseInt(process.env.POLYMARKET_PROD_EVENT_CACHE_TTL || '300', 10),
+          enableDebugLogging: process.env.POLYMARKET_PROD_ENABLE_DEBUG_LOGGING === 'true',
+          enableMockData: process.env.POLYMARKET_PROD_ENABLE_MOCK_DATA === 'true',
+        },
+      },
     },
     langgraph: {
       checkpointer:
@@ -620,6 +713,20 @@ export function createConfig(overrides: Partial<EngineConfig>): EngineConfig {
     polymarket: {
       ...baseConfig.polymarket,
       ...(overrides.polymarket || {}),
+      environmentConfigs: {
+        development: {
+          ...baseConfig.polymarket.environmentConfigs?.development,
+          ...(overrides.polymarket?.environmentConfigs?.development || {}),
+        },
+        staging: {
+          ...baseConfig.polymarket.environmentConfigs?.staging,
+          ...(overrides.polymarket?.environmentConfigs?.staging || {}),
+        },
+        production: {
+          ...baseConfig.polymarket.environmentConfigs?.production,
+          ...(overrides.polymarket?.environmentConfigs?.production || {}),
+        },
+      },
     },
     langgraph: {
       ...baseConfig.langgraph,
@@ -754,6 +861,8 @@ export function getDefaultConfig(): Partial<EngineConfig> {
       correlationThreshold: 0.3,
       arbitrageThreshold: 0.05,
       eventsApiRateLimit: 500,
+      maxRequestsPerMinute: 60,
+      rateLimitWindowMs: 60000,
       eventCacheTTL: 300,
       marketCacheTTL: 300,
       tagCacheTTL: 3600,
@@ -763,6 +872,10 @@ export function getDefaultConfig(): Partial<EngineConfig> {
       enableCrossMarketCorrelation: true,
       enableArbitrageDetection: true,
       enableEventLevelIntelligence: true,
+      enableEnhancedEventDiscovery: true,
+      enableMultiMarketFiltering: true,
+      enableEventRankingAlgorithm: true,
+      enableCrossMarketOpportunities: true,
       maxRetries: 3,
       circuitBreakerThreshold: 5,
       fallbackToCache: true,
@@ -770,6 +883,30 @@ export function getDefaultConfig(): Partial<EngineConfig> {
       keywordExtractionMode: 'event_priority',
       correlationAnalysisDepth: 'basic',
       riskAssessmentLevel: 'moderate',
+      environment: 'development',
+      environmentConfigs: {
+        development: {
+          eventsApiRateLimit: 100,
+          maxRequestsPerMinute: 30,
+          eventCacheTTL: 60,
+          enableDebugLogging: true,
+          enableMockData: false,
+        },
+        staging: {
+          eventsApiRateLimit: 300,
+          maxRequestsPerMinute: 45,
+          eventCacheTTL: 180,
+          enableDebugLogging: false,
+          enableMockData: false,
+        },
+        production: {
+          eventsApiRateLimit: 500,
+          maxRequestsPerMinute: 60,
+          eventCacheTTL: 300,
+          enableDebugLogging: false,
+          enableMockData: false,
+        },
+      },
     },
     langgraph: {
       checkpointer: 'memory',
@@ -904,4 +1041,75 @@ export function getDefaultConfig(): Partial<EngineConfig> {
       minSampleSize: 10,
     },
   };
+}
+
+/**
+ * Get the current environment-specific configuration for events API
+ * 
+ * @param config - The engine configuration
+ * @returns Environment-specific configuration for the current environment
+ */
+export function getCurrentEnvironmentConfig(config: EngineConfig) {
+  const currentEnv = config.polymarket.environment;
+  const envConfig = config.polymarket.environmentConfigs?.[currentEnv];
+  
+  if (!envConfig) {
+    console.warn(`[Config] No environment configuration found for '${currentEnv}', using defaults`);
+    return config.polymarket.environmentConfigs?.development || {
+      eventsApiRateLimit: 100,
+      maxRequestsPerMinute: 30,
+      eventCacheTTL: 60,
+      enableDebugLogging: true,
+      enableMockData: false,
+    };
+  }
+  
+  return envConfig;
+}
+
+/**
+ * Validate environment-specific configuration
+ * 
+ * @param config - The engine configuration
+ * @returns Validation result with any errors
+ */
+export function validateEnvironmentConfig(config: EngineConfig): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  const currentEnv = config.polymarket.environment;
+  const envConfig = config.polymarket.environmentConfigs?.[currentEnv];
+  
+  if (!envConfig) {
+    errors.push(`Missing environment configuration for '${currentEnv}'`);
+    return { valid: false, errors };
+  }
+  
+  // Validate rate limits are reasonable
+  if (envConfig.eventsApiRateLimit && envConfig.eventsApiRateLimit < 1) {
+    errors.push(`Events API rate limit must be at least 1, got ${envConfig.eventsApiRateLimit}`);
+  }
+  
+  if (envConfig.maxRequestsPerMinute && envConfig.maxRequestsPerMinute < 1) {
+    errors.push(`Max requests per minute must be at least 1, got ${envConfig.maxRequestsPerMinute}`);
+  }
+  
+  if (envConfig.eventCacheTTL && envConfig.eventCacheTTL < 1) {
+    errors.push(`Event cache TTL must be at least 1 second, got ${envConfig.eventCacheTTL}`);
+  }
+  
+  // Validate production environment has appropriate settings
+  if (currentEnv === 'production') {
+    if (envConfig.enableDebugLogging) {
+      errors.push('Debug logging should be disabled in production environment');
+    }
+    
+    if (envConfig.enableMockData) {
+      errors.push('Mock data should be disabled in production environment');
+    }
+    
+    if (envConfig.eventsApiRateLimit && envConfig.eventsApiRateLimit < 100) {
+      errors.push(`Production events API rate limit seems too low: ${envConfig.eventsApiRateLimit}`);
+    }
+  }
+  
+  return { valid: errors.length === 0, errors };
 }
