@@ -111,11 +111,18 @@ Given a market and upcoming events, analyze:
 
 Focus on timeline alignment and asymmetric opportunities.
 
+ENHANCED EVENT-BASED ANALYSIS:
+When event-based keywords are provided, use them to improve catalyst identification:
+- Use event-level keywords to identify relevant scheduled events and announcements
+- Leverage catalyst keywords to focus on the most impactful upcoming events
+- Use political keywords to identify politically relevant catalysts and their timing
+- Consider cross-market catalysts when analyzing events that affect multiple related markets
+
 Provide your analysis as a structured signal with:
 - confidence: Your confidence in this catalyst analysis (0-1)
 - direction: Your view on the outcome (YES/NO/NEUTRAL)
 - fairProbability: Your catalyst-adjusted probability (0-1)
-- keyDrivers: Top 3-5 catalyst factors influencing your view
+- keyDrivers: Top 3-5 catalyst factors influencing your view (prioritize event-keyword matches)
 - riskFactors: Uncertainty about catalyst timing or impact
 - metadata:
   - upcomingCatalysts: Array of upcoming events with impact levels, direction, strategies, and scenarios
@@ -135,11 +142,18 @@ Given a market, analyze:
 
 Focus on scenarios with positive expected value despite low probability.
 
+ENHANCED EVENT-BASED ANALYSIS:
+When event-based keywords are provided, use them to improve tail risk identification:
+- Use event-level keywords to identify potential surprise scenarios related to the event
+- Leverage risk keywords to focus on the most impactful tail risk scenarios
+- Use political keywords to identify politically driven tail risks and black swan events
+- Consider cross-market risks when analyzing tail scenarios that could affect multiple related markets
+
 Provide your analysis as a structured signal with:
 - confidence: Your confidence in this tail-risk analysis (0-1)
 - direction: Your view on the outcome (YES/NO/NEUTRAL)
 - fairProbability: Your tail-risk-adjusted probability (0-1)
-- keyDrivers: Top 3-5 tail-risk factors influencing your view
+- keyDrivers: Top 3-5 tail-risk factors influencing your view (prioritize event-keyword matches)
 - riskFactors: Uncertainty about tail scenarios or payoffs
 - metadata:
   - tailScenarios: Array of underpriced scenarios with probabilities, market pricing, and payoff ratios
@@ -211,6 +225,19 @@ export function createCatalystAgentNode(
     }
 
     try {
+      // Extract event-based keywords for enhanced catalyst identification
+      const eventKeywords = state.mbd.keywords;
+      const keywordContext = eventKeywords ? {
+        eventLevel: eventKeywords.eventLevel,
+        themes: eventKeywords.themes.map(t => t.theme),
+        catalystKeywords: eventKeywords.concepts.map(c => c.concept),
+        politicalKeywords: eventKeywords.combined.filter(k => 
+          eventKeywords.ranked.find(r => r.keyword === k)?.source === 'event_tag' ||
+          eventKeywords.ranked.find(r => r.keyword === k && r.relevanceScore > 0.7)
+        ),
+        crossMarketCatalysts: eventKeywords.marketLevel
+      } : null;
+
       // Use structured output with custom schema
       const structuredLLM = llm.withStructuredOutput(CatalystSignalSchema);
 
@@ -227,12 +254,16 @@ export function createCatalystAgentNode(
         ? `\n\nRecent News (may contain catalyst information):\n${JSON.stringify(newsData.slice(0, 10), null, 2)}`
         : '';
 
-      // Invoke the LLM
+      const keywordContextStr = keywordContext ? 
+        `\n\nEvent-Based Keywords for Catalyst Analysis:\n${JSON.stringify(keywordContext, null, 2)}` : 
+        '';
+
+      // Invoke the LLM with enhanced context
       const response = await structuredLLM.invoke([
         { role: 'system', content: CATALYST_PROMPT },
         {
           role: 'user',
-          content: `Analyze the following prediction market and identify upcoming catalysts:\n\nMarket:\n${marketContext}${catalystsContext}${newsContext}`,
+          content: `Analyze the following prediction market and identify upcoming catalysts:\n\nMarket:\n${marketContext}${catalystsContext}${newsContext}${keywordContextStr}`,
         },
       ]);
 
@@ -353,18 +384,34 @@ export function createTailRiskAgentNode(
     }
 
     try {
+      // Extract event-based keywords for enhanced tail risk analysis
+      const eventKeywords = state.mbd.keywords;
+      const keywordContext = eventKeywords ? {
+        eventLevel: eventKeywords.eventLevel,
+        themes: eventKeywords.themes.map(t => t.theme),
+        riskKeywords: eventKeywords.concepts.map(c => c.concept),
+        politicalKeywords: eventKeywords.combined.filter(k => 
+          eventKeywords.ranked.find(r => r.keyword === k)?.source === 'event_tag' ||
+          eventKeywords.ranked.find(r => r.keyword === k && r.relevanceScore > 0.7)
+        ),
+        crossMarketRisks: eventKeywords.marketLevel
+      } : null;
+
       // Use structured output with custom schema
       const structuredLLM = llm.withStructuredOutput(TailRiskSignalSchema);
 
-      // Prepare market context
+      // Prepare market context with event-based keywords
       const marketContext = JSON.stringify(state.mbd, null, 2);
+      const keywordContextStr = keywordContext ? 
+        `\n\nEvent-Based Keywords for Tail Risk Analysis:\n${JSON.stringify(keywordContext, null, 2)}` : 
+        '';
 
-      // Invoke the LLM
+      // Invoke the LLM with enhanced context
       const response = await structuredLLM.invoke([
         { role: 'system', content: TAIL_RISK_PROMPT },
         {
           role: 'user',
-          content: `Analyze the following prediction market and identify tail-risk scenarios:\n\nMarket:\n${marketContext}`,
+          content: `Analyze the following prediction market and identify tail-risk scenarios:\n\nMarket:\n${marketContext}${keywordContextStr}`,
         },
       ]);
 

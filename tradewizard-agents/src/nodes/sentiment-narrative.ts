@@ -134,11 +134,18 @@ Given news articles about a market, analyze:
 
 Distinguish between sentiment and factual reporting.
 
+ENHANCED EVENT-BASED ANALYSIS:
+When event-based keywords are provided, use them to improve sentiment analysis:
+- Focus sentiment analysis on articles matching event-level keywords for higher precision
+- Use narrative keywords to identify dominant story themes and their sentiment direction
+- Leverage political keywords to assess political bias and framing in coverage
+- Consider cross-market context when analyzing sentiment across multiple related markets
+
 Provide your analysis as a structured signal with:
 - confidence: Your confidence in this sentiment analysis (0-1)
 - direction: Your view on the outcome (YES/NO/NEUTRAL)
 - fairProbability: Your sentiment-adjusted probability (0-1)
-- keyDrivers: Top 3-5 media factors influencing your view
+- keyDrivers: Top 3-5 media factors influencing your view (prioritize event-keyword matches)
 - riskFactors: Uncertainty about sentiment interpretation or media bias
 - metadata:
   - overallSentiment: Overall media sentiment toward YES outcome (-1 to 1)
@@ -161,13 +168,20 @@ Given social media data about a market, analyze:
 
 Focus on actionable signals, not noise.
 
+ENHANCED EVENT-BASED ANALYSIS:
+When event-based keywords are provided, use them to improve social sentiment analysis:
+- Focus on social content matching event-level keywords for more accurate sentiment measurement
+- Use viral keywords to identify emerging narratives and meme trends
+- Leverage political keywords to assess partisan sentiment and echo chamber effects
+- Consider cross-market narratives when analyzing sentiment across multiple related markets
+
 CRITICAL: You MUST aggregate sentiment across ALL platforms into a single overallSentiment score in the platformSentiment metadata field. This is required for Property 14 validation.
 
 Provide your analysis as a structured signal with:
 - confidence: Your confidence in this sentiment analysis (0-1)
 - direction: Your view on the outcome (YES/NO/NEUTRAL)
 - fairProbability: Your crowd-adjusted probability (0-1)
-- keyDrivers: Top 3-5 social factors influencing your view
+- keyDrivers: Top 3-5 social factors influencing your view (prioritize event-keyword matches)
 - riskFactors: Uncertainty about crowd behavior or platform bias
 - metadata:
   - platformSentiment: Sentiment per platform (-1 to 1) - MUST include 'overall' key with aggregated sentiment
@@ -190,11 +204,19 @@ Given media and social data, analyze:
 
 Focus on predictive signals, not just current state.
 
+ENHANCED EVENT-BASED ANALYSIS:
+When event-based keywords are provided, use them to improve narrative velocity analysis:
+- Track velocity of narratives matching event-level keywords for more accurate predictions
+- Use narrative seeds to identify early-stage story development and acceleration patterns
+- Leverage political keywords to assess partisan narrative spread and echo chamber amplification
+- Consider cross-market narratives when predicting story dominance across multiple related markets
+- Focus on emerging themes to detect breakthrough narratives before they peak
+
 Provide your analysis as a structured signal with:
 - confidence: Your confidence in this velocity analysis (0-1)
 - direction: Your view on the outcome (YES/NO/NEUTRAL)
 - fairProbability: Your narrative-adjusted probability (0-1)
-- keyDrivers: Top 3-5 narrative factors influencing your view
+- keyDrivers: Top 3-5 narrative factors influencing your view (prioritize event-keyword matches)
 - riskFactors: Uncertainty about narrative evolution or prediction accuracy
 - metadata:
   - narratives: Array of narratives with velocity, acceleration, peak prediction, and dominance probability
@@ -289,19 +311,35 @@ export function createMediaSentimentAgentNode(
         };
       }
 
+      // Extract event-based keywords for enhanced sentiment analysis
+      const eventKeywords = state.mbd.keywords;
+      const keywordContext = eventKeywords ? {
+        eventLevel: eventKeywords.eventLevel,
+        themes: eventKeywords.themes.map(t => t.theme),
+        narrativeKeywords: eventKeywords.concepts.map(c => c.concept),
+        politicalKeywords: eventKeywords.combined.filter(k => 
+          eventKeywords.ranked.find(r => r.keyword === k)?.source === 'event_tag' ||
+          eventKeywords.ranked.find(r => r.keyword === k && r.relevanceScore > 0.7)
+        ),
+        crossMarketContext: eventKeywords.marketLevel
+      } : null;
+
       // Use structured output with custom schema
       const structuredLLM = llm.withStructuredOutput(MediaSentimentSignalSchema);
 
-      // Prepare enhanced market context with news data
+      // Prepare enhanced market context with news data and event-based keywords
       const marketContext = JSON.stringify(state.mbd, null, 2);
       const newsContext = JSON.stringify(newsArticles, null, 2);
+      const keywordContextStr = keywordContext ? 
+        `\n\nEvent-Based Keywords for Sentiment Analysis:\n${JSON.stringify(keywordContext, null, 2)}` : 
+        '';
 
-      // Invoke the LLM
+      // Invoke the LLM with enhanced context
       const response = await structuredLLM.invoke([
         { role: 'system', content: MEDIA_SENTIMENT_PROMPT },
         {
           role: 'user',
-          content: `Analyze media sentiment for the following prediction market:\n\nMarket:\n${marketContext}\n\nNews Articles:\n${newsContext}`,
+          content: `Analyze media sentiment for the following prediction market:\n\nMarket:\n${marketContext}\n\nNews Articles:\n${newsContext}${keywordContextStr}`,
         },
       ]);
 
@@ -445,19 +483,35 @@ export function createSocialSentimentAgentNode(
         };
       }
 
+      // Extract event-based keywords for enhanced social sentiment analysis
+      const eventKeywords = state.mbd.keywords;
+      const keywordContext = eventKeywords ? {
+        eventLevel: eventKeywords.eventLevel,
+        themes: eventKeywords.themes.map(t => t.theme),
+        viralKeywords: eventKeywords.concepts.map(c => c.concept),
+        politicalKeywords: eventKeywords.combined.filter(k => 
+          eventKeywords.ranked.find(r => r.keyword === k)?.source === 'event_tag' ||
+          eventKeywords.ranked.find(r => r.keyword === k && r.relevanceScore > 0.7)
+        ),
+        crossMarketNarratives: eventKeywords.marketLevel
+      } : null;
+
       // Use structured output with custom schema
       const structuredLLM = llm.withStructuredOutput(SocialSentimentSignalSchema);
 
-      // Prepare enhanced market context with social data
+      // Prepare enhanced market context with social data and event-based keywords
       const marketContext = JSON.stringify(state.mbd, null, 2);
       const socialContext = JSON.stringify(socialData, null, 2);
+      const keywordContextStr = keywordContext ? 
+        `\n\nEvent-Based Keywords for Social Sentiment Analysis:\n${JSON.stringify(keywordContext, null, 2)}` : 
+        '';
 
-      // Invoke the LLM
+      // Invoke the LLM with enhanced context
       const response = await structuredLLM.invoke([
         { role: 'system', content: SOCIAL_SENTIMENT_PROMPT },
         {
           role: 'user',
-          content: `Analyze social sentiment for the following prediction market:\n\nMarket:\n${marketContext}\n\nSocial Data:\n${socialContext}`,
+          content: `Analyze social sentiment for the following prediction market:\n\nMarket:\n${marketContext}\n\nSocial Data:\n${socialContext}${keywordContextStr}`,
         },
       ]);
 
@@ -614,20 +668,37 @@ export function createNarrativeVelocityAgentNode(
         };
       }
 
+      // Extract event-based keywords for enhanced narrative velocity analysis
+      const eventKeywords = state.mbd.keywords;
+      const keywordContext = eventKeywords ? {
+        eventLevel: eventKeywords.eventLevel,
+        themes: eventKeywords.themes.map(t => t.theme),
+        narrativeSeeds: eventKeywords.concepts.map(c => c.concept),
+        politicalKeywords: eventKeywords.combined.filter(k => 
+          eventKeywords.ranked.find(r => r.keyword === k)?.source === 'event_tag' ||
+          eventKeywords.ranked.find(r => r.keyword === k && r.relevanceScore > 0.7)
+        ),
+        crossMarketNarratives: eventKeywords.marketLevel,
+        emergingThemes: eventKeywords.themes.filter(t => t.relevanceScore > 0.8).map(t => t.theme)
+      } : null;
+
       // Use structured output with custom schema
       const structuredLLM = llm.withStructuredOutput(NarrativeVelocitySignalSchema);
 
-      // Prepare enhanced market context with media and social data
+      // Prepare enhanced market context with media and social data and event-based keywords
       const marketContext = JSON.stringify(state.mbd, null, 2);
       const newsContext = newsArticles.length > 0 ? JSON.stringify(newsArticles, null, 2) : 'No news data available';
       const socialContext = socialData ? JSON.stringify(socialData, null, 2) : 'No social data available';
+      const keywordContextStr = keywordContext ? 
+        `\n\nEvent-Based Keywords for Narrative Velocity Analysis:\n${JSON.stringify(keywordContext, null, 2)}` : 
+        '';
 
-      // Invoke the LLM
+      // Invoke the LLM with enhanced context
       const response = await structuredLLM.invoke([
         { role: 'system', content: NARRATIVE_VELOCITY_PROMPT },
         {
           role: 'user',
-          content: `Analyze narrative velocity for the following prediction market:\n\nMarket:\n${marketContext}\n\nNews Articles:\n${newsContext}\n\nSocial Data:\n${socialContext}`,
+          content: `Analyze narrative velocity for the following prediction market:\n\nMarket:\n${marketContext}\n\nNews Articles:\n${newsContext}\n\nSocial Data:\n${socialContext}${keywordContextStr}`,
         },
       ]);
 

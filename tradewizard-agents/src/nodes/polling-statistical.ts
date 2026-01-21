@@ -95,6 +95,13 @@ Given polling data for an election market, analyze:
 
 Apply rigorous statistical methods. Flag outlier polls and methodology issues.
 
+ENHANCED EVENT-BASED ANALYSIS:
+When event-based keywords are provided, use them to improve polling analysis:
+- Use event-level keywords to identify relevant polling questions and demographics
+- Leverage polling keywords to focus on the most relevant poll data and methodologies
+- Use political keywords to assess partisan bias and house effects in polling
+- Consider cross-market polling when analyzing polls that cover multiple related races or issues
+
 CRITICAL: You MUST apply bias adjustments to polling data before calculating aggregated probability.
 For each pollster with known bias, adjust their results before aggregation.
 
@@ -102,7 +109,7 @@ Provide your analysis as a structured signal with:
 - confidence: Your confidence in this polling analysis (0-1)
 - direction: Your view on the outcome (YES/NO/NEUTRAL)
 - fairProbability: Your bias-adjusted weighted probability (0-1)
-- keyDrivers: Top 3-5 polling factors influencing your view
+- keyDrivers: Top 3-5 polling factors influencing your view (prioritize event-keyword matches)
 - riskFactors: Polling uncertainty, methodology concerns, or sample quality issues
 - metadata:
   - aggregatedProbability: Bias-adjusted weighted average across all polls
@@ -227,19 +234,35 @@ export function createPollingIntelligenceAgentNode(
         };
       }
 
+      // Extract event-based keywords for enhanced polling analysis
+      const eventKeywords = state.mbd.keywords;
+      const keywordContext = eventKeywords ? {
+        eventLevel: eventKeywords.eventLevel,
+        themes: eventKeywords.themes.map(t => t.theme),
+        pollingKeywords: eventKeywords.concepts.map(c => c.concept),
+        politicalKeywords: eventKeywords.combined.filter(k => 
+          eventKeywords.ranked.find(r => r.keyword === k)?.source === 'event_tag' ||
+          eventKeywords.ranked.find(r => r.keyword === k && r.relevanceScore > 0.7)
+        ),
+        crossMarketPolling: eventKeywords.marketLevel
+      } : null;
+
       // Use structured output with custom schema
       const structuredLLM = llm.withStructuredOutput(PollingIntelligenceSignalSchema);
 
-      // Prepare enhanced market context with polling data
+      // Prepare enhanced market context with polling data and event-based keywords
       const marketContext = JSON.stringify(state.mbd, null, 2);
       const pollingContext = JSON.stringify(pollingData, null, 2);
+      const keywordContextStr = keywordContext ? 
+        `\n\nEvent-Based Keywords for Polling Analysis:\n${JSON.stringify(keywordContext, null, 2)}` : 
+        '';
 
-      // Invoke the LLM
+      // Invoke the LLM with enhanced context
       const response = await structuredLLM.invoke([
         { role: 'system', content: POLLING_INTELLIGENCE_PROMPT },
         {
           role: 'user',
-          content: `Analyze the following prediction market with polling data:\n\nMarket:\n${marketContext}\n\nPolling Data:\n${pollingContext}`,
+          content: `Analyze the following prediction market with polling data:\n\nMarket:\n${marketContext}\n\nPolling Data:\n${pollingContext}${keywordContextStr}`,
         },
       ]);
 

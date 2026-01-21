@@ -109,13 +109,20 @@ Given a market and recent news articles, analyze:
 
 Focus on factual developments, not speculation. Flag regime-changing events.
 
+ENHANCED EVENT-BASED ANALYSIS:
+When event-based keywords are provided, use them to improve news correlation:
+- Prioritize news articles that match event-level keywords (highest relevance)
+- Consider cross-market themes when assessing news impact across multiple markets
+- Use political keywords to identify politically relevant news with higher precision
+- Leverage market-level keywords to understand specific market contexts within the event
+
 CRITICAL: Only include articles with relevance scores >= 0.5 in your relevantArticles array. Filter out low-relevance articles.
 
 Provide your analysis as a structured signal with:
 - confidence: Your confidence in this analysis (0-1)
 - direction: Your view on the outcome (YES/NO/NEUTRAL)
 - fairProbability: Your estimate of the true probability (0-1)
-- keyDrivers: Top 3-5 news factors influencing your view
+- keyDrivers: Top 3-5 news factors influencing your view (prioritize event-keyword matches)
 - riskFactors: Uncertainty about news interpretation or missing information
 - metadata: 
   - relevantArticles: Array of relevant articles with relevance scores >= 0.5 and impact direction
@@ -136,11 +143,18 @@ Given a market and event context, analyze:
 
 Provide probability estimates for each scenario branch.
 
+ENHANCED EVENT-BASED ANALYSIS:
+When event-based keywords are provided, use them to improve impact modeling:
+- Use event-level keywords to identify relevant historical analogs with similar themes
+- Consider cross-market keywords when modeling impact across multiple related markets
+- Leverage political keywords to focus on politically relevant historical events
+- Use event themes and concepts to build more accurate scenario trees
+
 Provide your analysis as a structured signal with:
 - confidence: Your confidence in this impact assessment (0-1)
 - direction: Your view on the outcome (YES/NO/NEUTRAL)
 - fairProbability: Your event-adjusted probability (0-1)
-- keyDrivers: Top 3-5 event factors influencing your view
+- keyDrivers: Top 3-5 event factors influencing your view (prioritize event-keyword matches)
 - riskFactors: Uncertainty about event outcomes or historical applicability
 - metadata:
   - historicalAnalogs: Array of similar past events with market reactions and similarity scores
@@ -236,19 +250,36 @@ export function createBreakingNewsAgentNode(
         };
       }
 
+      // Extract event-based keywords for enhanced news correlation
+      const eventKeywords = state.mbd.keywords;
+      const keywordContext = eventKeywords ? {
+        eventLevel: eventKeywords.eventLevel,
+        marketLevel: eventKeywords.marketLevel,
+        combined: eventKeywords.combined,
+        themes: eventKeywords.themes.map(t => t.theme),
+        concepts: eventKeywords.concepts.map(c => c.concept),
+        politicalKeywords: eventKeywords.combined.filter(k => 
+          eventKeywords.ranked.find(r => r.keyword === k)?.source === 'event_tag' ||
+          eventKeywords.ranked.find(r => r.keyword === k && r.relevanceScore > 0.7)
+        )
+      } : null;
+
       // Use structured output with custom schema
       const structuredLLM = llm.withStructuredOutput(BreakingNewsSignalSchema);
 
-      // Prepare enhanced market context with news data
+      // Prepare enhanced market context with news data and event-based keywords
       const marketContext = JSON.stringify(state.mbd, null, 2);
       const newsContext = JSON.stringify(newsArticles, null, 2);
+      const keywordContextStr = keywordContext ? 
+        `\n\nEvent-Based Keywords for News Correlation:\n${JSON.stringify(keywordContext, null, 2)}` : 
+        '';
 
-      // Invoke the LLM
+      // Invoke the LLM with enhanced context
       const response = await structuredLLM.invoke([
         { role: 'system', content: BREAKING_NEWS_PROMPT },
         {
           role: 'user',
-          content: `Analyze the following prediction market with recent news:\n\nMarket:\n${marketContext}\n\nRecent News:\n${newsContext}`,
+          content: `Analyze the following prediction market with recent news:\n\nMarket:\n${marketContext}\n\nRecent News:\n${newsContext}${keywordContextStr}`,
         },
       ]);
 
@@ -383,21 +414,37 @@ export function createEventImpactAgentNode(
     }
 
     try {
+      // Extract event-based keywords for enhanced event impact analysis
+      const eventKeywords = state.mbd.keywords;
+      const keywordContext = eventKeywords ? {
+        eventLevel: eventKeywords.eventLevel,
+        themes: eventKeywords.themes.map(t => t.theme),
+        concepts: eventKeywords.concepts.map(c => c.concept),
+        crossMarketKeywords: eventKeywords.marketLevel,
+        politicalKeywords: eventKeywords.combined.filter(k => 
+          eventKeywords.ranked.find(r => r.keyword === k)?.source === 'event_tag' ||
+          eventKeywords.ranked.find(r => r.keyword === k && r.relevanceScore > 0.7)
+        )
+      } : null;
+
       // Use structured output with custom schema
       const structuredLLM = llm.withStructuredOutput(EventImpactSignalSchema);
 
-      // Prepare market context with catalysts
+      // Prepare market context with catalysts and event-based keywords
       const marketContext = JSON.stringify(state.mbd, null, 2);
       const catalystsContext = state.mbd.metadata.keyCatalysts.length > 0
         ? `\n\nUpcoming Catalysts:\n${JSON.stringify(state.mbd.metadata.keyCatalysts, null, 2)}`
         : '';
+      const keywordContextStr = keywordContext ? 
+        `\n\nEvent-Based Keywords for Impact Analysis:\n${JSON.stringify(keywordContext, null, 2)}` : 
+        '';
 
-      // Invoke the LLM
+      // Invoke the LLM with enhanced context
       const response = await structuredLLM.invoke([
         { role: 'system', content: EVENT_IMPACT_PROMPT },
         {
           role: 'user',
-          content: `Analyze the following prediction market and model event impacts:\n\nMarket:\n${marketContext}${catalystsContext}`,
+          content: `Analyze the following prediction market and model event impacts:\n\nMarket:\n${marketContext}${catalystsContext}${keywordContextStr}`,
         },
       ]);
 

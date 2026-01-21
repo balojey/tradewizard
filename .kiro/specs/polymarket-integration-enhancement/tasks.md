@@ -89,7 +89,7 @@ This implementation plan enhances the TradeWizard system's Polymarket integratio
     - Maintain existing error handling patterns while adding event-specific enhancements
     - _Requirements: 4.1, 4.2, 4.3, 4.4_
   
-  - [ ] 6.3 Update intelligence nodes to use event-based multi-market keyword extraction
+  - [x] 6.3 Update intelligence nodes to use event-based multi-market keyword extraction
     - Modify event-intelligence.ts to use event-based keywords for news correlation
     - Update keyword extraction in sentiment-narrative.ts and other nodes for event context
     - Ensure enhanced event metadata and cross-market analysis is available to intelligence agents
