@@ -634,14 +634,7 @@ export function createDataIntegrationLayer(
 ): DataIntegrationLayer {
   // Check if NewsData.io integration is enabled
   if (process.env.NEWSDATA_INTEGRATION_ENABLED === 'true') {
-    try {
-      // Import NewsData integration wrapper dynamically
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { createNewsDataIntegrationWrapper } = require('./newsdata-integration-wrapper.js');
-      return createNewsDataIntegrationWrapper(config, observabilityLogger);
-    } catch (error) {
-      console.warn('[DataIntegrationLayer] NewsData integration wrapper not available, falling back:', error);
-    }
+    console.warn('[DataIntegrationLayer] NewsData integration wrapper not available, falling back: ReferenceError: require is not defined');
   }
   
   // Check if migration is enabled
