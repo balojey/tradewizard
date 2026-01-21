@@ -247,10 +247,8 @@ export function createDefaultAgentNewsToolsConfig(): AgentNewsToolsConfig {
       'breaking_news_agent': {
         allowedTools: ['fetchLatestNews'],
         defaultParams: {
-          timeframe: '6h',
           categories: ['politics', 'business', 'world'],
-          size: 20,
-          fullContent: true,
+          size: 10, // Reduced for free tier
           removeDuplicates: true,
         },
         maxRequestsPerHour: 10,
@@ -259,10 +257,8 @@ export function createDefaultAgentNewsToolsConfig(): AgentNewsToolsConfig {
       'event_impact_agent': {
         allowedTools: ['fetchLatestNews', 'fetchArchiveNews'],
         defaultParams: {
-          timeframe: '12h',
           categories: ['politics', 'business', 'world'],
-          size: 15,
-          fullContent: true,
+          size: 10, // Reduced for free tier
           removeDuplicates: true,
         },
         maxRequestsPerHour: 8,
@@ -272,9 +268,7 @@ export function createDefaultAgentNewsToolsConfig(): AgentNewsToolsConfig {
       'media_sentiment_agent': {
         allowedTools: ['fetchLatestNews'],
         defaultParams: {
-          timeframe: '24h',
-          size: 30,
-          fullContent: false,
+          size: 10, // Reduced for free tier
           removeDuplicates: true,
         },
         maxRequestsPerHour: 15,
@@ -283,9 +277,7 @@ export function createDefaultAgentNewsToolsConfig(): AgentNewsToolsConfig {
       'social_sentiment_agent': {
         allowedTools: ['fetchLatestNews'],
         defaultParams: {
-          timeframe: '12h',
-          size: 25,
-          fullContent: false,
+          size: 10, // Reduced for free tier
           removeDuplicates: true,
         },
         maxRequestsPerHour: 12,
@@ -294,9 +286,7 @@ export function createDefaultAgentNewsToolsConfig(): AgentNewsToolsConfig {
       'narrative_velocity_agent': {
         allowedTools: ['fetchLatestNews'],
         defaultParams: {
-          timeframe: '6h',
-          size: 20,
-          fullContent: false,
+          size: 10, // Reduced for free tier
           removeDuplicates: true,
         },
         maxRequestsPerHour: 20,
@@ -306,10 +296,8 @@ export function createDefaultAgentNewsToolsConfig(): AgentNewsToolsConfig {
       'market_microstructure_agent': {
         allowedTools: ['fetchMarketNews', 'fetchLatestNews'],
         defaultParams: {
-          timeframe: '24h',
           categories: ['business'],
-          size: 15,
-          fullContent: true,
+          size: 10, // Reduced size for free tier
           removeDuplicates: true,
         },
         maxRequestsPerHour: 6,
@@ -319,9 +307,7 @@ export function createDefaultAgentNewsToolsConfig(): AgentNewsToolsConfig {
       'crypto_analysis_agent': {
         allowedTools: ['fetchCryptoNews', 'fetchLatestNews'],
         defaultParams: {
-          timeframe: '12h',
-          size: 20,
-          fullContent: true,
+          size: 10, // Reduced for free tier
           removeDuplicates: true,
         },
         maxRequestsPerHour: 10,
@@ -331,9 +317,7 @@ export function createDefaultAgentNewsToolsConfig(): AgentNewsToolsConfig {
     defaultAccess: {
       allowedTools: ['fetchLatestNews'],
       defaultParams: {
-        timeframe: '24h',
         size: 10,
-        fullContent: true,
         removeDuplicates: true,
         sort: 'relevancy',
       },

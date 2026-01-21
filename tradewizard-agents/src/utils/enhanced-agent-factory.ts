@@ -399,11 +399,11 @@ export function createEnhancedBreakingNewsAgent(
     // Fetch latest news using NewsData.io tools
     const newsArticles = await newsTools.fetchLatestNews({
       query: keywords.slice(0, 3).join(' OR '), // Use top 3 keywords
-      timeframe: `${timeWindow}h`,
-      size: 20,
-      fullContent: true,
+      size: 10, // Reduced for free tier
       removeDuplicates: true,
       sort: 'relevancy',
+      categories: ['politics', 'business', 'world'],
+      countries: ['us']
     });
     
     // Convert to legacy format for compatibility with existing agent logic
@@ -454,11 +454,11 @@ export function createEnhancedMediaSentimentAgent(
     // Fetch news for sentiment analysis
     const newsArticles = await newsTools.fetchLatestNews({
       query: keywords.slice(0, 3).join(' OR '),
-      timeframe: '24h',
-      size: 30,
-      fullContent: false, // Don't need full content for sentiment
+      size: 10, // Reduced for free tier
       removeDuplicates: true,
       sort: 'relevancy',
+      categories: ['politics', 'business', 'world'],
+      countries: ['us']
     });
     
     // Convert to legacy format
@@ -509,11 +509,10 @@ export function createEnhancedMarketMicrostructureAgent(
     // Fetch market-specific news
     const marketNews = await newsTools.fetchMarketNews({
       query: keywords.slice(0, 3).join(' OR '),
-      timeframe: '24h',
-      size: 15,
-      fullContent: true,
+      size: 10, // Reduced for free tier
       removeDuplicates: true,
       sort: 'relevancy',
+      countries: ['us']
     });
     
     // Convert to legacy format

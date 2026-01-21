@@ -114,17 +114,28 @@ export class PolymarketClient {
     await this.waitForRateLimit();
 
     try {
-      // Fetch market data with retry logic
-      const marketData = await this.fetchWithRetry<GammaMarketData>(
-        `${this.gammaApiUrl}/markets/${conditionId}`,
+      // Fetch market data with retry logic from CLOB API (supports condition ID)
+      const marketData = await this.fetchWithRetry<any>(
+        `${this.clobApiUrl}/markets/${conditionId}`,
         3
       );
 
-      // Fetch order book data
-      const orderBook = await this.fetchWithRetry<OrderBookData>(
-        `${this.clobApiUrl}/book?market=${conditionId}`,
-        3
-      );
+      // Create a mock order book from token prices (CLOB API provides current prices)
+      const yesToken = marketData.tokens?.find((t: any) => t.outcome === 'Yes');
+      const noToken = marketData.tokens?.find((t: any) => t.outcome === 'No');
+      
+      if (!yesToken || !noToken) {
+        throw new Error('Market tokens not found');
+      }
+
+      // Create mock order book with current prices
+      const orderBook = {
+        market: conditionId,
+        asset_id: yesToken.token_id,
+        bids: [{ price: (yesToken.price * 0.99).toString(), size: '100' }], // Slightly below current price
+        asks: [{ price: (yesToken.price * 1.01).toString(), size: '100' }], // Slightly above current price
+        timestamp: Date.now(),
+      };
 
       // Transform to MBD
       const mbd = this.transformToMBD(conditionId, marketData, orderBook);
@@ -196,9 +207,9 @@ export class PolymarketClient {
     await this.waitForRateLimit();
 
     try {
-      // Fetch market data with retry logic
-      const marketData = await this.fetchWithRetry<GammaMarketData>(
-        `${this.gammaApiUrl}/markets/${conditionId}`,
+      // Fetch market data with retry logic from CLOB API
+      const marketData = await this.fetchWithRetry<any>(
+        `${this.clobApiUrl}/markets/${conditionId}`,
         3
       );
 
@@ -436,7 +447,7 @@ export class PolymarketClient {
    */
   private transformToMBD(
     conditionId: string,
-    marketData: GammaMarketData,
+    marketData: any, // CLOB API format
     orderBook: OrderBookData
   ): MarketBriefingDocument {
     // Calculate bid-ask spread
@@ -456,7 +467,7 @@ export class PolymarketClient {
     // Determine volatility regime (simplified - would need historical data)
     const volatilityRegime = this.calculateVolatilityRegime(bidAskSpread);
 
-    // Parse expiry timestamp
+    // Parse expiry timestamp - CLOB API uses end_date_iso
     const expiryTimestamp = new Date(marketData.end_date_iso).getTime();
 
     // Detect ambiguity flags (simplified)
@@ -479,7 +490,7 @@ export class PolymarketClient {
       liquidityScore,
       bidAskSpread,
       volatilityRegime,
-      volume24h: parseFloat(marketData.volume || '0'),
+      volume24h: 0, // CLOB API doesn't provide volume, would need separate call
       metadata: {
         ambiguityFlags,
         keyCatalysts,

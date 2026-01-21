@@ -16,18 +16,18 @@ import type { EngineConfig } from '../config/index.js';
  * Raw market data from Polymarket API
  */
 export interface PolymarketMarket {
-  condition_id: string;
+  conditionId: string;
   question: string;
   description: string;
-  end_date_iso: string;
-  created_at?: string;
-  market_slug: string;
-  outcomes: string[];
-  outcome_prices: string[];
-  volume: string;
-  volume_24h?: string;
+  endDate: string;
+  createdAt?: string;
+  slug?: string;
+  outcomes?: string[];
+  outcomePrices?: string[];
+  volume?: string;
+  volume24hr?: number;
   liquidity: string;
-  trades_24h?: number;
+  trades24h?: number;
   active: boolean;
   closed: boolean;
   [key: string]: unknown;
@@ -75,6 +75,9 @@ export interface MarketDiscoveryEngine {
 const POLITICAL_KEYWORDS = [
   'election',
   'president',
+  'trump',
+  'biden',
+  'harris',
   'senate',
   'congress',
   'governor',
@@ -97,6 +100,17 @@ const POLITICAL_KEYWORDS = [
   'cabinet',
   'minister',
   'parliament',
+  'immigration',
+  'deport',
+  'deportation',
+  'border',
+  'tariff',
+  'trade war',
+  'sanctions',
+  'nato',
+  'ukraine',
+  'russia',
+  'china',
 ];
 
 /**
@@ -141,17 +155,17 @@ export class PolymarketDiscoveryEngine implements MarketDiscoveryEngine {
     // Calculate trending score for each market
     const rankedMarkets = markets.map((market) => {
       const trendingScore = this.calculateTrendingScore(market);
-      const volume24h = parseFloat(market.volume_24h || market.volume || '0');
+      const volume24h = market.volume24hr || parseFloat(market.volume || '0');
       const liquidity = parseFloat(market.liquidity || '0');
 
       return {
-        conditionId: market.condition_id,
+        conditionId: market.conditionId,
         question: market.question,
         description: market.description,
         trendingScore,
         volume24h,
         liquidity,
-        marketSlug: market.market_slug,
+        marketSlug: market.slug || market.conditionId,
       };
     });
 
@@ -174,7 +188,7 @@ export class PolymarketDiscoveryEngine implements MarketDiscoveryEngine {
       try {
         // Fetch markets from Gamma API
         // Note: This endpoint may vary based on Polymarket's actual API
-        const response = await fetch(`${this.gammaApiUrl}/markets?active=true&limit=100`, {
+        const response = await fetch(`${this.gammaApiUrl}/markets?active=true&closed=false&limit=100`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -239,10 +253,10 @@ export class PolymarketDiscoveryEngine implements MarketDiscoveryEngine {
    */
   private calculateTrendingScore(market: PolymarketMarket): number {
     // Extract metrics
-    const volume24h = parseFloat(market.volume_24h || market.volume || '0');
+    const volume24h = market.volume24hr || parseFloat(market.volume || '0');
     const liquidity = parseFloat(market.liquidity || '0');
-    const trades24h = market.trades_24h || 0;
-    const createdAt = market.created_at || market.end_date_iso;
+    const trades24h = market.trades24h || 0;
+    const createdAt = market.createdAt || market.endDate;
 
     // Calculate component scores
     const volumeScore = this.calculateVolumeScore(volume24h);
