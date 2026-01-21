@@ -623,14 +623,27 @@ export class DataIntegrationLayer {
 /**
  * Create a data integration layer instance
  * 
- * Automatically detects if migration should be enabled based on environment variables.
- * If NEWS_MIGRATION_ENABLED=true, returns MigrationAwareDataIntegrationLayer.
- * Otherwise, returns standard DataIntegrationLayer for backward compatibility.
+ * Automatically detects integration mode based on environment variables:
+ * - If NEWSDATA_INTEGRATION_ENABLED=true, returns NewsDataIntegrationLayer
+ * - If NEWS_MIGRATION_ENABLED=true, returns MigrationAwareDataIntegrationLayer
+ * - Otherwise, returns standard DataIntegrationLayer for backward compatibility
  */
 export function createDataIntegrationLayer(
   config: DataSourceConfig,
   observabilityLogger?: AdvancedObservabilityLogger
 ): DataIntegrationLayer {
+  // Check if NewsData.io integration is enabled
+  if (process.env.NEWSDATA_INTEGRATION_ENABLED === 'true') {
+    try {
+      // Import NewsData integration wrapper dynamically
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { createNewsDataIntegrationWrapper } = require('./newsdata-integration-wrapper.js');
+      return createNewsDataIntegrationWrapper(config, observabilityLogger);
+    } catch (error) {
+      console.warn('[DataIntegrationLayer] NewsData integration wrapper not available, falling back:', error);
+    }
+  }
+  
   // Check if migration is enabled
   if (process.env.NEWS_MIGRATION_ENABLED === 'true') {
     // Import migration-aware layer dynamically to avoid circular dependencies

@@ -114,7 +114,7 @@ const EngineConfigSchema = z
     }),
     externalData: z.object({
       news: z.object({
-        provider: z.enum(['newsapi', 'perplexity', 'none']).default('none'),
+        provider: z.enum(['newsapi', 'perplexity', 'newsdata', 'none']).default('none'),
         apiKey: z.string().optional(),
         cacheTTL: z.number().positive().default(900), // 15 minutes
         maxArticles: z.number().positive().default(20),
@@ -131,6 +131,36 @@ const EngineConfigSchema = z
         maxMentions: z.number().positive().default(100),
       }),
     }),
+    // NewsData.io specific configuration
+    newsData: z.object({
+      enabled: z.boolean().default(false),
+      apiKey: z.string().optional(),
+      rateLimiting: z.object({
+        requestsPerWindow: z.number().positive().default(100),
+        windowSizeMs: z.number().positive().default(900000), // 15 minutes
+        dailyQuota: z.number().positive().default(1000),
+      }),
+      cache: z.object({
+        enabled: z.boolean().default(true),
+        ttl: z.object({
+          latest: z.number().positive().default(300), // 5 minutes
+          crypto: z.number().positive().default(300),
+          market: z.number().positive().default(300),
+          archive: z.number().positive().default(1800), // 30 minutes
+        }),
+        maxSize: z.number().positive().default(1000),
+      }),
+      circuitBreaker: z.object({
+        enabled: z.boolean().default(true),
+        failureThreshold: z.number().positive().default(5),
+        resetTimeoutMs: z.number().positive().default(60000),
+      }),
+      agentTools: z.object({
+        enabled: z.boolean().default(true),
+        defaultParams: z.record(z.string(), z.any()).default({}),
+        maxRequestsPerHour: z.number().positive().default(10),
+      }).optional(),
+    }).optional(),
     signalFusion: z.object({
       baseWeights: z.record(z.string(), z.number()).default({
         'market_microstructure': 1.0,
@@ -336,7 +366,7 @@ export function loadConfig(): EngineConfig {
     },
     externalData: {
       news: {
-        provider: (process.env.EXTERNAL_DATA_NEWS_PROVIDER as 'newsapi' | 'perplexity' | 'none') || 'none',
+        provider: (process.env.EXTERNAL_DATA_NEWS_PROVIDER as 'newsapi' | 'perplexity' | 'newsdata' | 'none') || 'none',
         apiKey: process.env.EXTERNAL_DATA_NEWS_API_KEY,
         cacheTTL: parseInt(process.env.EXTERNAL_DATA_NEWS_CACHE_TTL || '900', 10),
         maxArticles: parseInt(process.env.EXTERNAL_DATA_NEWS_MAX_ARTICLES || '20', 10),
@@ -357,6 +387,37 @@ export function loadConfig(): EngineConfig {
         maxMentions: parseInt(process.env.EXTERNAL_DATA_SOCIAL_MAX_MENTIONS || '100', 10),
       },
     },
+    newsData: process.env.NEWSDATA_INTEGRATION_ENABLED === 'true' ? {
+      enabled: true,
+      apiKey: process.env.NEWSDATA_API_KEY,
+      rateLimiting: {
+        requestsPerWindow: parseInt(process.env.NEWSDATA_RATE_LIMIT_REQUESTS || '100', 10),
+        windowSizeMs: parseInt(process.env.NEWSDATA_RATE_LIMIT_WINDOW_MS || '900000', 10),
+        dailyQuota: parseInt(process.env.NEWSDATA_DAILY_QUOTA || '1000', 10),
+      },
+      cache: {
+        enabled: process.env.NEWSDATA_CACHE_ENABLED !== 'false',
+        ttl: {
+          latest: parseInt(process.env.NEWSDATA_CACHE_TTL_LATEST || '300', 10),
+          crypto: parseInt(process.env.NEWSDATA_CACHE_TTL_CRYPTO || '300', 10),
+          market: parseInt(process.env.NEWSDATA_CACHE_TTL_MARKET || '300', 10),
+          archive: parseInt(process.env.NEWSDATA_CACHE_TTL_ARCHIVE || '1800', 10),
+        },
+        maxSize: parseInt(process.env.NEWSDATA_CACHE_MAX_SIZE || '1000', 10),
+      },
+      circuitBreaker: {
+        enabled: process.env.NEWSDATA_CIRCUIT_BREAKER_ENABLED !== 'false',
+        failureThreshold: parseInt(process.env.NEWSDATA_CIRCUIT_BREAKER_FAILURE_THRESHOLD || '5', 10),
+        resetTimeoutMs: parseInt(process.env.NEWSDATA_CIRCUIT_BREAKER_RESET_TIMEOUT || '60000', 10),
+      },
+      agentTools: {
+        enabled: process.env.NEWSDATA_AGENT_TOOLS_ENABLED !== 'false',
+        defaultParams: process.env.NEWSDATA_AGENT_TOOLS_DEFAULT_PARAMS 
+          ? JSON.parse(process.env.NEWSDATA_AGENT_TOOLS_DEFAULT_PARAMS)
+          : {},
+        maxRequestsPerHour: parseInt(process.env.NEWSDATA_AGENT_TOOLS_MAX_REQUESTS_PER_HOUR || '10', 10),
+      },
+    } : undefined,
     signalFusion: {
       baseWeights: process.env.SIGNAL_FUSION_BASE_WEIGHTS
         ? JSON.parse(process.env.SIGNAL_FUSION_BASE_WEIGHTS)
@@ -573,6 +634,30 @@ export function createConfig(overrides: Partial<EngineConfig>): EngineConfig {
         ...(overrides.externalData?.social || {}),
       },
     },
+    newsData: overrides.newsData || baseConfig.newsData ? {
+      ...baseConfig.newsData,
+      ...(overrides.newsData || {}),
+      rateLimiting: {
+        ...baseConfig.newsData?.rateLimiting,
+        ...(overrides.newsData?.rateLimiting || {}),
+      },
+      cache: {
+        ...baseConfig.newsData?.cache,
+        ...(overrides.newsData?.cache || {}),
+        ttl: {
+          ...baseConfig.newsData?.cache?.ttl,
+          ...(overrides.newsData?.cache?.ttl || {}),
+        },
+      },
+      circuitBreaker: {
+        ...baseConfig.newsData?.circuitBreaker,
+        ...(overrides.newsData?.circuitBreaker || {}),
+      },
+      agentTools: {
+        ...baseConfig.newsData?.agentTools,
+        ...(overrides.newsData?.agentTools || {}),
+      },
+    } : undefined,
     signalFusion: {
       ...baseConfig.signalFusion,
       ...(overrides.signalFusion || {}),
@@ -677,6 +762,34 @@ export function getDefaultConfig(): Partial<EngineConfig> {
         providers: [],
         cacheTTL: 300,
         maxMentions: 100,
+      },
+    },
+    newsData: {
+      enabled: false,
+      rateLimiting: {
+        requestsPerWindow: 100,
+        windowSizeMs: 900000,
+        dailyQuota: 1000,
+      },
+      cache: {
+        enabled: true,
+        ttl: {
+          latest: 300,
+          crypto: 300,
+          market: 300,
+          archive: 1800,
+        },
+        maxSize: 1000,
+      },
+      circuitBreaker: {
+        enabled: true,
+        failureThreshold: 5,
+        resetTimeoutMs: 60000,
+      },
+      agentTools: {
+        enabled: true,
+        defaultParams: {},
+        maxRequestsPerHour: 10,
       },
     },
     signalFusion: {

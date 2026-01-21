@@ -43,7 +43,8 @@ import {
  * Create the Market Intelligence Engine workflow
  *
  * This function builds the complete LangGraph StateGraph with all nodes,
- * edges, and Opik tracing integration.
+ * edges, and Opik tracing integration. Includes NewsData.io integration
+ * when enabled.
  *
  * @param config - Engine configuration
  * @param polymarketClient - Polymarket API client
@@ -56,11 +57,67 @@ export async function createWorkflow(
   supabaseManager?: SupabaseClientManager
 ) {
   // Create data integration layer for external data sources
-  const dataLayer = createDataIntegrationLayer(config.externalData);
+  // Filter out 'newsdata' provider as it's handled separately by enhanced agents
+  const legacyExternalDataConfig = {
+    ...config.externalData,
+    news: {
+      ...config.externalData.news,
+      provider: config.externalData.news.provider === 'newsdata' ? 'none' : config.externalData.news.provider,
+    },
+  };
+  const dataLayer = createDataIntegrationLayer(legacyExternalDataConfig);
+
+  // Create enhanced agent factory for NewsData.io integration
+  let enhancedAgentFactory;
+  let useEnhancedAgents = false;
+  
+  if (process.env.NEWSDATA_INTEGRATION_ENABLED === 'true') {
+    try {
+      const { createEnhancedAgentFactory } = await import('./utils/enhanced-agent-factory.js');
+      enhancedAgentFactory = createEnhancedAgentFactory(config);
+      useEnhancedAgents = true;
+      console.log('[Workflow] NewsData.io integration enabled - using enhanced agents');
+    } catch (error) {
+      console.warn('[Workflow] Enhanced agent factory not available, using standard agents:', error);
+    }
+  }
 
   // Create all node functions
   const marketIngestion = createMarketIngestionNode(polymarketClient);
-  const agents = createAgentNodes(config);
+  
+  // Create agents (enhanced or standard based on configuration)
+  let agents;
+  let breakingNewsAgent;
+  let mediaSentimentAgent;
+  
+  if (useEnhancedAgents && enhancedAgentFactory) {
+    // Use enhanced agents with NewsData.io integration
+    const { 
+      createEnhancedBreakingNewsAgent,
+      createEnhancedMediaSentimentAgent,
+      createEnhancedMarketMicrostructureAgent
+    } = await import('./utils/enhanced-agent-factory.js');
+    
+    // Create enhanced versions of key agents
+    const enhancedMarketAgent = createEnhancedMarketMicrostructureAgent(enhancedAgentFactory);
+    breakingNewsAgent = createEnhancedBreakingNewsAgent(enhancedAgentFactory);
+    mediaSentimentAgent = createEnhancedMediaSentimentAgent(enhancedAgentFactory);
+    
+    // Create standard agents for others
+    const standardAgents = createAgentNodes(config);
+    
+    agents = {
+      marketMicrostructureAgent: enhancedMarketAgent,
+      probabilityBaselineAgent: standardAgents.probabilityBaselineAgent,
+      riskAssessmentAgent: standardAgents.riskAssessmentAgent,
+    };
+  } else {
+    // Use standard agents
+    agents = createAgentNodes(config);
+    breakingNewsAgent = createBreakingNewsAgentNode(config);
+    mediaSentimentAgent = createMediaSentimentAgentNode(config);
+  }
+  
   const thesisConstruction = createThesisConstructionNode(config);
   const crossExamination = createCrossExaminationNode(config);
   const consensusEngine = createConsensusEngineNode(config);
@@ -68,11 +125,9 @@ export async function createWorkflow(
 
   // Create advanced agent nodes
   const dynamicAgentSelection = createDynamicAgentSelectionNode(config, dataLayer);
-  const breakingNewsAgent = createBreakingNewsAgentNode(config);
   const eventImpactAgent = createEventImpactAgentNode(config);
   const pollingIntelligenceAgent = createPollingIntelligenceAgentNode(config);
   const historicalPatternAgent = createHistoricalPatternAgentNode(config);
-  const mediaSentimentAgent = createMediaSentimentAgentNode(config);
   const socialSentimentAgent = createSocialSentimentAgentNode(config);
   const narrativeVelocityAgent = createNarrativeVelocityAgentNode(config);
   const momentumAgent = createMomentumAgentNode(config);
