@@ -61,6 +61,7 @@ export interface GetEventsParams {
     slug?: string;
     id?: string;
     tag_slug?: string; // For filtering by category like 'politics', 'sports'
+    tag_id?: string; // For filtering by specific tag ID (e.g. 2 for Politics)
 }
 
 export async function getEvents(params: GetEventsParams = {}): Promise<Event[]> {
@@ -72,6 +73,7 @@ export async function getEvents(params: GetEventsParams = {}): Promise<Event[]> 
     if (params.closed !== undefined) searchParams.set("closed", params.closed.toString());
     if (params.archived !== undefined) searchParams.set("archived", params.archived.toString());
     if (params.tag_slug) searchParams.set("tag_slug", params.tag_slug);
+    if (params.tag_id) searchParams.set("tag_id", params.tag_id);
     if (params.ascending !== undefined) searchParams.set("ascending", params.ascending.toString());
     if (params.slug) searchParams.set("slug", params.slug);
     if (params.id) searchParams.set("id", params.id);

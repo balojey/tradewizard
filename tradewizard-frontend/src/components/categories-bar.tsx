@@ -1,16 +1,17 @@
 "use client";
 
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
-import { TrendingUp, Sparkles, Zap, ChevronRight, ChevronLeft, Search } from "lucide-react";
-import { useRef, useState } from "react";
+import { TrendingUp, Globe, Briefcase, Vote, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { useRef } from "react";
 
 const CATEGORIES = [
-    { label: "Politics", slug: "politics" },
-    { label: "Geopolitics", slug: "geopolitics" },
-    { label: "Economy", slug: "economy" },
-    { label: "Elections", slug: "elections" },
+    { label: "Politics", slug: "politics", id: "2", icon: Vote },
+    { label: "Geopolitics", slug: "geopolitics", icon: Globe },
+    { label: "Economy", slug: "economy", icon: Briefcase },
+    { label: "Elections", slug: "elections", icon: Vote },
 ];
 
 const TAGS = [
@@ -50,15 +51,20 @@ export function CategoriesBar() {
                             Trending
                         </Button>
                         {CATEGORIES.slice(0, 3).map((cat) => (
-                            <Button
+                            <Link
                                 key={cat.slug}
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 px-3 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                                href={cat.slug === "politics" ? "/politics" : `/?tag=${cat.slug}`}
+                                passHref
                             >
-                                {cat.icon && <cat.icon className="mr-1.5 h-3.5 w-3.5" />}
-                                {cat.label}
-                            </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 px-3 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                                >
+                                    {cat.icon && <cat.icon className="mr-1.5 h-3.5 w-3.5" />}
+                                    {cat.label}
+                                </Button>
+                            </Link>
                         ))}
                     </div>
 
