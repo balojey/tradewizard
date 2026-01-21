@@ -197,59 +197,338 @@ export class EventMultiMarketKeywordExtractor {
    * Combine event and market keywords with proper prioritization
    */
   combineEventAndMarketKeywords(eventKeywords: string[], marketKeywords: MarketKeywords[]): string[] {
-    const combined = new Map<string, number>();
+    return this.deduplicateAndRankCombinedKeywords(eventKeywords, marketKeywords);
+  }
 
-    // Add event keywords with high priority
+  /**
+   * Implement comprehensive deduplication and ranking of combined event and market keywords
+   * Requirement 3.4: Deduplication and ranking of combined event and market keywords
+   */
+  private deduplicateAndRankCombinedKeywords(eventKeywords: string[], marketKeywords: MarketKeywords[]): string[] {
+    const keywordScores = new Map<string, {
+      score: number;
+      sources: Set<string>;
+      marketIds: Set<string>;
+      frequency: number;
+    }>();
+
+    // Process event keywords with highest priority
     for (const keyword of eventKeywords) {
-      combined.set(keyword, (combined.get(keyword) || 0) + 3);
+      const normalized = this.normalizeKeyword(keyword);
+      if (!keywordScores.has(normalized)) {
+        keywordScores.set(normalized, {
+          score: 0,
+          sources: new Set(),
+          marketIds: new Set(),
+          frequency: 0
+        });
+      }
+      
+      const entry = keywordScores.get(normalized)!;
+      entry.score += 5.0; // High priority for event-level keywords
+      entry.sources.add('event');
+      entry.frequency += 1;
     }
 
-    // Add market keywords with lower priority
+    // Process market keywords with context-aware scoring
     for (const mk of marketKeywords) {
-      for (const keyword of [...mk.primary, ...mk.secondary, ...mk.outcomes]) {
-        combined.set(keyword, (combined.get(keyword) || 0) + 1);
+      // Primary keywords (from questions) get higher weight
+      for (const keyword of mk.primary) {
+        const normalized = this.normalizeKeyword(keyword);
+        if (!keywordScores.has(normalized)) {
+          keywordScores.set(normalized, {
+            score: 0,
+            sources: new Set(),
+            marketIds: new Set(),
+            frequency: 0
+          });
+        }
+        
+        const entry = keywordScores.get(normalized)!;
+        entry.score += 3.0; // Medium-high priority for market questions
+        entry.sources.add('market_primary');
+        entry.marketIds.add(mk.marketId);
+        entry.frequency += 1;
+      }
+
+      // Secondary keywords (from descriptions) get medium weight
+      for (const keyword of mk.secondary) {
+        const normalized = this.normalizeKeyword(keyword);
+        if (!keywordScores.has(normalized)) {
+          keywordScores.set(normalized, {
+            score: 0,
+            sources: new Set(),
+            marketIds: new Set(),
+            frequency: 0
+          });
+        }
+        
+        const entry = keywordScores.get(normalized)!;
+        entry.score += 2.0; // Medium priority for market descriptions
+        entry.sources.add('market_secondary');
+        entry.marketIds.add(mk.marketId);
+        entry.frequency += 1;
+      }
+
+      // Outcome keywords get lower weight
+      for (const keyword of mk.outcomes) {
+        const normalized = this.normalizeKeyword(keyword);
+        if (!keywordScores.has(normalized)) {
+          keywordScores.set(normalized, {
+            score: 0,
+            sources: new Set(),
+            marketIds: new Set(),
+            frequency: 0
+          });
+        }
+        
+        const entry = keywordScores.get(normalized)!;
+        entry.score += 1.0; // Lower priority for outcomes
+        entry.sources.add('market_outcome');
+        entry.marketIds.add(mk.marketId);
+        entry.frequency += 1;
       }
     }
 
-    // Sort by frequency and return top keywords
-    return Array.from(combined.entries())
-      .sort((a, b) => b[1] - a[1])
+    // Apply cross-market bonus for keywords appearing in multiple markets
+    for (const [keyword, data] of keywordScores) {
+      if (data.marketIds.size > 1) {
+        data.score += data.marketIds.size * 0.5; // Bonus for cross-market presence
+      }
+    }
+
+    // Sort by combined score and return deduplicated keywords
+    return Array.from(keywordScores.entries())
+      .sort((a, b) => {
+        // Primary sort by score
+        if (b[1].score !== a[1].score) {
+          return b[1].score - a[1].score;
+        }
+        // Secondary sort by frequency
+        if (b[1].frequency !== a[1].frequency) {
+          return b[1].frequency - a[1].frequency;
+        }
+        // Tertiary sort by cross-market presence
+        return b[1].marketIds.size - a[1].marketIds.size;
+      })
       .map(([keyword]) => keyword)
       .slice(0, 50); // Limit to top 50 keywords
   }
 
   /**
+   * Normalize keywords for deduplication (handle variations, case, etc.)
+   */
+  private normalizeKeyword(keyword: string): string {
+    let normalized = keyword.toLowerCase().trim();
+    
+    // Remove common suffixes for better deduplication
+    if (normalized.endsWith('ing')) {
+      normalized = normalized.slice(0, -3);
+    } else if (normalized.endsWith('ed')) {
+      normalized = normalized.slice(0, -2);
+    } else if (normalized.endsWith('s') && normalized.length > 4) {
+      normalized = normalized.slice(0, -1);
+    }
+    
+    // Handle common political term variations
+    const politicalNormalizations: Record<string, string> = {
+      'election': 'elect',
+      'electoral': 'elect',
+      'voting': 'vote',
+      'voter': 'vote',
+      'political': 'politic',
+      'politics': 'politic',
+      'presidential': 'president',
+      'congressional': 'congress',
+      'senatorial': 'senate'
+    };
+    
+    return politicalNormalizations[normalized] || normalized;
+  }
+
+  /**
    * Identify common themes across markets within an event
+   * Enhanced implementation for Requirement 3.5: Common theme identification
    */
   identifyCommonThemes(markets: PolymarketMarket[]): ThemeKeywords[] {
-    const themes = new Map<string, { keywords: Set<string>; marketIds: Set<string> }>();
+    const themeAnalysis = new Map<string, {
+      keywords: Set<string>;
+      marketIds: Set<string>;
+      contexts: string[];
+      semanticVariations: Set<string>;
+    }>();
 
-    // Extract potential themes from market questions
+    // Extract potential themes from market questions and descriptions
     for (const market of markets) {
-      const keywords = this.extractKeywordsFromText(market.question, 'market_question');
+      const questionKeywords = this.extractKeywordsFromText(market.question, 'market_question');
+      const descriptionKeywords = market.description ? 
+        this.extractKeywordsFromText(market.description, 'market_description') : [];
       
-      for (const keyword of keywords) {
-        if (!themes.has(keyword)) {
-          themes.set(keyword, { keywords: new Set([keyword]), marketIds: new Set() });
+      const allMarketKeywords = [...questionKeywords, ...descriptionKeywords];
+      
+      for (const keyword of allMarketKeywords) {
+        const normalized = this.normalizeKeyword(keyword);
+        
+        if (!themeAnalysis.has(normalized)) {
+          themeAnalysis.set(normalized, {
+            keywords: new Set(),
+            marketIds: new Set(),
+            contexts: [],
+            semanticVariations: new Set()
+          });
         }
-        themes.get(keyword)!.marketIds.add(market.id);
+        
+        const theme = themeAnalysis.get(normalized)!;
+        theme.keywords.add(keyword);
+        theme.marketIds.add(market.id);
+        theme.semanticVariations.add(keyword.toLowerCase());
+        
+        // Store context for better theme understanding
+        const context = this.extractKeywordContext(keyword, market.question);
+        if (context) {
+          theme.contexts.push(context);
+        }
       }
     }
 
-    // Filter themes that appear in multiple markets
+    // Identify semantic clusters and related themes
+    const enhancedThemes = this.identifySemanticClusters(themeAnalysis, markets);
+
+    // Filter themes that appear in multiple markets and calculate relevance
     const result: ThemeKeywords[] = [];
-    for (const [theme, data] of themes) {
+    for (const [theme, data] of enhancedThemes) {
       if (data.marketIds.size >= 2) { // Theme must appear in at least 2 markets
+        const relevanceScore = this.calculateThemeRelevance(data, markets.length);
+        
         result.push({
           theme,
           keywords: Array.from(data.keywords),
           marketIds: Array.from(data.marketIds),
-          relevanceScore: data.marketIds.size / markets.length
+          relevanceScore
         });
       }
     }
 
-    return result.sort((a, b) => b.relevanceScore - a.relevanceScore);
+    // Sort by relevance score and cross-market presence
+    return result.sort((a, b) => {
+      if (b.relevanceScore !== a.relevanceScore) {
+        return b.relevanceScore - a.relevanceScore;
+      }
+      return b.marketIds.length - a.marketIds.length;
+    });
+  }
+
+  /**
+   * Identify semantic clusters of related themes
+   */
+  private identifySemanticClusters(
+    themeAnalysis: Map<string, {
+      keywords: Set<string>;
+      marketIds: Set<string>;
+      contexts: string[];
+      semanticVariations: Set<string>;
+    }>,
+    markets: PolymarketMarket[]
+  ): Map<string, {
+    keywords: Set<string>;
+    marketIds: Set<string>;
+    contexts: string[];
+    semanticVariations: Set<string>;
+  }> {
+    const clusters = new Map(themeAnalysis);
+    
+    // Define semantic relationships for political themes
+    const semanticGroups = [
+      ['elect', 'election', 'electoral', 'vote', 'voting', 'ballot'],
+      ['president', 'presidential', 'executive', 'administration'],
+      ['congress', 'congressional', 'senate', 'senatorial', 'house', 'legislative'],
+      ['court', 'judicial', 'justice', 'judge', 'ruling', 'legal'],
+      ['party', 'democrat', 'democratic', 'republican', 'gop'],
+      ['campaign', 'candidate', 'nomination', 'primary', 'general'],
+      ['policy', 'legislation', 'bill', 'law', 'amendment'],
+      ['poll', 'polling', 'approval', 'rating', 'survey']
+    ];
+
+    // Merge semantically related themes
+    for (const group of semanticGroups) {
+      const groupThemes = group.filter(term => clusters.has(term));
+      
+      if (groupThemes.length > 1) {
+        // Use the most frequent term as the cluster representative
+        const representative = groupThemes.reduce((best, current) => {
+          const bestData = clusters.get(best)!;
+          const currentData = clusters.get(current)!;
+          return currentData.marketIds.size > bestData.marketIds.size ? current : best;
+        });
+
+        // Merge other themes into the representative
+        for (const theme of groupThemes) {
+          if (theme !== representative) {
+            const themeData = clusters.get(theme)!;
+            const repData = clusters.get(representative)!;
+            
+            // Merge data
+            themeData.keywords.forEach(k => repData.keywords.add(k));
+            themeData.marketIds.forEach(id => repData.marketIds.add(id));
+            repData.contexts.push(...themeData.contexts);
+            themeData.semanticVariations.forEach(v => repData.semanticVariations.add(v));
+            
+            // Remove the merged theme
+            clusters.delete(theme);
+          }
+        }
+      }
+    }
+
+    return clusters;
+  }
+
+  /**
+   * Calculate theme relevance score based on multiple factors
+   */
+  private calculateThemeRelevance(
+    themeData: {
+      keywords: Set<string>;
+      marketIds: Set<string>;
+      contexts: string[];
+      semanticVariations: Set<string>;
+    },
+    totalMarkets: number
+  ): number {
+    // Base score from market coverage
+    const marketCoverage = themeData.marketIds.size / totalMarkets;
+    
+    // Bonus for keyword diversity within theme
+    const keywordDiversity = Math.min(themeData.keywords.size / 5, 1.0);
+    
+    // Bonus for political relevance
+    const politicalBonus = Array.from(themeData.keywords).some(keyword => 
+      this.isPoliticallyRelevant(keyword.toLowerCase())
+    ) ? 0.2 : 0;
+    
+    // Context richness bonus
+    const contextBonus = Math.min(themeData.contexts.length / 10, 0.1);
+    
+    return Math.min(
+      marketCoverage * 0.6 + 
+      keywordDiversity * 0.2 + 
+      politicalBonus + 
+      contextBonus,
+      1.0
+    );
+  }
+
+  /**
+   * Extract context around a keyword for better theme understanding
+   */
+  private extractKeywordContext(keyword: string, text: string): string | null {
+    const keywordIndex = text.toLowerCase().indexOf(keyword.toLowerCase());
+    if (keywordIndex === -1) return null;
+    
+    const start = Math.max(0, keywordIndex - 20);
+    const end = Math.min(text.length, keywordIndex + keyword.length + 20);
+    
+    return text.substring(start, end).trim();
   }
 
   /**
@@ -310,13 +589,121 @@ export class EventMultiMarketKeywordExtractor {
 
   /**
    * Filter keywords by political relevance
+   * Enhanced implementation for Requirement 3.5: Political relevance filtering
    */
   filterKeywordsByPoliticalRelevance(keywords: string[]): string[] {
-    return keywords.filter(keyword => {
-      const lowerKeyword = keyword.toLowerCase();
-      return this.politicalKeywords.has(lowerKeyword) || 
-             this.isPoliticallyRelevant(lowerKeyword);
+    const politicalKeywords: string[] = [];
+    const politicalScores = new Map<string, number>();
+
+    for (const keyword of keywords) {
+      const score = this.calculatePoliticalRelevanceScore(keyword);
+      if (score > 0.3) { // Threshold for political relevance
+        politicalKeywords.push(keyword);
+        politicalScores.set(keyword, score);
+      }
+    }
+
+    // Sort by political relevance score
+    return politicalKeywords.sort((a, b) => {
+      const scoreA = politicalScores.get(a) || 0;
+      const scoreB = politicalScores.get(b) || 0;
+      return scoreB - scoreA;
     });
+  }
+
+  /**
+   * Calculate comprehensive political relevance score for a keyword
+   */
+  private calculatePoliticalRelevanceScore(keyword: string): number {
+    const lowerKeyword = keyword.toLowerCase();
+    let score = 0;
+
+    // Direct match with political keywords
+    if (this.politicalKeywords.has(lowerKeyword)) {
+      score += 1.0;
+    }
+
+    // Partial match with political keywords
+    for (const politicalTerm of this.politicalKeywords) {
+      if (lowerKeyword.includes(politicalTerm) || politicalTerm.includes(lowerKeyword)) {
+        score += 0.7;
+        break;
+      }
+    }
+
+    // Check for political context patterns
+    score += this.checkPoliticalContextPatterns(lowerKeyword);
+
+    // Check for government/institutional terms
+    score += this.checkGovernmentTerms(lowerKeyword);
+
+    // Check for electoral process terms
+    score += this.checkElectoralTerms(lowerKeyword);
+
+    return Math.min(score, 1.0);
+  }
+
+  /**
+   * Check for political context patterns in keywords
+   */
+  private checkPoliticalContextPatterns(keyword: string): number {
+    const politicalPatterns = [
+      /\b(win|lose|lead|trail|ahead|behind)\b.*\b(election|race|campaign)\b/,
+      /\b(support|oppose|endorse|back)\b.*\b(candidate|policy|bill)\b/,
+      /\b(democrat|republican|liberal|conservative)\b.*\b(party|candidate|voter)\b/,
+      /\b(poll|survey|approval|rating)\b.*\b(president|congress|governor)\b/,
+      /\b(debate|speech|rally|convention)\b/,
+      /\b(primary|general|midterm|presidential)\b.*\b(election|race)\b/
+    ];
+
+    for (const pattern of politicalPatterns) {
+      if (pattern.test(keyword)) {
+        return 0.5;
+      }
+    }
+
+    return 0;
+  }
+
+  /**
+   * Check for government and institutional terms
+   */
+  private checkGovernmentTerms(keyword: string): number {
+    const governmentTerms = [
+      'federal', 'state', 'local', 'municipal', 'county', 'city',
+      'department', 'agency', 'bureau', 'commission', 'committee',
+      'administration', 'cabinet', 'staff', 'advisor', 'secretary',
+      'minister', 'official', 'representative', 'delegate', 'ambassador'
+    ];
+
+    for (const term of governmentTerms) {
+      if (keyword.includes(term)) {
+        return 0.4;
+      }
+    }
+
+    return 0;
+  }
+
+  /**
+   * Check for electoral process terms
+   */
+  private checkElectoralTerms(keyword: string): number {
+    const electoralTerms = [
+      'ballot', 'voting', 'voter', 'turnout', 'registration', 'absentee',
+      'polling', 'precinct', 'district', 'constituency', 'electorate',
+      'campaign', 'fundraising', 'donation', 'pac', 'super pac',
+      'primary', 'caucus', 'convention', 'nomination', 'endorsement',
+      'debate', 'town hall', 'rally', 'stump', 'canvassing'
+    ];
+
+    for (const term of electoralTerms) {
+      if (keyword.includes(term)) {
+        return 0.6;
+      }
+    }
+
+    return 0;
   }
 
   // ============================================================================
