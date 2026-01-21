@@ -15,6 +15,7 @@
 
 import pino from 'pino';
 import type { Logger as PinoLogger } from 'pino';
+import { MarketId } from '../models/types';
 
 /**
  * Log levels supported by the logger
@@ -38,7 +39,7 @@ export interface LoggerConfig {
  */
 export interface LogContext {
   component?: 'discovery' | 'analysis' | 'storage' | 'scheduler' | 'quota' | 'health' | 'config' | 'monitor';
-  marketId?: string;
+  marketId?: MarketId;
   conditionId?: string;
   operation?: string;
   duration?: number;

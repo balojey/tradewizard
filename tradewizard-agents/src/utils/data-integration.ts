@@ -5,7 +5,7 @@
  * with caching, rate limiting, and graceful degradation.
  */
 
-import type { MarketBriefingDocument } from '../models/types.js';
+import type { MarketBriefingDocument, MarketId } from '../models/types.js';
 import type { AdvancedObservabilityLogger } from './audit-logger.js';
 import { retryApiCall, CircuitBreaker } from './retry-logic.js';
 
@@ -557,7 +557,7 @@ export class DataIntegrationLayer {
   /**
    * Get data freshness for a source
    */
-  getDataFreshness(source: 'news' | 'polling' | 'social', marketId: string): number | null {
+  getDataFreshness(source: 'news' | 'polling' | 'social', marketId: MarketId): number | null {
     let cached: CachedData<unknown> | null = null;
 
     switch (source) {

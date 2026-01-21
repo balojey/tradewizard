@@ -7,7 +7,7 @@
 
 import type { SupabaseClientManager } from './supabase-client.js';
 import type { TablesInsert, TablesUpdate, Json } from './types.js';
-import type { TradeRecommendation, AgentSignal } from '../models/types.js';
+import type { TradeRecommendation, AgentSignal, MarketId } from '../models/types.js';
 import { retryDatabaseOperation } from '../utils/retry-logic.js';
 
 /**
@@ -44,7 +44,7 @@ export interface AnalysisRecord {
 export interface DatabasePersistence {
   /**
    * Store or update a market
-   * @returns market_id (UUID)
+   * @returns market_id (TEXT - can be string or number converted to string)
    */
   upsertMarket(market: MarketData): Promise<string>;
 
@@ -52,13 +52,13 @@ export interface DatabasePersistence {
    * Store a recommendation
    * @returns recommendation_id (UUID)
    */
-  storeRecommendation(marketId: string, recommendation: TradeRecommendation): Promise<string>;
+  storeRecommendation(marketId: MarketId, recommendation: TradeRecommendation): Promise<string>;
 
   /**
    * Store agent signals
    */
   storeAgentSignals(
-    marketId: string,
+    marketId: MarketId,
     recommendationId: string,
     signals: AgentSignal[]
   ): Promise<void>;
@@ -66,7 +66,7 @@ export interface DatabasePersistence {
   /**
    * Record analysis history
    */
-  recordAnalysis(marketId: string, analysis: AnalysisRecord): Promise<void>;
+  recordAnalysis(marketId: MarketId, analysis: AnalysisRecord): Promise<void>;
 
   /**
    * Get markets needing update
@@ -77,12 +77,12 @@ export interface DatabasePersistence {
   /**
    * Mark market as resolved
    */
-  markMarketResolved(marketId: string, outcome: string): Promise<void>;
+  markMarketResolved(marketId: MarketId, outcome: string): Promise<void>;
 
   /**
    * Get latest recommendation for a market
    */
-  getLatestRecommendation(marketId: string): Promise<TradeRecommendation | null>;
+  getLatestRecommendation(marketId: MarketId): Promise<TradeRecommendation | null>;
 }
 
 /**
@@ -90,6 +90,13 @@ export interface DatabasePersistence {
  */
 export class DatabasePersistenceImpl implements DatabasePersistence {
   constructor(private clientManager: SupabaseClientManager) {}
+
+  /**
+   * Normalize market ID to string for database storage
+   */
+  private normalizeMarketId(marketId: MarketId): string {
+    return String(marketId);
+  }
 
   /**
    * Store or update a market
@@ -140,8 +147,11 @@ export class DatabasePersistenceImpl implements DatabasePersistence {
         console.log('[DatabasePersistence] Market updated successfully:', existing.id);
         return existing.id;
       } else {
-        // Insert new market
+        // Insert new market - use condition_id as the market ID for consistency
+        const marketId = market.conditionId;
+        
         const insertData: TablesInsert<'markets'> = {
+          id: marketId,
           condition_id: market.conditionId,
           question: market.question,
           description: market.description,
@@ -180,15 +190,16 @@ export class DatabasePersistenceImpl implements DatabasePersistence {
    * Store a recommendation
    */
   async storeRecommendation(
-    marketId: string,
+    marketId: MarketId,
     recommendation: TradeRecommendation
   ): Promise<string> {
     return retryDatabaseOperation(async () => {
       try {
         const client = this.clientManager.getClient();
+        const normalizedMarketId = this.normalizeMarketId(marketId);
 
       const insertData: TablesInsert<'recommendations'> = {
-        market_id: marketId,
+        market_id: normalizedMarketId,
         direction: recommendation.action,
         fair_probability: recommendation.metadata.consensusProbability,
         market_edge: recommendation.metadata.edge,
@@ -227,16 +238,17 @@ export class DatabasePersistenceImpl implements DatabasePersistence {
    * Store agent signals
    */
   async storeAgentSignals(
-    marketId: string,
+    marketId: MarketId,
     recommendationId: string,
     signals: AgentSignal[]
   ): Promise<void> {
     return retryDatabaseOperation(async () => {
       try {
         const client = this.clientManager.getClient();
+        const normalizedMarketId = this.normalizeMarketId(marketId);
 
       const insertData: TablesInsert<'agent_signals'>[] = signals.map((signal) => ({
-        market_id: marketId,
+        market_id: normalizedMarketId,
         recommendation_id: recommendationId,
         agent_name: signal.agentName,
         agent_type: this.inferAgentType(signal.agentName),
@@ -265,13 +277,14 @@ export class DatabasePersistenceImpl implements DatabasePersistence {
   /**
    * Record analysis history
    */
-  async recordAnalysis(marketId: string, analysis: AnalysisRecord): Promise<void> {
+  async recordAnalysis(marketId: MarketId, analysis: AnalysisRecord): Promise<void> {
     return retryDatabaseOperation(async () => {
       try {
         const client = this.clientManager.getClient();
+        const normalizedMarketId = this.normalizeMarketId(marketId);
 
       const insertData: TablesInsert<'analysis_history'> = {
-        market_id: marketId,
+        market_id: normalizedMarketId,
         analysis_type: analysis.type,
         status: analysis.status,
         duration_ms: analysis.durationMs,
@@ -343,10 +356,11 @@ export class DatabasePersistenceImpl implements DatabasePersistence {
   /**
    * Mark market as resolved
    */
-  async markMarketResolved(marketId: string, outcome: string): Promise<void> {
+  async markMarketResolved(marketId: MarketId, outcome: string): Promise<void> {
     return retryDatabaseOperation(async () => {
       try {
         const client = this.clientManager.getClient();
+        const normalizedMarketId = this.normalizeMarketId(marketId);
 
       const updateData: TablesUpdate<'markets'> = {
         status: 'resolved',
@@ -354,14 +368,14 @@ export class DatabasePersistenceImpl implements DatabasePersistence {
         updated_at: new Date().toISOString(),
       };
 
-      const { error } = await client.from('markets').update(updateData).eq('id', marketId);
+      const { error } = await client.from('markets').update(updateData).eq('id', normalizedMarketId);
 
       if (error) {
         console.error('[DatabasePersistence] Error marking market as resolved:', error);
         throw new Error(`Failed to mark market as resolved: ${error.message}`);
       }
 
-      console.log('[DatabasePersistence] Market marked as resolved:', marketId);
+      console.log('[DatabasePersistence] Market marked as resolved:', normalizedMarketId);
     } catch (error) {
       console.error('[DatabasePersistence] markMarketResolved failed:', error);
       throw error;
@@ -372,15 +386,16 @@ export class DatabasePersistenceImpl implements DatabasePersistence {
   /**
    * Get latest recommendation for a market
    */
-  async getLatestRecommendation(marketId: string): Promise<TradeRecommendation | null> {
+  async getLatestRecommendation(marketId: MarketId): Promise<TradeRecommendation | null> {
     return retryDatabaseOperation(async () => {
       try {
         const client = this.clientManager.getClient();
+        const normalizedMarketId = this.normalizeMarketId(marketId);
 
       const { data, error } = await client
         .from('recommendations')
         .select('*')
-        .eq('market_id', marketId)
+        .eq('market_id', normalizedMarketId)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -391,7 +406,7 @@ export class DatabasePersistenceImpl implements DatabasePersistence {
       }
 
       if (!data) {
-        console.log('[DatabasePersistence] No recommendation found for market:', marketId);
+        console.log('[DatabasePersistence] No recommendation found for market:', normalizedMarketId);
         return null;
       }
 
@@ -399,7 +414,7 @@ export class DatabasePersistenceImpl implements DatabasePersistence {
       const { data: marketData, error: marketError } = await client
         .from('markets')
         .select('condition_id')
-        .eq('id', marketId)
+        .eq('id', normalizedMarketId)
         .single();
 
       if (marketError || !marketData) {

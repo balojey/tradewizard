@@ -30,7 +30,7 @@ export const Err = <E>(error: E): Result<never, E> => ({ ok: false, error });
 export type IngestionError =
   | { type: 'API_UNAVAILABLE'; message: string }
   | { type: 'RATE_LIMIT_EXCEEDED'; retryAfter: number }
-  | { type: 'INVALID_MARKET_ID'; marketId: string }
+  | { type: 'INVALID_MARKET_ID'; marketId: MarketId }
   | { type: 'VALIDATION_FAILED'; field: string; reason: string };
 
 /**
@@ -77,11 +77,18 @@ export interface Catalyst {
 }
 
 /**
+ * Market ID type - supports both string and number formats
+ * String format: for external market identifiers (e.g., Polymarket condition IDs)
+ * Number format: for internal numeric market identifiers
+ */
+export type MarketId = string | number;
+
+/**
  * Market Briefing Document - standardized market data structure
  * This is the primary input to all intelligence agents
  */
 export interface MarketBriefingDocument {
-  marketId: string;
+  marketId: MarketId;
   conditionId: string;
   eventType: EventType;
   question: string;
@@ -242,7 +249,7 @@ export interface TradeMetadata {
  * Trade Recommendation - final actionable output
  */
 export interface TradeRecommendation {
-  marketId: string;
+  marketId: MarketId;
   action: TradeAction;
   entryZone: [number, number]; // [min, max] price
   targetZone: [number, number];
@@ -270,7 +277,7 @@ export interface AuditEntry {
  * Complete audit trail for a market analysis
  */
 export interface AuditTrail {
-  marketId: string;
+  marketId: MarketId;
   timestamp: number;
   stages: Array<{
     name: string;

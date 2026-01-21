@@ -12,7 +12,7 @@
  * - Query performance dashboards and leaderboards
  */
 
-import type { AgentSignal } from '../models/types.js';
+import type { AgentSignal, MarketId } from '../models/types.js';
 import type { GraphStateType } from '../models/state.js';
 import type { EngineConfig } from '../config/index.js';
 
@@ -37,7 +37,7 @@ export interface AgentPerformanceMetrics {
  * Data needed to evaluate agent accuracy when a market resolves
  */
 export interface MarketResolution {
-  marketId: string;
+  marketId: MarketId;
   conditionId: string;
   outcome: 'YES' | 'NO';
   resolutionTimestamp: number;
@@ -120,7 +120,7 @@ export function updateAgentMetrics(
  * @returns Accuracy score (0-1)
  */
 export function calculateAccuracyScore(
-  agentSignals: Array<{ signal: AgentSignal; marketId: string }>,
+  agentSignals: Array<{ signal: AgentSignal; marketId: MarketId }>,
   resolutions: MarketResolution[]
 ): number {
   if (agentSignals.length === 0) {
@@ -130,7 +130,7 @@ export function calculateAccuracyScore(
   // Create resolution lookup map
   const resolutionMap = new Map<string, 'YES' | 'NO'>();
   for (const resolution of resolutions) {
-    resolutionMap.set(resolution.marketId, resolution.outcome);
+    resolutionMap.set(String(resolution.marketId), resolution.outcome);
   }
 
   // Calculate Brier score for each prediction
@@ -138,7 +138,7 @@ export function calculateAccuracyScore(
   let validPredictions = 0;
 
   for (const { signal, marketId } of agentSignals) {
-    const outcome = resolutionMap.get(marketId);
+    const outcome = resolutionMap.get(String(marketId));
     if (!outcome) continue; // Skip if market not resolved
 
     // Convert outcome to binary: YES = 1, NO = 0

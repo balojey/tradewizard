@@ -8,7 +8,8 @@
 
 import { OpikCallbackHandler } from 'opik-langchain';
 import type { EngineConfig } from '../config/index.js';
-import type { TradeRecommendation, AgentSignal } from '../models/types.js';
+import type { MarketId } from '../models/types.js';
+import type { AgentSignal } from '../models/types.js';
 import { getOpikTraceUrl } from './audit-logger.js';
 
 /**
@@ -16,7 +17,7 @@ import { getOpikTraceUrl } from './audit-logger.js';
  */
 export interface OpikSpanMetadata {
   operation: string;
-  marketId?: string;
+  marketId?: MarketId;
   conditionId?: string;
   timestamp: number;
   duration?: number;

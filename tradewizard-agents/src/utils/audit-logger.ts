@@ -6,7 +6,7 @@
  */
 
 import type { BaseCheckpointSaver, Checkpoint } from '@langchain/langgraph';
-import type { AuditTrail } from '../models/types.js';
+import type { AuditTrail, MarketId } from '../models/types.js';
 import type { GraphStateType } from '../models/state.js';
 
 /**
@@ -32,7 +32,7 @@ export interface CheckpointMetadata {
  */
 export async function getAuditTrail(
   checkpointer: BaseCheckpointSaver,
-  marketId: string
+  marketId: MarketId
 ): Promise<AuditTrail> {
   const stages: AuditTrail['stages'] = [];
 
@@ -100,7 +100,7 @@ export async function getAuditTrail(
  */
 export async function getStateAtCheckpoint(
   checkpointer: BaseCheckpointSaver,
-  marketId: string,
+  marketId: MarketId,
   checkpointId?: string
 ): Promise<GraphStateType | null> {
   const config = {
@@ -131,7 +131,7 @@ export async function getStateAtCheckpoint(
  */
 export async function listCheckpoints(
   checkpointer: BaseCheckpointSaver,
-  marketId: string
+  marketId: MarketId
 ): Promise<CheckpointMetadata[]> {
   const checkpoints: CheckpointMetadata[] = [];
 
@@ -143,7 +143,7 @@ export async function listCheckpoints(
     const checkpoint = tuple.checkpoint as Checkpoint;
 
     checkpoints.push({
-      thread_id: marketId,
+      thread_id: String(marketId),
       checkpoint_id: config.configurable?.checkpoint_id || 'unknown',
       timestamp: checkpoint.ts ? parseInt(checkpoint.ts, 10) : Date.now(),
       step: metadata?.step || 0,

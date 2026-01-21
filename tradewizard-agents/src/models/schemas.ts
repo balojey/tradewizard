@@ -117,7 +117,7 @@ export const TradeMetadataSchema = z.object({
  * Used by recommendation generator to structure final output
  */
 export const TradeRecommendationSchema = z.object({
-  marketId: z.string(),
+  marketId: z.union([z.string(), z.number()]),
   action: z.enum(['LONG_YES', 'LONG_NO', 'NO_TRADE']),
   entryZone: z.tuple([z.number(), z.number()]),
   targetZone: z.tuple([z.number(), z.number()]),
@@ -145,7 +145,7 @@ export const CatalystSchema = z.object({
  * Used to validate market data after ingestion
  */
 export const MarketBriefingDocumentSchema = z.object({
-  marketId: z.string(),
+  marketId: z.union([z.string(), z.number()]),
   conditionId: z.string(),
   eventType: z.enum(['election', 'policy', 'court', 'geopolitical', 'economic', 'other']),
   question: z.string().min(10),

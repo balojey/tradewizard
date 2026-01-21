@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       agent_signals: {
@@ -189,7 +164,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           event_type: string
-          id?: string
+          id: string
           last_analyzed_at?: string | null
           liquidity?: number | null
           market_probability?: number | null
@@ -339,10 +314,266 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_agent_confidence_distribution: {
+        Row: {
+          agent_name: string | null
+          confidence_bucket: string | null
+          percentage: number | null
+          signal_count: number | null
+        }
+        Relationships: []
+      }
+      v_agent_direction_agreement: {
+        Row: {
+          agreement_level: string | null
+          last_signal_time: string | null
+          long_no_count: number | null
+          long_yes_count: number | null
+          market_id: string | null
+          no_trade_count: number | null
+          question: string | null
+          total_agents: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_signals_market_id_fkey"
+            columns: ["market_id"]
+            isOneToOne: false
+            referencedRelation: "markets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_agent_performance_summary: {
+        Row: {
+          agent_name: string | null
+          agent_type: string | null
+          avg_confidence: number | null
+          avg_fair_probability: number | null
+          last_signal_time: string | null
+          long_no_signals: number | null
+          long_yes_signals: number | null
+          markets_analyzed: number | null
+          no_trade_signals: number | null
+          total_signals: number | null
+        }
+        Relationships: []
+      }
+      v_agent_usage_frequency: {
+        Row: {
+          agent_name: string | null
+          usage_count: number | null
+          usage_percentage: number | null
+        }
+        Relationships: []
+      }
+      v_analysis_capacity_utilization: {
+        Row: {
+          analyses_performed: number | null
+          analysis_date: string | null
+          capacity_utilization_pct: number | null
+          configured_max_per_day: number | null
+          utilization_status: string | null
+        }
+        Relationships: []
+      }
+      v_analysis_stats_by_type: {
+        Row: {
+          analysis_type: string | null
+          avg_duration_ms: number | null
+          failed_analyses: number | null
+          success_rate_pct: number | null
+          successful_analyses: number | null
+          total_analyses: number | null
+          total_cost_usd: number | null
+        }
+        Relationships: []
+      }
+      v_analysis_volume_trends: {
+        Row: {
+          analysis_date: string | null
+          initial_analyses: number | null
+          manual_analyses: number | null
+          total_analyses: number | null
+          unique_markets: number | null
+          update_analyses: number | null
+        }
+        Relationships: []
+      }
+      v_cost_by_analysis_type: {
+        Row: {
+          analyses_count: number | null
+          analysis_type: string | null
+          avg_cost_per_analysis: number | null
+          cost_percentage: number | null
+          total_cost_usd: number | null
+        }
+        Relationships: []
+      }
+      v_cost_by_market: {
+        Row: {
+          analyses_count: number | null
+          avg_cost_per_analysis: number | null
+          condition_id: string | null
+          event_type: string | null
+          question: string | null
+          total_cost_usd: number | null
+        }
+        Relationships: []
+      }
+      v_cost_summary: {
+        Row: {
+          avg_cost_per_analysis: number | null
+          max_cost_usd: number | null
+          min_cost_usd: number | null
+          total_analyses: number | null
+          total_cost_usd: number | null
+          unique_markets: number | null
+        }
+        Relationships: []
+      }
+      v_daily_agent_performance: {
+        Row: {
+          agent_name: string | null
+          avg_confidence: number | null
+          markets_analyzed: number | null
+          signal_date: string | null
+          signals_generated: number | null
+        }
+        Relationships: []
+      }
+      v_daily_analysis_stats: {
+        Row: {
+          analysis_date: string | null
+          avg_duration_ms: number | null
+          failed_analyses: number | null
+          markets_analyzed: number | null
+          success_rate_pct: number | null
+          successful_analyses: number | null
+          total_analyses: number | null
+          total_cost_usd: number | null
+        }
+        Relationships: []
+      }
+      v_daily_cost_tracking: {
+        Row: {
+          analyses_count: number | null
+          avg_cost_per_analysis: number | null
+          cost_date: string | null
+          max_cost_usd: number | null
+          min_cost_usd: number | null
+          total_cost_usd: number | null
+        }
+        Relationships: []
+      }
+      v_hourly_analysis_distribution: {
+        Row: {
+          analysis_count: number | null
+          hour_of_day: number | null
+          percentage: number | null
+        }
+        Relationships: []
+      }
+      v_market_analysis_summary: {
+        Row: {
+          active_markets: number | null
+          avg_duration_ms: number | null
+          avg_success_duration_ms: number | null
+          failed_analyses: number | null
+          last_analysis_time: string | null
+          resolved_markets: number | null
+          success_rate_pct: number | null
+          successful_analyses: number | null
+          total_analyses: number | null
+          total_markets: number | null
+        }
+        Relationships: []
+      }
+      v_market_update_frequency: {
+        Row: {
+          avg_hours_between_updates: number | null
+          condition_id: string | null
+          first_analysis: string | null
+          hours_between_first_last: number | null
+          last_analysis: string | null
+          question: string | null
+          status: string | null
+          total_updates: number | null
+        }
+        Relationships: []
+      }
+      v_monthly_cost_projection: {
+        Row: {
+          analyses_this_month: number | null
+          cost_this_month: number | null
+          projected_monthly_cost: number | null
+          projection_month: string | null
+        }
+        Relationships: []
+      }
+      v_most_analyzed_markets: {
+        Row: {
+          analysis_count: number | null
+          avg_duration_ms: number | null
+          condition_id: string | null
+          event_type: string | null
+          last_analyzed: string | null
+          question: string | null
+          status: string | null
+          total_cost_usd: number | null
+        }
+        Relationships: []
+      }
+      v_recent_analyses: {
+        Row: {
+          analysis_type: string | null
+          condition_id: string | null
+          confidence: string | null
+          cost_usd: number | null
+          created_at: string | null
+          direction: string | null
+          duration_ms: number | null
+          error_message: string | null
+          question: string | null
+          status: string | null
+        }
+        Relationships: []
+      }
+      v_weekly_analysis_trends: {
+        Row: {
+          avg_duration_ms: number | null
+          total_analyses: number | null
+          total_cost_usd: number | null
+          unique_markets: number | null
+          week_start: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       acquire_migration_lock: { Args: { locker: string }; Returns: boolean }
+      get_agent_performance_for_period: {
+        Args: { end_date: string; start_date: string }
+        Returns: {
+          agent_name: string
+          agent_type: string
+          avg_confidence: number
+          markets_analyzed: number
+          total_signals: number
+        }[]
+      }
+      get_analysis_stats_for_period: {
+        Args: { end_date: string; start_date: string }
+        Returns: {
+          avg_duration_ms: number
+          failed_analyses: number
+          success_rate_pct: number
+          successful_analyses: number
+          total_analyses: number
+          total_cost_usd: number
+          unique_markets: number
+        }[]
+      }
       is_migration_applied: {
         Args: { migration_version: string }
         Returns: boolean
@@ -476,9 +707,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },
