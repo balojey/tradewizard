@@ -14,21 +14,26 @@ import { MarketBriefingDocumentSchema } from '../models/schemas.js';
  * Market Ingestion Node
  *
  * Reads conditionId from state, fetches market data from Polymarket,
- * transforms it into an MBD, and writes to state.
+ * transforms it into an MBD with enhanced event-based analysis, and writes to state.
+ * Implements Requirements 5.1, 5.2, 5.3 for event-based market briefing generation.
  *
  * @param state - Current graph state
  * @param polymarketClient - Polymarket API client instance
+ * @param useEventAnalysis - Whether to use enhanced event-based analysis (default: true)
  * @returns Partial state update with MBD or ingestionError
  */
 export async function marketIngestionNode(
   state: GraphStateType,
-  polymarketClient: PolymarketClient
+  polymarketClient: PolymarketClient,
+  useEventAnalysis: boolean = true
 ): Promise<Partial<GraphStateType>> {
   const startTime = Date.now();
 
   try {
-    // Fetch market data using Polymarket client
-    const result = await polymarketClient.fetchMarketData(state.conditionId);
+    // Fetch market data using enhanced event-based analysis if available
+    const result = useEventAnalysis 
+      ? await polymarketClient.fetchEnhancedMarketData(state.conditionId, true)
+      : await polymarketClient.fetchMarketData(state.conditionId);
 
     if (!result.ok) {
       // Return ingestion error
@@ -43,6 +48,7 @@ export async function marketIngestionNode(
               success: false,
               error: result.error,
               duration: Date.now() - startTime,
+              eventAnalysisUsed: useEventAnalysis,
             },
           },
         ],
@@ -51,8 +57,8 @@ export async function marketIngestionNode(
 
     const mbd = result.data;
 
-    // Enhance MBD with additional analysis
-    const enhancedMBD = await enhanceMBD(mbd);
+    // Enhance MBD with additional analysis (only if not already enhanced by event analysis)
+    const enhancedMBD = mbd.eventData ? mbd : await enhanceMBD(mbd);
 
     // Validate MBD schema
     const validation = MarketBriefingDocumentSchema.safeParse(enhancedMBD);
@@ -72,13 +78,14 @@ export async function marketIngestionNode(
               success: false,
               validationError: validation.error.issues[0].message,
               duration: Date.now() - startTime,
+              eventAnalysisUsed: useEventAnalysis,
             },
           },
         ],
       };
     }
 
-    // Return successful MBD
+    // Return successful MBD with enhanced audit information
     return {
       mbd: enhancedMBD,
       auditLog: [
@@ -94,6 +101,11 @@ export async function marketIngestionNode(
             volatilityRegime: enhancedMBD.volatilityRegime,
             ambiguityFlags: enhancedMBD.metadata.ambiguityFlags,
             duration: Date.now() - startTime,
+            eventAnalysisUsed: useEventAnalysis,
+            hasEventData: !!enhancedMBD.eventData,
+            eventId: enhancedMBD.eventData?.event.id,
+            marketCount: enhancedMBD.eventData?.markets.length,
+            crossMarketOpportunities: enhancedMBD.eventData?.crossMarketOpportunities.length,
           },
         },
       ],
@@ -285,12 +297,30 @@ function detectAmbiguityFlags(mbd: MarketBriefingDocument): string[] {
  * Create a market ingestion node with bound Polymarket client
  *
  * This factory function creates a node function that can be added to the LangGraph.
+ * Supports both traditional market-only analysis and enhanced event-based analysis.
  *
  * @param polymarketClient - Polymarket API client instance
+ * @param useEventAnalysis - Whether to use enhanced event-based analysis (default: true)
  * @returns Node function for LangGraph
  */
-export function createMarketIngestionNode(polymarketClient: PolymarketClient) {
+export function createMarketIngestionNode(
+  polymarketClient: PolymarketClient, 
+  useEventAnalysis: boolean = true
+) {
   return async (state: GraphStateType): Promise<Partial<GraphStateType>> => {
-    return marketIngestionNode(state, polymarketClient);
+    return marketIngestionNode(state, polymarketClient, useEventAnalysis);
   };
+}
+
+/**
+ * Create an enhanced event-based market ingestion node
+ * 
+ * This is a convenience function that creates a market ingestion node
+ * specifically configured for enhanced event-based analysis.
+ *
+ * @param polymarketClient - Polymarket API client instance
+ * @returns Node function for LangGraph with event-based analysis enabled
+ */
+export function createEnhancedMarketIngestionNode(polymarketClient: PolymarketClient) {
+  return createMarketIngestionNode(polymarketClient, true);
 }

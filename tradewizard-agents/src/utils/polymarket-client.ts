@@ -7,6 +7,8 @@
 
 import type { EngineConfig } from '../config/index.js';
 import type { IngestionError, MarketBriefingDocument } from '../models/types.js';
+import { EnhancedEventPolymarketClient } from './enhanced-event-polymarket-client.js';
+import { EnhancedEventBriefingGenerator } from './enhanced-event-briefing-generator.js';
 
 // ============================================================================
 // Types
@@ -65,6 +67,8 @@ export class PolymarketClient {
   private readonly gammaApiUrl: string;
   private readonly clobApiUrl: string;
   private readonly rateLimitBuffer: number;
+  private readonly enhancedEventClient: EnhancedEventPolymarketClient;
+  private readonly eventBriefingGenerator: EnhancedEventBriefingGenerator;
 
   // Circuit breaker state
   private circuitState: CircuitState = 'CLOSED';
@@ -85,6 +89,14 @@ export class PolymarketClient {
     this.gammaApiUrl = config.gammaApiUrl;
     this.clobApiUrl = config.clobApiUrl;
     this.rateLimitBuffer = config.rateLimitBuffer;
+    
+    // Initialize enhanced event client and briefing generator
+    this.enhancedEventClient = new EnhancedEventPolymarketClient(config);
+    this.eventBriefingGenerator = new EnhancedEventBriefingGenerator({
+      keywordExtractionMode: config.keywordExtractionMode || 'event_priority',
+      enableCrossMarketAnalysis: config.enableCrossMarketAnalysis !== false,
+      enableArbitrageDetection: config.enableArbitrageDetection !== false,
+    });
   }
 
   // ==========================================================================
@@ -184,6 +196,127 @@ export class PolymarketClient {
           message: 'Unknown error occurred',
         },
       };
+    }
+  }
+
+  /**
+   * Fetch enhanced market data using event-based analysis
+   * Implements Requirements 5.1, 5.2, 5.3 for event-based market briefing generation
+   * @param conditionId - Polymarket condition ID
+   * @param useEventAnalysis - Whether to use event-based analysis (default: true)
+   * @returns Enhanced market briefing document with event-level analysis or error
+   */
+  async fetchEnhancedMarketData(
+    conditionId: string,
+    useEventAnalysis: boolean = true
+  ): Promise<{ ok: true; data: MarketBriefingDocument } | { ok: false; error: IngestionError }> {
+    if (!useEventAnalysis) {
+      // Fall back to traditional market-only analysis
+      return this.fetchMarketData(conditionId);
+    }
+
+    try {
+      // First, try to find the event containing this market
+      const event = await this.findEventByMarketCondition(conditionId);
+      
+      if (event) {
+        // Generate enhanced event-based briefing
+        const enhancedBriefing = await this.eventBriefingGenerator.generateEventBriefing(event, conditionId);
+        return { ok: true, data: enhancedBriefing };
+      } else {
+        // Fall back to traditional market analysis if event not found
+        return this.fetchMarketData(conditionId);
+      }
+    } catch (error) {
+      // Fall back to traditional analysis on error
+      console.warn(`Event-based analysis failed for ${conditionId}, falling back to traditional analysis:`, error);
+      return this.fetchMarketData(conditionId);
+    }
+  }
+
+  /**
+   * Fetch multiple enhanced market briefings from a single event
+   * @param eventId - Polymarket event ID
+   * @returns Array of enhanced market briefing documents
+   */
+  async fetchEventMarketBriefings(
+    eventId: string
+  ): Promise<{ ok: true; data: MarketBriefingDocument[] } | { ok: false; error: IngestionError }> {
+    try {
+      const event = await this.enhancedEventClient.fetchEventDetails(eventId);
+      const briefings = await this.eventBriefingGenerator.generateMultiMarketBriefings(event);
+      
+      return { ok: true, data: briefings };
+    } catch (error) {
+      return {
+        ok: false,
+        error: {
+          type: 'INVALID_EVENT_ID',
+          eventId,
+        },
+      };
+    }
+  }
+
+  /**
+   * Discover trending political events and generate briefings
+   * @param limit - Maximum number of events to analyze
+   * @returns Array of enhanced market briefing documents from trending events
+   */
+  async fetchTrendingPoliticalBriefings(
+    limit: number = 10
+  ): Promise<{ ok: true; data: MarketBriefingDocument[] } | { ok: false; error: IngestionError }> {
+    try {
+      const rankedEvents = await this.enhancedEventClient.discoverTrendingPoliticalEvents(limit);
+      const allBriefings: MarketBriefingDocument[] = [];
+      
+      for (const rankedEvent of rankedEvents) {
+        try {
+          // Generate briefing for the dominant market in each event
+          const briefing = await this.eventBriefingGenerator.generateEventBriefing(rankedEvent.event);
+          allBriefings.push(briefing);
+        } catch (error) {
+          console.warn(`Failed to generate briefing for event ${rankedEvent.event.id}:`, error);
+        }
+      }
+      
+      return { ok: true, data: allBriefings };
+    } catch (error) {
+      return {
+        ok: false,
+        error: {
+          type: 'API_UNAVAILABLE',
+          message: `Failed to fetch trending political briefings: ${(error as Error).message}`,
+        },
+      };
+    }
+  }
+
+  /**
+   * Find event containing a specific market by condition ID
+   * @param conditionId - Market condition ID to search for
+   * @returns Event containing the market, or null if not found
+   */
+  private async findEventByMarketCondition(conditionId: string) {
+    try {
+      // Search for political events that might contain this market
+      const events = await this.enhancedEventClient.discoverPoliticalEvents({
+        limit: 100, // Search more events to find the right one
+        active: true,
+      });
+      
+      // Find event containing market with matching condition ID
+      for (const event of events) {
+        const matchingMarket = event.markets.find(market => market.conditionId === conditionId);
+        if (matchingMarket) {
+          return event;
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.warn(`Failed to find event for market ${conditionId}:`, error);
+      return null;
     }
   }
 

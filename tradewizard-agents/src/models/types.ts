@@ -466,6 +466,60 @@ export interface CrossMarketOpportunity {
 }
 
 /**
+ * Market group for theme-based analysis
+ */
+export interface MarketGroup {
+  theme: string;
+  markets: PolymarketMarket[];
+  dominantKeywords: string[];
+}
+
+/**
+ * Enhanced arbitrage opportunity with detailed analysis
+ */
+export interface ArbitrageAnalysis {
+  priceDiscrepancy: number;
+  expectedReturn: number;
+  riskFactors: string[];
+  executionComplexity: 'low' | 'medium' | 'high';
+  timeWindow: string;
+  liquidityRequirement: number;
+}
+
+/**
+ * Cross-market correlation analysis result
+ */
+export interface CorrelationAnalysis {
+  correlationCoefficient: number;
+  correlationType: 'positive' | 'negative' | 'neutral';
+  confidenceLevel: number;
+  timeHorizon: string;
+  drivingFactors: string[];
+}
+
+/**
+ * Event-level intelligence integration
+ */
+export interface EventIntelligence {
+  eventLevelInsights: string[];
+  crossMarketPatterns: string[];
+  riskFactors: string[];
+  opportunityAreas: string[];
+  marketInteractions: MarketInteraction[];
+}
+
+/**
+ * Market interaction within an event
+ */
+export interface MarketInteraction {
+  markets: string[]; // Market IDs
+  interactionType: 'substitution' | 'complementarity' | 'independence' | 'causality';
+  strength: number;
+  description: string;
+  implications: string[];
+}
+
+/**
  * Enhanced metadata supporting event-based analysis
  */
 export interface EnhancedEventMetadata {
@@ -492,6 +546,9 @@ export interface EnhancedEventMetadata {
   marketRelationships?: MarketRelationship[];
   dominantMarketId?: string;
   opportunityMarkets?: string[];
+  
+  // Event-level intelligence integration
+  eventIntelligence?: EventIntelligence;
 }
 
 /**
