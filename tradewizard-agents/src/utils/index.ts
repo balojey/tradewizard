@@ -94,6 +94,12 @@ export {
   type AgentCycleMetrics,
 } from './opik-integration.js';
 export {
+  EventMultiMarketKeywordExtractor,
+  type MarketKeywords,
+  type ProcessedEventKeywords,
+  type KeywordExtractionMode,
+} from './event-multi-market-keyword-extractor.js';
+export {
   withRetry,
   calculateBackoffDelay,
   withTimeout,
