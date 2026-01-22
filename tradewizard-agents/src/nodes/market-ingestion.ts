@@ -59,6 +59,11 @@ export async function marketIngestionNode(
 
     // Enhance MBD with additional analysis (only if not already enhanced by event analysis)
     const enhancedMBD = mbd.eventData ? mbd : await enhanceMBD(mbd);
+    
+    // Ensure currentProbability is a number (fix for schema validation)
+    if (typeof enhancedMBD.currentProbability === 'string') {
+      enhancedMBD.currentProbability = parseFloat(enhancedMBD.currentProbability);
+    }
 
     // Validate MBD schema
     const validation = MarketBriefingDocumentSchema.safeParse(enhancedMBD);

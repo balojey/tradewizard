@@ -655,7 +655,7 @@ export class EnhancedEventPolymarketClient {
         // Discover political events with enhanced options for trending analysis
         const events = await this.discoverPoliticalEvents({
           tagId: this.politicsTagId,
-          relatedTags: true,
+          relatedTags: false,
           active: true,
           closed: false,
           limit: Math.min(limit * 3, 100), // Fetch more to allow for better ranking
