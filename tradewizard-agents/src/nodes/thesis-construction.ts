@@ -195,6 +195,13 @@ export function createThesisConstructionNode(
 
   return async (state: GraphStateType): Promise<Partial<GraphStateType>> => {
     const startTime = Date.now();
+    console.log('[ThesisConstruction] Starting with state:', {
+      agentSignalsCount: state.agentSignals.length,
+      minRequired: config.agents.minAgentsRequired,
+      hasMbd: !!state.mbd,
+      hasFusedSignal: !!state.fusedSignal,
+      fusedSignalFairProbability: state.fusedSignal?.fairProbability,
+    });
 
     // Check minimum agent threshold
     if (state.agentSignals.length < config.agents.minAgentsRequired) {

@@ -141,6 +141,15 @@ export function createConsensusEngineNode(
 ): (state: GraphStateType) => Promise<Partial<GraphStateType>> {
   return async (state: GraphStateType): Promise<Partial<GraphStateType>> => {
     const startTime = Date.now();
+    console.log('[ConsensusEngine] Starting with state:', {
+      hasDebateRecord: !!state.debateRecord,
+      hasBullThesis: !!state.bullThesis,
+      hasBearThesis: !!state.bearThesis,
+      bullScore: state.debateRecord?.bullScore,
+      bearScore: state.debateRecord?.bearScore,
+      bullProbability: state.bullThesis?.fairProbability,
+      bearProbability: state.bearThesis?.fairProbability,
+    });
 
     // Check if debate record and agent signals are available
     if (!state.debateRecord) {

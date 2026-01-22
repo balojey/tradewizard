@@ -333,6 +333,14 @@ export function createRecommendationGenerationNode(
 
   return async (state: GraphStateType): Promise<Partial<GraphStateType>> => {
     const startTime = Date.now();
+    console.log('[RecommendationGeneration] Starting with state:', {
+      hasConsensus: !!state.consensus,
+      hasBullThesis: !!state.bullThesis,
+      hasBearThesis: !!state.bearThesis,
+      hasMbd: !!state.mbd,
+      consensusProbability: state.consensus?.consensusProbability,
+      marketProbability: state.mbd?.currentProbability,
+    });
 
     // Validate required state
     if (!state.consensus) {
@@ -439,6 +447,7 @@ export function createRecommendationGenerationNode(
 
       // Determine trade direction
       const direction = determineTradeDirection(consensusProbability, marketProbability);
+      console.log('[RecommendationGeneration] Trade direction:', direction, 'consensus:', consensusProbability, 'market:', marketProbability);
 
       // Calculate expected value
       const expectedValue = calculateExpectedValue(
@@ -446,6 +455,7 @@ export function createRecommendationGenerationNode(
         marketProbability,
         direction
       );
+      console.log('[RecommendationGeneration] Expected value:', expectedValue);
 
       // Implement negative EV rejection logic
       if (expectedValue < 0) {
@@ -504,13 +514,26 @@ export function createRecommendationGenerationNode(
       const winProbability = direction === 'LONG_YES' ? consensusProbability : 1 - consensusProbability;
 
       // Generate natural language explanation
-      const explanation = await generateExplanation(
-        llm,
-        state,
-        direction,
-        expectedValue,
-        edge
-      );
+      let explanation;
+      try {
+        explanation = await generateExplanation(
+          llm,
+          state,
+          direction,
+          expectedValue,
+          edge
+        );
+      } catch (explanationError) {
+        console.error('[RecommendationGeneration] Failed to generate explanation:', explanationError);
+        // Fallback explanation if LLM call fails
+        explanation = {
+          summary: `${direction === 'LONG_YES' ? 'Buy YES' : 'Buy NO'} shares. Expected value: ${expectedValue.toFixed(2)} per $100 invested.`,
+          coreThesis: state.bullThesis?.coreArgument || state.bearThesis?.coreArgument || 'Market analysis indicates trading opportunity.',
+          keyCatalysts: state.bullThesis?.catalysts || state.bearThesis?.catalysts || [],
+          failureScenarios: state.bullThesis?.failureConditions || state.bearThesis?.failureConditions || [],
+          uncertaintyNote: state.consensus?.disagreementIndex && state.consensus.disagreementIndex > 0.15 ? 'High uncertainty due to agent disagreement' : undefined,
+        };
+      }
 
       // Create recommendation
       const recommendation: TradeRecommendation = {

@@ -410,8 +410,8 @@ export interface Catalyst {
 export type MarketId = string | number;
 
 /**
- * Enhanced Market Briefing Document - supports event-based analysis with multiple markets
- * This is the primary input to all intelligence agents, now enhanced for event context
+ * Enhanced Market Briefing Document - streamlined for single market analysis
+ * This is the primary input to all intelligence agents, focused on the core market
  */
 export interface MarketBriefingDocument {
   // Core Market Data
@@ -427,20 +427,23 @@ export interface MarketBriefingDocument {
   volatilityRegime: VolatilityRegime;
   volume24h: number;
   
-  // Event-Based Enhancement
-  eventData?: {
-    event: PolymarketEvent;
-    markets: PolymarketMarket[];
-    eventMetrics: EventMetrics;
-    marketRelationships: MarketRelationship[];
-    crossMarketOpportunities: CrossMarketOpportunity[];
+  // Essential Event Context (streamlined)
+  eventContext?: {
+    eventId: string;
+    eventTitle: string;
+    eventDescription: string;
+    totalMarkets: number;
+    totalVolume: number;
+    totalLiquidity: number;
+    marketRank: number; // This market's rank by volume within the event
+    relatedMarketCount: number; // Number of closely related markets
   };
   
-  // Enhanced Keywords (from event and all markets)
-  keywords?: EventKeywords;
+  // Essential Keywords (focused on this market)
+  keywords?: string[];
   
-  // Enhanced Metadata
-  metadata: EnhancedEventMetadata;
+  // Streamlined Metadata
+  metadata: StreamlinedEventMetadata;
 }
 
 /**
@@ -520,35 +523,34 @@ export interface MarketInteraction {
 }
 
 /**
- * Enhanced metadata supporting event-based analysis
+ * Streamlined metadata for single market analysis
  */
-export interface EnhancedEventMetadata {
+export interface StreamlinedEventMetadata {
   // Original metadata
   ambiguityFlags: string[];
   keyCatalysts: Catalyst[];
   
-  // Event-specific metadata
+  // Essential event information
   eventId?: string;
   eventTitle?: string;
   eventDescription?: string;
-  marketIds?: string[];
   
-  // Enhanced catalysts from event analysis
-  eventCatalysts?: EventCatalyst[];
-  marketCatalysts?: MarketCatalyst[];
+  // Key insights (top 3 most important)
+  keyInsights?: string[];
   
-  // Tag-derived information
-  politicalCategory?: string;
-  subCategories?: string[];
-  eventThemes?: string[];
+  // Primary risk factors (top 3)
+  primaryRiskFactors?: string[];
   
-  // Cross-market information
-  marketRelationships?: MarketRelationship[];
-  dominantMarketId?: string;
-  opportunityMarkets?: string[];
+  // Best opportunities (top 2)
+  topOpportunities?: string[];
   
-  // Event-level intelligence integration
-  eventIntelligence?: EventIntelligence;
+  // Market position within event
+  marketPosition?: {
+    volumeRank: number;
+    liquidityRank: number;
+    competitiveScore: number;
+    isDominantMarket: boolean;
+  };
 }
 
 /**

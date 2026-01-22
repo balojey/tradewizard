@@ -321,10 +321,10 @@ export function createAggressiveAgentNode(
 export function createConservativeAgentNode(
   config: EngineConfig
 ): (state: GraphStateType) => Promise<Partial<GraphStateType>> {
-  // Use Anthropic for conservative agent (good at risk analysis)
-  const llm = new ChatAnthropic({
-    apiKey: config.llm.anthropic?.apiKey,
-    model: config.llm.anthropic?.defaultModel || 'claude-3-5-sonnet-20241022',
+  // Use Google for conservative agent (consistent with other agents)
+  const llm = new ChatGoogleGenerativeAI({
+    apiKey: config.llm.google?.apiKey,
+    model: config.llm.google?.defaultModel || 'gemini-2.5-flash',
   });
 
   return createRiskPhilosophyAgentNode(

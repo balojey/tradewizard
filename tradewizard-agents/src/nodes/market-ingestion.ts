@@ -58,7 +58,7 @@ export async function marketIngestionNode(
     const mbd = result.data;
 
     // Enhance MBD with additional analysis (only if not already enhanced by event analysis)
-    const enhancedMBD = mbd.eventData ? mbd : await enhanceMBD(mbd);
+    const enhancedMBD = mbd.eventContext ? mbd : await enhanceMBD(mbd);
     
     // Ensure currentProbability is a number (fix for schema validation)
     if (typeof enhancedMBD.currentProbability === 'string') {
@@ -107,10 +107,10 @@ export async function marketIngestionNode(
             ambiguityFlags: enhancedMBD.metadata.ambiguityFlags,
             duration: Date.now() - startTime,
             eventAnalysisUsed: useEventAnalysis,
-            hasEventData: !!enhancedMBD.eventData,
-            eventId: enhancedMBD.eventData?.event.id,
-            marketCount: enhancedMBD.eventData?.markets.length,
-            crossMarketOpportunities: enhancedMBD.eventData?.crossMarketOpportunities.length,
+            hasEventContext: !!enhancedMBD.eventContext,
+            eventId: enhancedMBD.eventContext?.eventId,
+            totalMarkets: enhancedMBD.eventContext?.totalMarkets,
+            marketRank: enhancedMBD.eventContext?.marketRank,
           },
         },
       ],

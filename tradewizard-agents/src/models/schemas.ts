@@ -141,7 +141,7 @@ export const CatalystSchema = z.object({
 });
 
 /**
- * Zod schema for MarketBriefingDocument
+ * Zod schema for MarketBriefingDocument (streamlined)
  * Used to validate market data after ingestion
  */
 export const MarketBriefingDocumentSchema = z.object({
@@ -156,9 +156,38 @@ export const MarketBriefingDocumentSchema = z.object({
   bidAskSpread: z.number().min(0),
   volatilityRegime: z.enum(['low', 'medium', 'high']),
   volume24h: z.number().min(0),
+  
+  // Essential event context (optional)
+  eventContext: z.object({
+    eventId: z.string(),
+    eventTitle: z.string(),
+    eventDescription: z.string(),
+    totalMarkets: z.number().min(1),
+    totalVolume: z.number().min(0),
+    totalLiquidity: z.number().min(0),
+    marketRank: z.number().min(1),
+    relatedMarketCount: z.number().min(0),
+  }).optional(),
+  
+  // Focused keywords (optional)
+  keywords: z.array(z.string()).optional(),
+  
+  // Streamlined metadata
   metadata: z.object({
     ambiguityFlags: z.array(z.string()),
     keyCatalysts: z.array(CatalystSchema),
+    eventId: z.string().optional(),
+    eventTitle: z.string().optional(),
+    eventDescription: z.string().optional(),
+    keyInsights: z.array(z.string()).optional(),
+    primaryRiskFactors: z.array(z.string()).optional(),
+    topOpportunities: z.array(z.string()).optional(),
+    marketPosition: z.object({
+      volumeRank: z.number().min(1),
+      liquidityRank: z.number().min(1),
+      competitiveScore: z.number().min(0).max(1),
+      isDominantMarket: z.boolean(),
+    }).optional(),
   }),
 });
 
