@@ -10,9 +10,7 @@ import { z } from 'zod';
 import type { GraphStateType } from '../models/state.js';
 import type { AgentSignal } from '../models/types.js';
 import type { EngineConfig } from '../config/index.js';
-import { ChatOpenAI } from '@langchain/openai';
-import { ChatAnthropic } from '@langchain/anthropic';
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { createLLMInstance } from '../utils/llm-factory.js';
 
 // ============================================================================
 // Media Sentiment Agent Signal Schema
@@ -236,27 +234,9 @@ Be predictive and focus on narrative momentum, not just current state.`;
 export function createMediaSentimentAgentNode(
   config: EngineConfig
 ): (state: GraphStateType) => Promise<Partial<GraphStateType>> {
-  // Use OpenAI for media sentiment analysis (good at sentiment and tone)
-  // Fall back to Anthropic, then Google if OpenAI not available
-  let llm;
-  if (config.llm.openai) {
-    llm = new ChatOpenAI({
-      apiKey: config.llm.openai.apiKey,
-      model: config.llm.openai.defaultModel,
-    });
-  } else if (config.llm.anthropic) {
-    llm = new ChatAnthropic({
-      apiKey: config.llm.anthropic.apiKey,
-      model: config.llm.anthropic.defaultModel,
-    });
-  } else if (config.llm.google) {
-    llm = new ChatGoogleGenerativeAI({
-      apiKey: config.llm.google.apiKey,
-      model: config.llm.google.defaultModel,
-    });
-  } else {
-    throw new Error('No LLM provider configured for Media Sentiment Agent');
-  }
+  // Use configured LLM respecting single/multi provider mode
+  // In multi-provider mode, prefer OpenAI for media sentiment analysis (good at sentiment and tone)
+  const llm = createLLMInstance(config, 'openai', ['anthropic', 'google']);
 
   // Return the agent node function
   return async (state: GraphStateType): Promise<Partial<GraphStateType>> => {
@@ -313,15 +293,9 @@ export function createMediaSentimentAgentNode(
 
       // Extract event-based keywords for enhanced sentiment analysis
       const eventKeywords = state.mbd.keywords;
-      const keywordContext = eventKeywords ? {
-        eventLevel: eventKeywords.eventLevel,
-        themes: eventKeywords.themes.map(t => t.theme),
-        narrativeKeywords: eventKeywords.concepts.map(c => c.concept),
-        politicalKeywords: eventKeywords.combined.filter(k => 
-          eventKeywords.ranked.find(r => r.keyword === k)?.source === 'event_tag' ||
-          eventKeywords.ranked.find(r => r.keyword === k && r.relevanceScore > 0.7)
-        ),
-        crossMarketContext: eventKeywords.marketLevel
+      const keywordContext = eventKeywords && eventKeywords.length > 0 ? {
+        keywords: eventKeywords,
+        keywordCount: eventKeywords.length
       } : null;
 
       // Use structured output with custom schema
@@ -408,27 +382,9 @@ export function createMediaSentimentAgentNode(
 export function createSocialSentimentAgentNode(
   config: EngineConfig
 ): (state: GraphStateType) => Promise<Partial<GraphStateType>> {
-  // Use OpenAI for social sentiment analysis (good at sentiment and psychology)
-  // Fall back to Anthropic, then Google if OpenAI not available
-  let llm;
-  if (config.llm.openai) {
-    llm = new ChatOpenAI({
-      apiKey: config.llm.openai.apiKey,
-      model: config.llm.openai.defaultModel,
-    });
-  } else if (config.llm.anthropic) {
-    llm = new ChatAnthropic({
-      apiKey: config.llm.anthropic.apiKey,
-      model: config.llm.anthropic.defaultModel,
-    });
-  } else if (config.llm.google) {
-    llm = new ChatGoogleGenerativeAI({
-      apiKey: config.llm.google.apiKey,
-      model: config.llm.google.defaultModel,
-    });
-  } else {
-    throw new Error('No LLM provider configured for Social Sentiment Agent');
-  }
+  // Use configured LLM respecting single/multi provider mode
+  // In multi-provider mode, prefer OpenAI for social sentiment analysis (good at sentiment and psychology)
+  const llm = createLLMInstance(config, 'openai', ['anthropic', 'google']);
 
   // Return the agent node function
   return async (state: GraphStateType): Promise<Partial<GraphStateType>> => {
@@ -485,15 +441,9 @@ export function createSocialSentimentAgentNode(
 
       // Extract event-based keywords for enhanced social sentiment analysis
       const eventKeywords = state.mbd.keywords;
-      const keywordContext = eventKeywords ? {
-        eventLevel: eventKeywords.eventLevel,
-        themes: eventKeywords.themes.map(t => t.theme),
-        viralKeywords: eventKeywords.concepts.map(c => c.concept),
-        politicalKeywords: eventKeywords.combined.filter(k => 
-          eventKeywords.ranked.find(r => r.keyword === k)?.source === 'event_tag' ||
-          eventKeywords.ranked.find(r => r.keyword === k && r.relevanceScore > 0.7)
-        ),
-        crossMarketNarratives: eventKeywords.marketLevel
+      const keywordContext = eventKeywords && eventKeywords.length > 0 ? {
+        keywords: eventKeywords,
+        keywordCount: eventKeywords.length
       } : null;
 
       // Use structured output with custom schema
@@ -592,27 +542,9 @@ export function createSocialSentimentAgentNode(
 export function createNarrativeVelocityAgentNode(
   config: EngineConfig
 ): (state: GraphStateType) => Promise<Partial<GraphStateType>> {
-  // Use Anthropic for narrative velocity analysis (good at reasoning and prediction)
-  // Fall back to OpenAI, then Google if Anthropic not available
-  let llm;
-  if (config.llm.anthropic) {
-    llm = new ChatAnthropic({
-      apiKey: config.llm.anthropic.apiKey,
-      model: config.llm.anthropic.defaultModel,
-    });
-  } else if (config.llm.openai) {
-    llm = new ChatOpenAI({
-      apiKey: config.llm.openai.apiKey,
-      model: config.llm.openai.defaultModel,
-    });
-  } else if (config.llm.google) {
-    llm = new ChatGoogleGenerativeAI({
-      apiKey: config.llm.google.apiKey,
-      model: config.llm.google.defaultModel,
-    });
-  } else {
-    throw new Error('No LLM provider configured for Narrative Velocity Agent');
-  }
+  // Use configured LLM respecting single/multi provider mode
+  // In multi-provider mode, prefer Anthropic for narrative velocity analysis (good at reasoning and prediction)
+  const llm = createLLMInstance(config, 'anthropic', ['openai', 'google']);
 
   // Return the agent node function
   return async (state: GraphStateType): Promise<Partial<GraphStateType>> => {
@@ -670,16 +602,9 @@ export function createNarrativeVelocityAgentNode(
 
       // Extract event-based keywords for enhanced narrative velocity analysis
       const eventKeywords = state.mbd.keywords;
-      const keywordContext = eventKeywords ? {
-        eventLevel: eventKeywords.eventLevel,
-        themes: eventKeywords.themes.map(t => t.theme),
-        narrativeSeeds: eventKeywords.concepts.map(c => c.concept),
-        politicalKeywords: eventKeywords.combined.filter(k => 
-          eventKeywords.ranked.find(r => r.keyword === k)?.source === 'event_tag' ||
-          eventKeywords.ranked.find(r => r.keyword === k && r.relevanceScore > 0.7)
-        ),
-        crossMarketNarratives: eventKeywords.marketLevel,
-        emergingThemes: eventKeywords.themes.filter(t => t.relevanceScore > 0.8).map(t => t.theme)
+      const keywordContext = eventKeywords && eventKeywords.length > 0 ? {
+        keywords: eventKeywords,
+        keywordCount: eventKeywords.length
       } : null;
 
       // Use structured output with custom schema

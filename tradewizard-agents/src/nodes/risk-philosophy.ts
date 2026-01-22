@@ -9,14 +9,12 @@
 import { z } from 'zod';
 import type { GraphStateType } from '../models/state.js';
 import type { EngineConfig } from '../config/index.js';
-import { ChatOpenAI } from '@langchain/openai';
-import { ChatAnthropic } from '@langchain/anthropic';
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { createLLMInstance, type LLMInstance } from '../utils/llm-factory.js';
 
 /**
  * Type for supported LLM instances
  */
-type LLMInstance = ChatOpenAI | ChatAnthropic | ChatGoogleGenerativeAI;
+// Removed - now imported from llm-factory
 
 // ============================================================================
 // Zod Schemas for Risk Philosophy Signals
@@ -301,11 +299,9 @@ function createRiskPhilosophyAgentNode<T extends z.ZodType>(
 export function createAggressiveAgentNode(
   config: EngineConfig
 ): (state: GraphStateType) => Promise<Partial<GraphStateType>> {
-  // Use OpenAI for aggressive agent (fast, good at numerical reasoning)
-  const llm = new ChatOpenAI({
-    apiKey: config.llm.openai?.apiKey,
-    model: config.llm.openai?.defaultModel || 'gpt-4o-mini',
-  });
+  // Use configured LLM respecting single/multi provider mode
+  // In multi-provider mode, prefer OpenAI for aggressive analysis (fast, good at numerical reasoning)
+  const llm = createLLMInstance(config, 'openai', ['anthropic', 'google']);
 
   return createRiskPhilosophyAgentNode(
     'risk_philosophy_aggressive',
@@ -321,11 +317,9 @@ export function createAggressiveAgentNode(
 export function createConservativeAgentNode(
   config: EngineConfig
 ): (state: GraphStateType) => Promise<Partial<GraphStateType>> {
-  // Use Google for conservative agent (consistent with other agents)
-  const llm = new ChatGoogleGenerativeAI({
-    apiKey: config.llm.google?.apiKey,
-    model: config.llm.google?.defaultModel || 'gemini-2.5-flash',
-  });
+  // Use configured LLM respecting single/multi provider mode
+  // In multi-provider mode, prefer Google for conservative analysis (good at structured reasoning)
+  const llm = createLLMInstance(config, 'google', ['anthropic', 'openai']);
 
   return createRiskPhilosophyAgentNode(
     'risk_philosophy_conservative',
@@ -341,11 +335,9 @@ export function createConservativeAgentNode(
 export function createNeutralAgentNode(
   config: EngineConfig
 ): (state: GraphStateType) => Promise<Partial<GraphStateType>> {
-  // Use Google for neutral agent (good at structured analysis)
-  const llm = new ChatGoogleGenerativeAI({
-    apiKey: config.llm.google?.apiKey,
-    model: config.llm.google?.defaultModel || 'gemini-2.0-flash-exp',
-  });
+  // Use configured LLM respecting single/multi provider mode
+  // In multi-provider mode, prefer Google for neutral analysis (good at structured analysis)
+  const llm = createLLMInstance(config, 'google', ['anthropic', 'openai']);
 
   return createRiskPhilosophyAgentNode(
     'risk_philosophy_neutral',
@@ -369,7 +361,7 @@ export function createRiskPhilosophyAgentNodes(config: EngineConfig): {
   
   // If disabled, return no-op functions that just pass through state
   if (!isEnabled) {
-    const noOpAgent = async (state: GraphStateType): Promise<Partial<GraphStateType>> => {
+    const noOpAgent = async (_state: GraphStateType): Promise<Partial<GraphStateType>> => {
       return {}; // Return empty partial state (no changes)
     };
     
@@ -384,12 +376,12 @@ export function createRiskPhilosophyAgentNodes(config: EngineConfig): {
   return {
     aggressiveAgent: (config.advancedAgents?.riskPhilosophy?.aggressive ?? true)
       ? createAggressiveAgentNode(config)
-      : async (state: GraphStateType) => ({}),
+      : async (_state: GraphStateType) => ({}),
     conservativeAgent: (config.advancedAgents?.riskPhilosophy?.conservative ?? true)
       ? createConservativeAgentNode(config)
-      : async (state: GraphStateType) => ({}),
+      : async (_state: GraphStateType) => ({}),
     neutralAgent: (config.advancedAgents?.riskPhilosophy?.neutral ?? true)
       ? createNeutralAgentNode(config)
-      : async (state: GraphStateType) => ({}),
+      : async (_state: GraphStateType) => ({}),
   };
 }

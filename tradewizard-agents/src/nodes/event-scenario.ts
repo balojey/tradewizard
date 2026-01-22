@@ -9,9 +9,7 @@ import { z } from 'zod';
 import type { GraphStateType } from '../models/state.js';
 import type { AgentSignal } from '../models/types.js';
 import type { EngineConfig } from '../config/index.js';
-import { ChatOpenAI } from '@langchain/openai';
-import { ChatAnthropic } from '@langchain/anthropic';
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { createLLMInstance } from '../utils/llm-factory.js';
 
 // ============================================================================
 // Catalyst Agent Signal Schema
@@ -173,27 +171,9 @@ Be rigorous about probability estimation. Focus on positive expected value oppor
 export function createCatalystAgentNode(
   config: EngineConfig
 ): (state: GraphStateType) => Promise<Partial<GraphStateType>> {
-  // Use Anthropic for catalyst analysis (good at reasoning and scenario modeling)
-  // Fall back to OpenAI, then Google if Anthropic not available
-  let llm;
-  if (config.llm.anthropic) {
-    llm = new ChatAnthropic({
-      apiKey: config.llm.anthropic.apiKey,
-      model: config.llm.anthropic.defaultModel,
-    });
-  } else if (config.llm.openai) {
-    llm = new ChatOpenAI({
-      apiKey: config.llm.openai.apiKey,
-      model: config.llm.openai.defaultModel,
-    });
-  } else if (config.llm.google) {
-    llm = new ChatGoogleGenerativeAI({
-      apiKey: config.llm.google.apiKey,
-      model: config.llm.google.defaultModel,
-    });
-  } else {
-    throw new Error('No LLM provider configured for Catalyst Agent');
-  }
+  // Use configured LLM respecting single/multi provider mode
+  // In multi-provider mode, prefer Anthropic for catalyst analysis (good at reasoning and scenario modeling)
+  const llm = createLLMInstance(config, 'anthropic', ['openai', 'google']);
 
   // Return the agent node function
   return async (state: GraphStateType): Promise<Partial<GraphStateType>> => {
@@ -227,15 +207,9 @@ export function createCatalystAgentNode(
     try {
       // Extract event-based keywords for enhanced catalyst identification
       const eventKeywords = state.mbd.keywords;
-      const keywordContext = eventKeywords ? {
-        eventLevel: eventKeywords.eventLevel,
-        themes: eventKeywords.themes.map(t => t.theme),
-        catalystKeywords: eventKeywords.concepts.map(c => c.concept),
-        politicalKeywords: eventKeywords.combined.filter(k => 
-          eventKeywords.ranked.find(r => r.keyword === k)?.source === 'event_tag' ||
-          eventKeywords.ranked.find(r => r.keyword === k && r.relevanceScore > 0.7)
-        ),
-        crossMarketCatalysts: eventKeywords.marketLevel
+      const keywordContext = eventKeywords && eventKeywords.length > 0 ? {
+        keywords: eventKeywords,
+        keywordCount: eventKeywords.length
       } : null;
 
       // Use structured output with custom schema
@@ -332,27 +306,9 @@ export function createCatalystAgentNode(
 export function createTailRiskAgentNode(
   config: EngineConfig
 ): (state: GraphStateType) => Promise<Partial<GraphStateType>> {
-  // Use Anthropic for tail-risk analysis (good at reasoning about edge cases)
-  // Fall back to OpenAI, then Google if Anthropic not available
-  let llm;
-  if (config.llm.anthropic) {
-    llm = new ChatAnthropic({
-      apiKey: config.llm.anthropic.apiKey,
-      model: config.llm.anthropic.defaultModel,
-    });
-  } else if (config.llm.openai) {
-    llm = new ChatOpenAI({
-      apiKey: config.llm.openai.apiKey,
-      model: config.llm.openai.defaultModel,
-    });
-  } else if (config.llm.google) {
-    llm = new ChatGoogleGenerativeAI({
-      apiKey: config.llm.google.apiKey,
-      model: config.llm.google.defaultModel,
-    });
-  } else {
-    throw new Error('No LLM provider configured for Tail-Risk Agent');
-  }
+  // Use configured LLM respecting single/multi provider mode
+  // In multi-provider mode, prefer Anthropic for tail-risk analysis (good at reasoning about edge cases)
+  const llm = createLLMInstance(config, 'anthropic', ['openai', 'google']);
 
   // Return the agent node function
   return async (state: GraphStateType): Promise<Partial<GraphStateType>> => {
@@ -386,15 +342,9 @@ export function createTailRiskAgentNode(
     try {
       // Extract event-based keywords for enhanced tail risk analysis
       const eventKeywords = state.mbd.keywords;
-      const keywordContext = eventKeywords ? {
-        eventLevel: eventKeywords.eventLevel,
-        themes: eventKeywords.themes.map(t => t.theme),
-        riskKeywords: eventKeywords.concepts.map(c => c.concept),
-        politicalKeywords: eventKeywords.combined.filter(k => 
-          eventKeywords.ranked.find(r => r.keyword === k)?.source === 'event_tag' ||
-          eventKeywords.ranked.find(r => r.keyword === k && r.relevanceScore > 0.7)
-        ),
-        crossMarketRisks: eventKeywords.marketLevel
+      const keywordContext = eventKeywords && eventKeywords.length > 0 ? {
+        keywords: eventKeywords,
+        keywordCount: eventKeywords.length
       } : null;
 
       // Use structured output with custom schema

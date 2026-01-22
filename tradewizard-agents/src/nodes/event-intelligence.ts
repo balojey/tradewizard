@@ -9,9 +9,7 @@ import { z } from 'zod';
 import type { GraphStateType } from '../models/state.js';
 import type { AgentSignal } from '../models/types.js';
 import type { EngineConfig } from '../config/index.js';
-import { ChatOpenAI } from '@langchain/openai';
-import { ChatAnthropic } from '@langchain/anthropic';
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { createLLMInstance } from '../utils/llm-factory.js';
 
 // ============================================================================
 // Breaking News Agent Signal Schema
@@ -175,27 +173,9 @@ Be rigorous with historical comparisons. Focus on structural similarities, not s
 export function createBreakingNewsAgentNode(
   config: EngineConfig
 ): (state: GraphStateType) => Promise<Partial<GraphStateType>> {
-  // Use OpenAI for breaking news analysis (fast and good at factual analysis)
-  // Fall back to Anthropic, then Google if OpenAI not available
-  let llm;
-  if (config.llm.openai) {
-    llm = new ChatOpenAI({
-      apiKey: config.llm.openai.apiKey,
-      model: config.llm.openai.defaultModel,
-    });
-  } else if (config.llm.anthropic) {
-    llm = new ChatAnthropic({
-      apiKey: config.llm.anthropic.apiKey,
-      model: config.llm.anthropic.defaultModel,
-    });
-  } else if (config.llm.google) {
-    llm = new ChatGoogleGenerativeAI({
-      apiKey: config.llm.google.apiKey,
-      model: config.llm.google.defaultModel,
-    });
-  } else {
-    throw new Error('No LLM provider configured for Breaking News Agent');
-  }
+  // Use configured LLM respecting single/multi provider mode
+  // In multi-provider mode, prefer OpenAI for breaking news analysis (fast and good at factual analysis)
+  const llm = createLLMInstance(config, 'openai', ['anthropic', 'google']);
 
   // Return the agent node function
   return async (state: GraphStateType): Promise<Partial<GraphStateType>> => {
@@ -252,16 +232,9 @@ export function createBreakingNewsAgentNode(
 
       // Extract event-based keywords for enhanced news correlation
       const eventKeywords = state.mbd.keywords;
-      const keywordContext = eventKeywords ? {
-        eventLevel: eventKeywords.eventLevel,
-        marketLevel: eventKeywords.marketLevel,
-        combined: eventKeywords.combined,
-        themes: eventKeywords.themes.map(t => t.theme),
-        concepts: eventKeywords.concepts.map(c => c.concept),
-        politicalKeywords: eventKeywords.combined.filter(k => 
-          eventKeywords.ranked.find(r => r.keyword === k)?.source === 'event_tag' ||
-          eventKeywords.ranked.find(r => r.keyword === k && r.relevanceScore > 0.7)
-        )
+      const keywordContext = eventKeywords && eventKeywords.length > 0 ? {
+        keywords: eventKeywords,
+        keywordCount: eventKeywords.length
       } : null;
 
       // Use structured output with custom schema
@@ -362,27 +335,9 @@ export function createBreakingNewsAgentNode(
 export function createEventImpactAgentNode(
   config: EngineConfig
 ): (state: GraphStateType) => Promise<Partial<GraphStateType>> {
-  // Use Anthropic for event impact modeling (good at reasoning and historical analysis)
-  // Fall back to OpenAI, then Google if Anthropic not available
-  let llm;
-  if (config.llm.anthropic) {
-    llm = new ChatAnthropic({
-      apiKey: config.llm.anthropic.apiKey,
-      model: config.llm.anthropic.defaultModel,
-    });
-  } else if (config.llm.openai) {
-    llm = new ChatOpenAI({
-      apiKey: config.llm.openai.apiKey,
-      model: config.llm.openai.defaultModel,
-    });
-  } else if (config.llm.google) {
-    llm = new ChatGoogleGenerativeAI({
-      apiKey: config.llm.google.apiKey,
-      model: config.llm.google.defaultModel,
-    });
-  } else {
-    throw new Error('No LLM provider configured for Event Impact Agent');
-  }
+  // Use configured LLM respecting single/multi provider mode
+  // In multi-provider mode, prefer Anthropic for event impact modeling (good at reasoning and historical analysis)
+  const llm = createLLMInstance(config, 'anthropic', ['openai', 'google']);
 
   // Return the agent node function
   return async (state: GraphStateType): Promise<Partial<GraphStateType>> => {
@@ -416,15 +371,9 @@ export function createEventImpactAgentNode(
     try {
       // Extract event-based keywords for enhanced event impact analysis
       const eventKeywords = state.mbd.keywords;
-      const keywordContext = eventKeywords ? {
-        eventLevel: eventKeywords.eventLevel,
-        themes: eventKeywords.themes.map(t => t.theme),
-        concepts: eventKeywords.concepts.map(c => c.concept),
-        crossMarketKeywords: eventKeywords.marketLevel,
-        politicalKeywords: eventKeywords.combined.filter(k => 
-          eventKeywords.ranked.find(r => r.keyword === k)?.source === 'event_tag' ||
-          eventKeywords.ranked.find(r => r.keyword === k && r.relevanceScore > 0.7)
-        )
+      const keywordContext = eventKeywords && eventKeywords.length > 0 ? {
+        keywords: eventKeywords,
+        keywordCount: eventKeywords.length
       } : null;
 
       // Use structured output with custom schema

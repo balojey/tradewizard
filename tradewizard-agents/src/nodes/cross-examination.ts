@@ -5,9 +5,7 @@
  * It challenges thesis assumptions through structured tests using LLM analysis.
  */
 
-import { ChatOpenAI } from '@langchain/openai';
-import { ChatAnthropic } from '@langchain/anthropic';
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { createLLMInstance, type LLMInstance } from '../utils/llm-factory.js';
 import type { GraphStateType } from '../models/state.js';
 import type { DebateRecord, DebateTest, Thesis } from '../models/types.js';
 import type { EngineConfig } from '../config/index.js';
@@ -15,7 +13,7 @@ import type { EngineConfig } from '../config/index.js';
 /**
  * Type for supported LLM instances
  */
-type LLMInstance = ChatOpenAI | ChatAnthropic | ChatGoogleGenerativeAI;
+// Removed - now imported from llm-factory
 
 /**
  * Create LLM instance for cross-examination
@@ -27,41 +25,9 @@ type LLMInstance = ChatOpenAI | ChatAnthropic | ChatGoogleGenerativeAI;
  * @returns LLM instance for cross-examination
  */
 function createCrossExaminationLLM(config: EngineConfig): LLMInstance {
-  // Single-provider mode: use the configured LLM
-  if (config.llm.singleProvider) {
-    const provider = config.llm.singleProvider;
-
-    if (provider === 'openai' && config.llm.openai) {
-      return new ChatOpenAI({
-        apiKey: config.llm.openai.apiKey,
-        model: config.llm.openai.defaultModel,
-      });
-    } else if (provider === 'anthropic' && config.llm.anthropic) {
-      return new ChatAnthropic({
-        apiKey: config.llm.anthropic.apiKey,
-        model: config.llm.anthropic.defaultModel,
-      });
-    } else if (provider === 'google' && config.llm.google) {
-      return new ChatGoogleGenerativeAI({
-        apiKey: config.llm.google.apiKey,
-        model: config.llm.google.defaultModel,
-      });
-    } else {
-      throw new Error(`Invalid single provider configuration: ${provider}`);
-    }
-  }
-
-  // Multi-provider mode: use default LLM (ChatOpenAI with GPT-4-turbo)
-  if (!config.llm.openai) {
-    throw new Error(
-      'Multi-provider mode requires OpenAI configuration for cross-examination'
-    );
-  }
-
-  return new ChatOpenAI({
-    apiKey: config.llm.openai.apiKey,
-    model: config.llm.openai.defaultModel,
-  });
+  // Use configured LLM respecting single/multi provider mode
+  // In multi-provider mode, prefer OpenAI for cross-examination (good at adversarial reasoning)
+  return createLLMInstance(config, 'openai', ['anthropic', 'google']);
 }
 
 /**

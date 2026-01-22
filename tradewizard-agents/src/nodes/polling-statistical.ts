@@ -9,9 +9,7 @@ import { z } from 'zod';
 import type { GraphStateType } from '../models/state.js';
 import type { AgentSignal } from '../models/types.js';
 import type { EngineConfig } from '../config/index.js';
-import { ChatOpenAI } from '@langchain/openai';
-import { ChatAnthropic } from '@langchain/anthropic';
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { createLLMInstance } from '../utils/llm-factory.js';
 
 // ============================================================================
 // Polling Intelligence Agent Signal Schema
@@ -159,27 +157,9 @@ Be rigorous with historical comparisons. Acknowledge when patterns may not apply
 export function createPollingIntelligenceAgentNode(
   config: EngineConfig
 ): (state: GraphStateType) => Promise<Partial<GraphStateType>> {
-  // Use Google for polling analysis (good at statistical reasoning)
-  // Fall back to OpenAI, then Anthropic if Google not available
-  let llm;
-  if (config.llm.google) {
-    llm = new ChatGoogleGenerativeAI({
-      apiKey: config.llm.google.apiKey,
-      model: config.llm.google.defaultModel,
-    });
-  } else if (config.llm.openai) {
-    llm = new ChatOpenAI({
-      apiKey: config.llm.openai.apiKey,
-      model: config.llm.openai.defaultModel,
-    });
-  } else if (config.llm.anthropic) {
-    llm = new ChatAnthropic({
-      apiKey: config.llm.anthropic.apiKey,
-      model: config.llm.anthropic.defaultModel,
-    });
-  } else {
-    throw new Error('No LLM provider configured for Polling Intelligence Agent');
-  }
+  // Use configured LLM respecting single/multi provider mode
+  // In multi-provider mode, prefer Google for polling analysis (good at statistical reasoning)
+  const llm = createLLMInstance(config, 'google', ['openai', 'anthropic']);
 
   // Return the agent node function
   return async (state: GraphStateType): Promise<Partial<GraphStateType>> => {
@@ -235,16 +215,16 @@ export function createPollingIntelligenceAgentNode(
       }
 
       // Extract event-based keywords for enhanced polling analysis
-      const eventKeywords = state.mbd.keywords;
+      const eventKeywords = state.marketKeywords;
       const keywordContext = eventKeywords ? {
-        eventLevel: eventKeywords.eventLevel,
-        themes: eventKeywords.themes.map(t => t.theme),
-        pollingKeywords: eventKeywords.concepts.map(c => c.concept),
-        politicalKeywords: eventKeywords.combined.filter(k => 
-          eventKeywords.ranked.find(r => r.keyword === k)?.source === 'event_tag' ||
-          eventKeywords.ranked.find(r => r.keyword === k && r.relevanceScore > 0.7)
-        ),
-        crossMarketPolling: eventKeywords.marketLevel
+        eventLevel: eventKeywords.eventLevel || [],
+        themes: eventKeywords.themes?.map(t => t.theme) || [],
+        pollingKeywords: eventKeywords.concepts?.map(c => c.concept) || [],
+        politicalKeywords: eventKeywords.combined?.filter(k => 
+          eventKeywords.ranked?.find(r => r.keyword === k)?.source === 'event_tag' ||
+          eventKeywords.ranked?.find(r => r.keyword === k && r.relevanceScore > 0.7)
+        ) || [],
+        crossMarketPolling: eventKeywords.marketLevel || []
       } : null;
 
       // Use structured output with custom schema
@@ -331,27 +311,9 @@ export function createPollingIntelligenceAgentNode(
 export function createHistoricalPatternAgentNode(
   config: EngineConfig
 ): (state: GraphStateType) => Promise<Partial<GraphStateType>> {
-  // Use Anthropic for historical pattern analysis (good at reasoning and comparisons)
-  // Fall back to OpenAI, then Google if Anthropic not available
-  let llm;
-  if (config.llm.anthropic) {
-    llm = new ChatAnthropic({
-      apiKey: config.llm.anthropic.apiKey,
-      model: config.llm.anthropic.defaultModel,
-    });
-  } else if (config.llm.openai) {
-    llm = new ChatOpenAI({
-      apiKey: config.llm.openai.apiKey,
-      model: config.llm.openai.defaultModel,
-    });
-  } else if (config.llm.google) {
-    llm = new ChatGoogleGenerativeAI({
-      apiKey: config.llm.google.apiKey,
-      model: config.llm.google.defaultModel,
-    });
-  } else {
-    throw new Error('No LLM provider configured for Historical Pattern Agent');
-  }
+  // Use configured LLM respecting single/multi provider mode
+  // In multi-provider mode, prefer Anthropic for historical pattern analysis (good at reasoning and comparisons)
+  const llm = createLLMInstance(config, 'anthropic', ['openai', 'google']);
 
   // Return the agent node function
   return async (state: GraphStateType): Promise<Partial<GraphStateType>> => {

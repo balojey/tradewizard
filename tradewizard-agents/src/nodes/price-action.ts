@@ -5,9 +5,7 @@
  * momentum patterns, and mean reversion opportunities.
  */
 
-import { ChatOpenAI } from '@langchain/openai';
-import { ChatAnthropic } from '@langchain/anthropic';
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { createLLMInstance } from '../utils/llm-factory.js';
 import { z } from 'zod';
 import type { GraphStateType } from '../models/state.js';
 import type { AgentSignal } from '../models/types.js';
@@ -193,27 +191,9 @@ function calculateReversionIndicators(mbd: GraphStateType['mbd']): {
 export function createMomentumAgentNode(
   config: EngineConfig
 ): (state: GraphStateType) => Promise<Partial<GraphStateType>> {
-  // Use OpenAI for momentum analysis (fast and good at pattern recognition)
-  // Fall back to Anthropic, then Google if OpenAI not available
-  let llm;
-  if (config.llm.openai) {
-    llm = new ChatOpenAI({
-      apiKey: config.llm.openai.apiKey,
-      model: config.llm.openai.defaultModel,
-    });
-  } else if (config.llm.anthropic) {
-    llm = new ChatAnthropic({
-      apiKey: config.llm.anthropic.apiKey,
-      model: config.llm.anthropic.defaultModel,
-    });
-  } else if (config.llm.google) {
-    llm = new ChatGoogleGenerativeAI({
-      apiKey: config.llm.google.apiKey,
-      model: config.llm.google.defaultModel,
-    });
-  } else {
-    throw new Error('No LLM provider configured');
-  }
+  // Use configured LLM respecting single/multi provider mode
+  // In multi-provider mode, prefer OpenAI for momentum analysis (fast and good at pattern recognition)
+  const llm = createLLMInstance(config, 'openai', ['anthropic', 'google']);
   
   return async (state: GraphStateType): Promise<Partial<GraphStateType>> => {
     const startTime = Date.now();
@@ -354,27 +334,9 @@ export function createMomentumAgentNode(
 export function createMeanReversionAgentNode(
   config: EngineConfig
 ): (state: GraphStateType) => Promise<Partial<GraphStateType>> {
-  // Use OpenAI for mean reversion analysis (fast and good at statistical patterns)
-  // Fall back to Anthropic, then Google if OpenAI not available
-  let llm;
-  if (config.llm.openai) {
-    llm = new ChatOpenAI({
-      apiKey: config.llm.openai.apiKey,
-      model: config.llm.openai.defaultModel,
-    });
-  } else if (config.llm.anthropic) {
-    llm = new ChatAnthropic({
-      apiKey: config.llm.anthropic.apiKey,
-      model: config.llm.anthropic.defaultModel,
-    });
-  } else if (config.llm.google) {
-    llm = new ChatGoogleGenerativeAI({
-      apiKey: config.llm.google.apiKey,
-      model: config.llm.google.defaultModel,
-    });
-  } else {
-    throw new Error('No LLM provider configured');
-  }
+  // Use configured LLM respecting single/multi provider mode
+  // In multi-provider mode, prefer OpenAI for mean reversion analysis (fast and good at statistical patterns)
+  const llm = createLLMInstance(config, 'openai', ['anthropic', 'google']);
   
   return async (state: GraphStateType): Promise<Partial<GraphStateType>> => {
     const startTime = Date.now();
