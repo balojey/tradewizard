@@ -206,10 +206,11 @@ export function createCatalystAgentNode(
 
     try {
       // Extract event-based keywords for enhanced catalyst identification
-      const eventKeywords = state.mbd.keywords;
-      const keywordContext = eventKeywords && eventKeywords.length > 0 ? {
-        keywords: eventKeywords,
-        keywordCount: eventKeywords.length
+      const eventKeywords = state.marketKeywords;
+      const keywordContext = eventKeywords ? {
+        keywords: eventKeywords.combined || [],
+        eventLevel: eventKeywords.eventLevel || [],
+        themes: eventKeywords.themes || [],
       } : null;
 
       // Use structured output with custom schema
@@ -341,10 +342,11 @@ export function createTailRiskAgentNode(
 
     try {
       // Extract event-based keywords for enhanced tail risk analysis
-      const eventKeywords = state.mbd.keywords;
-      const keywordContext = eventKeywords && eventKeywords.length > 0 ? {
-        keywords: eventKeywords,
-        keywordCount: eventKeywords.length
+      const eventKeywords = state.marketKeywords;
+      const keywordContext = eventKeywords ? {
+        keywords: eventKeywords.combined || [],
+        eventLevel: eventKeywords.eventLevel || [],
+        themes: eventKeywords.themes || [],
       } : null;
 
       // Use structured output with custom schema

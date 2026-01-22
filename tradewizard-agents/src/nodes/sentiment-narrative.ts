@@ -292,10 +292,11 @@ export function createMediaSentimentAgentNode(
       }
 
       // Extract event-based keywords for enhanced sentiment analysis
-      const eventKeywords = state.mbd.keywords;
-      const keywordContext = eventKeywords && eventKeywords.length > 0 ? {
-        keywords: eventKeywords,
-        keywordCount: eventKeywords.length
+      const eventKeywords = state.marketKeywords;
+      const keywordContext = eventKeywords ? {
+        keywords: eventKeywords.combined || [],
+        eventLevel: eventKeywords.eventLevel || [],
+        themes: eventKeywords.themes || [],
       } : null;
 
       // Use structured output with custom schema
@@ -440,10 +441,11 @@ export function createSocialSentimentAgentNode(
       }
 
       // Extract event-based keywords for enhanced social sentiment analysis
-      const eventKeywords = state.mbd.keywords;
-      const keywordContext = eventKeywords && eventKeywords.length > 0 ? {
-        keywords: eventKeywords,
-        keywordCount: eventKeywords.length
+      const eventKeywords = state.marketKeywords;
+      const keywordContext = eventKeywords ? {
+        keywords: eventKeywords.combined || [],
+        eventLevel: eventKeywords.eventLevel || [],
+        themes: eventKeywords.themes || [],
       } : null;
 
       // Use structured output with custom schema
@@ -601,10 +603,11 @@ export function createNarrativeVelocityAgentNode(
       }
 
       // Extract event-based keywords for enhanced narrative velocity analysis
-      const eventKeywords = state.mbd.keywords;
-      const keywordContext = eventKeywords && eventKeywords.length > 0 ? {
-        keywords: eventKeywords,
-        keywordCount: eventKeywords.length
+      const eventKeywords = state.marketKeywords;
+      const keywordContext = eventKeywords ? {
+        keywords: eventKeywords.combined || [],
+        eventLevel: eventKeywords.eventLevel || [],
+        themes: eventKeywords.themes || [],
       } : null;
 
       // Use structured output with custom schema

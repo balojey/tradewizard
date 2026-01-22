@@ -231,10 +231,11 @@ export function createBreakingNewsAgentNode(
       }
 
       // Extract event-based keywords for enhanced news correlation
-      const eventKeywords = state.mbd.keywords;
-      const keywordContext = eventKeywords && eventKeywords.length > 0 ? {
-        keywords: eventKeywords,
-        keywordCount: eventKeywords.length
+      const eventKeywords = state.marketKeywords;
+      const keywordContext = eventKeywords ? {
+        keywords: eventKeywords.combined || [],
+        eventLevel: eventKeywords.eventLevel || [],
+        themes: eventKeywords.themes || [],
       } : null;
 
       // Use structured output with custom schema
@@ -370,10 +371,11 @@ export function createEventImpactAgentNode(
 
     try {
       // Extract event-based keywords for enhanced event impact analysis
-      const eventKeywords = state.mbd.keywords;
-      const keywordContext = eventKeywords && eventKeywords.length > 0 ? {
-        keywords: eventKeywords,
-        keywordCount: eventKeywords.length
+      const eventKeywords = state.marketKeywords;
+      const keywordContext = eventKeywords ? {
+        keywords: eventKeywords.combined || [],
+        eventLevel: eventKeywords.eventLevel || [],
+        themes: eventKeywords.themes || [],
       } : null;
 
       // Use structured output with custom schema

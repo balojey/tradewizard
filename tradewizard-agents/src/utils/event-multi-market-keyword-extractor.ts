@@ -18,7 +18,6 @@
 import { ChatOpenAI } from '@langchain/openai';
 import { ChatAnthropic } from '@langchain/anthropic';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { OpikCallbackHandler } from 'opik-langchain';
 import { config } from '../config/index.js';
 import { z } from 'zod';
 import type {
@@ -131,58 +130,34 @@ export class EventMultiMarketKeywordExtractor {
 
   private readonly keywordAnalysisAgentBase: ChatOpenAI | ChatAnthropic | ChatGoogleGenerativeAI;
   private readonly conceptExtractionAgentBase: ChatOpenAI | ChatAnthropic | ChatGoogleGenerativeAI;
-  private readonly opikHandler: OpikCallbackHandler;
 
   constructor(
     private readonly extractionMode: KeywordExtractionMode = 'event_priority',
     llmConfig?: {
       keywordAgent?: any;
       conceptAgent?: any;
-      opikHandler?: any; // Accept Opik handler from workflow
+      opikHandler?: any; // Accept Opik handler from workflow (for logging purposes)
     }
   ) {
-    // Use provided Opik handler or create a new one (for standalone usage)
-    this.opikHandler = llmConfig?.opikHandler || new OpikCallbackHandler({
-      projectName: config.opik.projectName,
-    });
+    // Note: We don't use the opikHandler directly anymore - the workflow-level handler manages all tracing
+    // This parameter is kept for backward compatibility and logging
+    const hasSharedOpikHandler = !!llmConfig?.opikHandler;
 
-    // Initialize AI agents for intelligent keyword extraction with Opik tracing
-    const { keywordAgentBase } = this.createLLMInstancePair(config, 0.1);
-    const { conceptAgentBase } = this.createLLMInstancePair(config, 0.2);
-    
-    this.keywordAnalysisAgentBase = keywordAgentBase;
-    this.conceptExtractionAgentBase = conceptAgentBase;
+    // Initialize AI agents for intelligent keyword extraction
+    // Create base LLM instances that will inherit tracing from the workflow context
+    this.keywordAnalysisAgentBase = this.createBaseLLMInstance(config, 0.1);
+    this.conceptExtractionAgentBase = this.createBaseLLMInstance(config, 0.2);
 
     logger.info({
       mode: this.extractionMode,
       opikProject: config.opik.projectName,
       opikTracking: config.opik.trackCosts,
+      hasSharedOpikHandler,
+      tracingStrategy: 'workflow-managed',
     }, `AI-Powered EventMultiMarketKeywordExtractor initialized with mode: ${this.extractionMode}`);
   }
 
-  /**
-   * Creates an LLM instance pair based on the current configuration
-   * Returns both base instance and Opik-configured version
-   */
-  private createLLMInstancePair(config: any, temperature: number): {
-    keywordAgent?: any;
-    conceptAgent?: any;
-    keywordAgentBase: ChatOpenAI | ChatAnthropic | ChatGoogleGenerativeAI;
-    conceptAgentBase: ChatOpenAI | ChatAnthropic | ChatGoogleGenerativeAI;
-  } {
-    const baseLLM = this.createBaseLLMInstance(config, temperature);
-    const opikConfiguredLLM = baseLLM.withConfig({
-      callbacks: [this.opikHandler],
-      tags: ['keyword-extraction', 'event-analysis', this.getProviderTag(config)],
-    });
 
-    return {
-      keywordAgent: opikConfiguredLLM,
-      conceptAgent: opikConfiguredLLM,
-      keywordAgentBase: baseLLM,
-      conceptAgentBase: baseLLM,
-    };
-  }
 
   /**
    * Creates a base LLM instance based on the current configuration
@@ -245,34 +220,6 @@ export class EventMultiMarketKeywordExtractor {
   }
 
   /**
-   * Get provider tag for Opik tracing
-   */
-  private getProviderTag(config: any): string {
-    const singleProvider = config.llm.singleProvider;
-    if (singleProvider) return singleProvider;
-    
-    if (config.llm.google) return 'google-genai';
-    if (config.llm.openai) return 'openai';
-    if (config.llm.anthropic) return 'anthropic';
-    
-    return 'unknown';
-  }
-
-  /**
-   * Flush Opik traces for proper observability
-   */
-  async flushOpikTraces(): Promise<void> {
-    try {
-      await this.opikHandler.flushAsync();
-      logger.debug('EventMultiMarketKeywordExtractor: Opik traces flushed successfully');
-    } catch (error) {
-      logger.warn({
-        error: error instanceof Error ? error.message : String(error),
-      }, 'EventMultiMarketKeywordExtractor: Failed to flush Opik traces');
-    }
-  }
-
-  /**
    * Extract comprehensive keywords from a Polymarket event using AI-powered analysis
    */
   async extractKeywordsFromEvent(event: PolymarketEvent): Promise<EventKeywords> {
@@ -329,9 +276,6 @@ export class EventMultiMarketKeywordExtractor {
         opikProject: config.opik.projectName,
       }, `AI-enhanced extraction completed: ${result.combined.length} combined keywords, ${result.themes.length} themes, ${result.concepts.length} concepts`);
 
-      // Flush Opik traces for this extraction
-      await this.flushOpikTraces();
-      
       return result;
 
     } catch (error) {
@@ -343,9 +287,6 @@ export class EventMultiMarketKeywordExtractor {
         opikProject: config.opik.projectName,
       }, `AI keyword extraction failed, falling back to traditional method: ${error}`);
 
-      // Still flush traces even on error
-      await this.flushOpikTraces();
-      
       return this.extractTraditionalKeywords(event);
     }
   }
@@ -371,10 +312,9 @@ Please provide a thorough keyword analysis focusing on:
 
 Be precise and focus on terms that would be valuable for market intelligence and trading decisions.`;
 
-    const structuredAgent = this.keywordAnalysisAgentBase.withStructuredOutput(AIKeywordAnalysisSchema).withConfig({
-      callbacks: [this.opikHandler],
-      tags: ['keyword-extraction', 'ai-analysis', this.getProviderTag(config)],
-    });
+    // Use the base LLM instance with structured output
+    // DO NOT add .withConfig() here - let the workflow-level Opik handler manage tracing
+    const structuredAgent = this.keywordAnalysisAgentBase.withStructuredOutput(AIKeywordAnalysisSchema);
     
     const response = await structuredAgent.invoke([
       {
@@ -408,10 +348,9 @@ Identify:
 
 Focus on concepts that could influence the market resolution or trading decisions.`;
 
-    const structuredAgent = this.conceptExtractionAgentBase.withStructuredOutput(AIConceptExtractionSchema).withConfig({
-      callbacks: [this.opikHandler],
-      tags: ['concept-extraction', 'ai-analysis', this.getProviderTag(config)],
-    });
+    // Use the base LLM instance with structured output
+    // DO NOT add .withConfig() here - let the workflow-level Opik handler manage tracing
+    const structuredAgent = this.conceptExtractionAgentBase.withStructuredOutput(AIConceptExtractionSchema);
     
     const response = await structuredAgent.invoke([
       {
