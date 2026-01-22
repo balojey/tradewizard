@@ -9,6 +9,7 @@
 import type { GraphStateType } from '../models/state.js';
 import type { EngineConfig } from '../config/index.js';
 import type { AdvancedObservabilityLogger } from './audit-logger.js';
+import { getLogger } from './logger.js';
 import { 
   AgentNewsToolsManager,
   createAgentNewsToolsManagerFromConfig,
@@ -37,6 +38,9 @@ export interface EnhancedAgentContext {
     inferCategories: (text: string) => string[];
     calculateTimeWindow: (market: any) => number;
   };
+  
+  // Logger for enhanced agents
+  logger: ReturnType<typeof getLogger>;
 }
 
 /**
@@ -124,6 +128,7 @@ export class EnhancedAgentFactory {
             inferCategories: this.inferCategories,
             calculateTimeWindow: this.calculateTimeWindow,
           },
+          logger: getLogger(),
         };
         
         // Execute the enhanced agent function
@@ -213,6 +218,7 @@ export class EnhancedAgentFactory {
             inferCategories: this.inferCategories,
             calculateTimeWindow: this.calculateTimeWindow,
           },
+          logger: getLogger(),
         };
         
         // Fetch additional news data if enhancement function provided
@@ -386,19 +392,42 @@ export function createEnhancedBreakingNewsAgent(
   factory: EnhancedAgentFactory
 ): (state: GraphStateType) => Promise<Partial<GraphStateType>> {
   return factory.createEnhancedAgentNode('breaking_news_agent', async (context) => {
-    const { state, newsTools, utils } = context;
+    const { state, newsTools, utils, logger } = context;
     
     if (!state.mbd) {
       throw new Error('No Market Briefing Document available');
     }
     
-    // Extract keywords and categories from market
-    const keywords = utils.extractKeywords(`${state.mbd.question} ${state.mbd.resolutionCriteria || ''}`);
+    // Use AI-enhanced keywords if available, otherwise fall back to simple extraction
+    let keywords: string[];
+    if (state.marketKeywords?.ranked) {
+      // Use AI-enhanced keywords for better news relevance
+      keywords = state.marketKeywords.ranked
+        .slice(0, 8) // Use top 8 keywords for better search precision
+        .map(rk => rk.keyword);
+      
+      logger.info({
+        agentName: 'breaking_news_agent',
+        keywordSource: 'ai-enhanced',
+        keywordCount: keywords.length,
+        topKeywords: keywords.slice(0, 5)
+      }, 'Using AI-enhanced keywords for news search');
+    } else {
+      // Fallback to simple extraction
+      keywords = utils.extractKeywords(`${state.mbd.question} ${state.mbd.resolutionCriteria || ''}`);
+      
+      logger.warn({
+        agentName: 'breaking_news_agent',
+        keywordSource: 'fallback',
+        keywordCount: keywords.length
+      }, 'Using fallback keyword extraction - AI keywords not available');
+    }
+    
     const timeWindow = utils.calculateTimeWindow(state.mbd);
     
-    // Fetch latest news using NewsData.io tools
+    // Fetch latest news using NewsData.io tools with enhanced keywords
     const newsArticles = await newsTools.fetchLatestNews({
-      query: keywords.slice(0, 3).join(' OR '), // Use top 3 keywords
+      query: keywords.slice(0, 5).join(' OR '), // Use top 5 keywords for better precision
       size: 10, // Reduced for free tier
       removeDuplicates: true,
       sort: 'relevancy',
@@ -442,18 +471,40 @@ export function createEnhancedMediaSentimentAgent(
   factory: EnhancedAgentFactory
 ): (state: GraphStateType) => Promise<Partial<GraphStateType>> {
   return factory.createEnhancedAgentNode('media_sentiment_agent', async (context) => {
-    const { state, newsTools, utils } = context;
+    const { state, newsTools, utils, logger } = context;
     
     if (!state.mbd) {
       throw new Error('No Market Briefing Document available');
     }
     
-    // Extract keywords from market
-    const keywords = utils.extractKeywords(`${state.mbd.question} ${state.mbd.resolutionCriteria || ''}`);
+    // Use AI-enhanced keywords if available, otherwise fall back to simple extraction
+    let keywords: string[];
+    if (state.marketKeywords?.ranked) {
+      // Use AI-enhanced keywords for better news relevance
+      keywords = state.marketKeywords.ranked
+        .slice(0, 8) // Use top 8 keywords for better search precision
+        .map(rk => rk.keyword);
+      
+      logger.info({
+        agentName: 'media_sentiment_agent',
+        keywordSource: 'ai-enhanced',
+        keywordCount: keywords.length,
+        topKeywords: keywords.slice(0, 5)
+      }, 'Using AI-enhanced keywords for news search');
+    } else {
+      // Fallback to simple extraction
+      keywords = utils.extractKeywords(`${state.mbd.question} ${state.mbd.resolutionCriteria || ''}`);
+      
+      logger.warn({
+        agentName: 'media_sentiment_agent',
+        keywordSource: 'fallback',
+        keywordCount: keywords.length
+      }, 'Using fallback keyword extraction - AI keywords not available');
+    }
     
     // Fetch news for sentiment analysis
     const newsArticles = await newsTools.fetchLatestNews({
-      query: keywords.slice(0, 3).join(' OR '),
+      query: keywords.slice(0, 5).join(' OR '),
       size: 10, // Reduced for free tier
       removeDuplicates: true,
       sort: 'relevancy',
@@ -497,18 +548,40 @@ export function createEnhancedMarketMicrostructureAgent(
   factory: EnhancedAgentFactory
 ): (state: GraphStateType) => Promise<Partial<GraphStateType>> {
   return factory.createEnhancedAgentNode('market_microstructure_agent', async (context) => {
-    const { state, newsTools, utils } = context;
+    const { state, newsTools, utils, logger } = context;
     
     if (!state.mbd) {
       throw new Error('No Market Briefing Document available');
     }
     
-    // Extract market-relevant information
-    const keywords = utils.extractKeywords(`${state.mbd.question} ${state.mbd.resolutionCriteria || ''}`);
+    // Use AI-enhanced keywords if available, otherwise fall back to simple extraction
+    let keywords: string[];
+    if (state.marketKeywords?.ranked) {
+      // Use AI-enhanced keywords for better news relevance
+      keywords = state.marketKeywords.ranked
+        .slice(0, 8) // Use top 8 keywords for better search precision
+        .map(rk => rk.keyword);
+      
+      logger.info({
+        agentName: 'market_microstructure_agent',
+        keywordSource: 'ai-enhanced',
+        keywordCount: keywords.length,
+        topKeywords: keywords.slice(0, 5)
+      }, 'Using AI-enhanced keywords for news search');
+    } else {
+      // Fallback to simple extraction
+      keywords = utils.extractKeywords(`${state.mbd.question} ${state.mbd.resolutionCriteria || ''}`);
+      
+      logger.warn({
+        agentName: 'market_microstructure_agent',
+        keywordSource: 'fallback',
+        keywordCount: keywords.length
+      }, 'Using fallback keyword extraction - AI keywords not available');
+    }
     
     // Fetch market-specific news
     const marketNews = await newsTools.fetchMarketNews({
-      query: keywords.slice(0, 3).join(' OR '),
+      query: keywords.slice(0, 5).join(' OR '),
       size: 10, // Reduced for free tier
       removeDuplicates: true,
       sort: 'relevancy',

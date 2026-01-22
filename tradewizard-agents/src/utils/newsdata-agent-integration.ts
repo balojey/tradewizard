@@ -64,7 +64,7 @@ export interface AgentNewsInterface {
   fetchMarketNews(params: MarketNewsToolParams, agentName?: string): Promise<NewsArticle[]>;
   
   // Legacy compatibility methods
-  fetchNewsForMarket(market: MarketBriefingDocument, timeWindow?: number, agentName?: string): Promise<NewsArticle[]>;
+  fetchNewsForMarket(market: MarketBriefingDocument, timeWindow?: number, agentName?: string, enhancedKeywords?: import('../models/types.js').EventKeywords): Promise<NewsArticle[]>;
   
   // Utility methods
   getAvailableTools(): string[];
@@ -246,7 +246,8 @@ export class NewsDataIntegrationLayer implements AgentNewsInterface {
   async fetchNewsForMarket(
     market: MarketBriefingDocument, 
     timeWindow: number = 24, 
-    agentName?: string
+    agentName?: string,
+    enhancedKeywords?: import('../models/types.js').EventKeywords
   ): Promise<NewsArticle[]> {
     if (!this.config.enabled) {
       if (this.legacyDataLayer) {
@@ -258,8 +259,8 @@ export class NewsDataIntegrationLayer implements AgentNewsInterface {
 
     const startTime = Date.now();
     try {
-      // Convert market briefing to NewsData.io parameters
-      const params = this.convertMarketToLatestParams(market, timeWindow, agentName);
+      // Convert market briefing to NewsData.io parameters with enhanced keywords
+      const params = this.convertMarketToLatestParams(market, timeWindow, agentName, enhancedKeywords);
       
       // Fetch using NewsData.io
       return await this.fetchLatestNews(params, agentName);
@@ -376,15 +377,50 @@ export class NewsDataIntegrationLayer implements AgentNewsInterface {
   private convertMarketToLatestParams(
     market: MarketBriefingDocument, 
     timeWindow: number, 
-    agentName?: string
+    agentName?: string,
+    enhancedKeywords?: import('../models/types.js').EventKeywords
   ): LatestNewsToolParams {
-    // Extract keywords from market question and description
-    const keywords = this.extractKeywordsFromMarket(market);
+    // Use AI-enhanced keywords if available, otherwise fall back to simple extraction
+    let keywords: string[];
+    if (enhancedKeywords) {
+      // Use the top-ranked keywords from AI extraction for better news relevance
+      keywords = enhancedKeywords.ranked
+        .slice(0, 8) // Use top 8 keywords for better search precision
+        .map(rk => rk.keyword);
+      
+      this.logger?.logDataFetch({
+        timestamp: Date.now(),
+        source: 'news',
+        provider: 'newsdata.io',
+        success: true,
+        cached: false,
+        stale: false,
+        freshness: 0,
+        itemCount: keywords.length,
+        duration: 0,
+      });
+    } else {
+      // Fallback to simple extraction
+      keywords = this.extractKeywordsFromMarket(market);
+      
+      this.logger?.logDataFetch({
+        timestamp: Date.now(),
+        source: 'news',
+        provider: 'newsdata.io',
+        success: false,
+        cached: false,
+        stale: false,
+        freshness: 0,
+        itemCount: keywords.length,
+        duration: 0,
+        error: 'Using fallback keyword extraction - AI keywords not available',
+      });
+    }
     
     // Determine appropriate categories based on market content
     const categories = this.inferCategoriesFromMarket(market);
     
-    // Build search query
+    // Build search query with enhanced keywords
     const query = keywords.length > 0 ? keywords.join(' OR ') : market.question;
     
     return {

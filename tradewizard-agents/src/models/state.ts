@@ -195,6 +195,7 @@ export const GraphState = Annotation.Root({
 
   /**
    * Risk philosophy agent signals (aggressive, conservative, neutral)
+   * Uses custom reducer to handle concurrent updates from multiple agents
    */
   riskPhilosophySignals: Annotation<{
     aggressive?: {
@@ -251,7 +252,14 @@ export const GraphState = Annotation.Root({
         arbitrageSetups: string[];
       };
     };
-  } | null>,
+  }>({
+    reducer: (current, update) => {
+      // Merge concurrent updates from multiple risk philosophy agents
+      // Each agent should only update its own philosophy key (aggressive/conservative/neutral)
+      return { ...current, ...update };
+    },
+    default: () => ({}),
+  }),
 
   // ============================================================================
   // Agent Performance Tracking (Advanced Agent League)

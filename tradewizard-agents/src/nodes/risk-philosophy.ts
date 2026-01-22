@@ -248,9 +248,12 @@ function createRiskPhilosophyAgentNode<T extends z.ZodType>(
 
       // Return signal in the appropriate field based on agent type
       const philosophyKey = agentName.replace('risk_philosophy_', '') as 'aggressive' | 'conservative' | 'neutral';
+      
+      // Create update object with only this agent's philosophy key
+      // This ensures concurrent agents don't overwrite each other
+      // The custom reducer in GraphState will merge these updates properly
       const riskPhilosophyUpdate: Partial<GraphStateType> = {
         riskPhilosophySignals: {
-          ...(state.riskPhilosophySignals || {}),
           [philosophyKey]: signal,
         } as any,
         auditLog: [
