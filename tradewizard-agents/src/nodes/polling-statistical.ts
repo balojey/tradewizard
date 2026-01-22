@@ -23,7 +23,11 @@ export const PollingIntelligenceSignalMetadataSchema = z.object({
   momentum: z.enum(['rising', 'falling', 'stable']),
   pollCount: z.number().min(0),
   averageSampleSize: z.number().min(0),
-  biasAdjustments: z.record(z.string(), z.number()),
+  biasAdjustments: z.object({
+    pollsterBias: z.number(),
+    methodologyBias: z.number(),
+    sampleBias: z.number(),
+  }), // Bias adjustment values
   outlierPolls: z.array(z.string()),
   methodologyConcerns: z.array(z.string()),
 });

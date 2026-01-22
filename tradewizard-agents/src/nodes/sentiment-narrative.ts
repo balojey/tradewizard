@@ -55,7 +55,11 @@ export const MediaSentimentSignalSchema = z.object({
  * Zod schema for Social Sentiment Agent signal metadata
  */
 export const SocialSentimentSignalMetadataSchema = z.object({
-  platformSentiment: z.record(z.string(), z.number().min(-1).max(1)),
+  platformSentiment: z.object({
+    twitter: z.number(),
+    reddit: z.number(),
+    overall: z.number(),
+  }), // Platform sentiment scores
   viralNarratives: z.array(
     z.object({
       narrative: z.string(),
@@ -469,13 +473,10 @@ export function createSocialSentimentAgentNode(
 
       // CRITICAL: Ensure platformSentiment includes 'overall' aggregated score
       // This satisfies Property 14 (sentiment agent platform aggregation)
-      if (!response.metadata.platformSentiment.overall) {
-        // Calculate overall sentiment as average of all platforms
-        const platformValues = Object.values(response.metadata.platformSentiment);
-        const overallSentiment =
-          platformValues.length > 0
-            ? platformValues.reduce((sum, val) => sum + (val as number), 0) / platformValues.length
-            : 0;
+      if (typeof response.metadata.platformSentiment.overall !== 'number') {
+        // Calculate overall sentiment as average of twitter and reddit
+        const { twitter, reddit } = response.metadata.platformSentiment;
+        const overallSentiment = (twitter + reddit) / 2;
         response.metadata.platformSentiment.overall = overallSentiment;
       }
 

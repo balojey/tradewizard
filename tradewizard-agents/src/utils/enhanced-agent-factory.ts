@@ -423,8 +423,6 @@ export function createEnhancedBreakingNewsAgent(
       }, 'Using fallback keyword extraction - AI keywords not available');
     }
     
-    const timeWindow = utils.calculateTimeWindow(state.mbd);
-    
     // Fetch latest news using NewsData.io tools with enhanced keywords
     const newsArticles = await newsTools.fetchLatestNews({
       query: keywords.slice(0, 5).join(' OR '), // Use top 5 keywords for better precision

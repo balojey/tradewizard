@@ -23,7 +23,7 @@ export const AgentSignalSchema = z.object({
   fairProbability: z.number().min(0).max(1),
   keyDrivers: z.array(z.string()).min(1).max(5),
   riskFactors: z.array(z.string()),
-  metadata: z.record(z.string(), z.unknown()).default({}),
+  metadata: z.object({}).optional().default({}),
 });
 
 // ============================================================================
