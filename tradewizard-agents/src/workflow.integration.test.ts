@@ -8,6 +8,7 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { createWorkflow, analyzeMarket } from './workflow.js';
 import type { EngineConfig } from './config/index.js';
+import { createConfig } from './config/index.js';
 import type { PolymarketClient } from './utils/polymarket-client.js';
 import type { MarketBriefingDocument } from './models/types.js';
 
@@ -16,24 +17,8 @@ describe('LangGraph Workflow Integration Tests', () => {
   let mockPolymarketClient: PolymarketClient;
 
   beforeEach(() => {
-    // Create mock config for all tests
-    mockConfig = {
-      polymarket: {
-        gammaApiUrl: 'https://gamma-api.polymarket.com',
-        clobApiUrl: 'https://clob.polymarket.com',
-        rateLimitBuffer: 80,
-        politicsTagId: 2,
-      },
-      langgraph: {
-        checkpointer: 'memory',
-        recursionLimit: 25,
-        streamMode: 'values',
-      },
-      opik: {
-        projectName: 'test-integration-project',
-        tags: ['integration-test'],
-        trackCosts: true,
-      },
+    // Create mock config for all tests using createConfig with minimal overrides
+    mockConfig = createConfig({
       llm: {
         singleProvider: 'openai',
         openai: {
@@ -41,19 +26,16 @@ describe('LangGraph Workflow Integration Tests', () => {
           defaultModel: 'gpt-4o-mini',
         },
       },
+      opik: {
+        projectName: 'test-integration-project',
+        tags: ['integration-test'],
+        trackCosts: true,
+      },
       agents: {
         timeoutMs: 10000,
         minAgentsRequired: 2,
       },
-      consensus: {
-        minEdgeThreshold: 0.05,
-        highDisagreementThreshold: 0.15,
-      },
-      logging: {
-        level: 'info',
-        auditTrailRetentionDays: 30,
-      },
-    };
+    });
   });
 
   test('end-to-end flow with mocked Polymarket APIs', async () => {
@@ -95,6 +77,9 @@ describe('LangGraph Workflow Integration Tests', () => {
 
     // Verify the workflow completed successfully
     expect(result).toBeDefined();
+    expect(result.recommendation).toBeDefined();
+    expect(result.agentSignals).toBeDefined();
+    expect(Array.isArray(result.agentSignals)).toBe(true);
     
     // Verify Polymarket API was called
     expect(mockPolymarketClient.fetchMarketData).toHaveBeenCalledWith('condition-test-001');
@@ -172,9 +157,9 @@ describe('LangGraph Workflow Integration Tests', () => {
 
     // Should complete but may flag liquidity risk
     expect(result).toBeDefined();
-    if (result && result.action !== 'NO_TRADE') {
+    if (result && result.recommendation && result.recommendation.action !== 'NO_TRADE') {
       // If a trade is recommended, liquidity risk should be flagged
-      expect(['medium', 'high']).toContain(result.liquidityRisk);
+      expect(['medium', 'high']).toContain(result.recommendation.liquidityRisk);
     }
   }, 60000);
 
@@ -191,7 +176,7 @@ describe('LangGraph Workflow Integration Tests', () => {
     } as any;
 
     // Create the workflow
-    const { app } = createWorkflow(mockConfig, mockPolymarketClient);
+    const { app } = await createWorkflow(mockConfig, mockPolymarketClient);
 
     // Execute the workflow
     const result = await app.invoke(
@@ -239,7 +224,7 @@ describe('LangGraph Workflow Integration Tests', () => {
     } as any;
 
     // Execute workflow
-    const { app } = createWorkflow(mockConfig, mockPolymarketClient);
+    const { app } = await createWorkflow(mockConfig, mockPolymarketClient);
     const result = await app.invoke(
       { conditionId: 'condition-agent-failure' },
       {
@@ -333,7 +318,7 @@ describe('LangGraph Workflow Integration Tests', () => {
       }),
     } as any;
 
-    const { app } = createWorkflow(mockConfig, mockPolymarketClient);
+    const { app } = await createWorkflow(mockConfig, mockPolymarketClient);
     const result = await app.invoke(
       { conditionId: 'condition-audit' },
       {
@@ -356,7 +341,7 @@ describe('LangGraph Workflow Integration Tests', () => {
     }
     
     // Verify key stages are logged
-    const stages = result.auditLog.map((e) => e.stage);
+    const stages = result.auditLog.map((e: any) => e.stage);
     expect(stages).toContain('market_ingestion');
   }, 60000);
 

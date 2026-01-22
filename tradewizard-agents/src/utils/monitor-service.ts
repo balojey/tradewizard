@@ -244,7 +244,7 @@ export class AutomatedMarketMonitor implements MonitorService {
 
     try {
       // Run Market Intelligence Engine
-      const recommendation = await analyzeMarket(
+      const analysisResult = await analyzeMarket(
         conditionId,
         this.config,
         this.polymarketClient,
@@ -252,13 +252,12 @@ export class AutomatedMarketMonitor implements MonitorService {
         this.opikHandler
       );
 
-      if (!recommendation) {
+      if (!analysisResult.recommendation) {
         throw new Error('Analysis returned null recommendation');
       }
 
-      // Extract agent signals from workflow state (simplified - would need to retrieve from checkpointer)
-      const agentSignals: AgentSignal[] = [];
-      const cost = 0; // Would need to track from Opik
+      // Extract agent signals and cost from analysis result
+      const { recommendation, agentSignals, cost = 0 } = analysisResult;
 
       // Store results in database
       await this.storeAnalysisResults(conditionId, recommendation, agentSignals, cost, startTime);

@@ -8,6 +8,7 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import { analyzeMarket } from './workflow.js';
 import type { EngineConfig } from './config/index.js';
+import { createConfig } from './config/index.js';
 import type { PolymarketClient } from './utils/polymarket-client.js';
 
 describe('NewsData.io Workflow E2E Integration Tests', () => {
@@ -29,17 +30,7 @@ describe('NewsData.io Workflow E2E Integration Tests', () => {
     process.env.OPENAI_API_KEY = 'test-openai-key';
 
     // Create comprehensive mock config
-    mockConfig = {
-      polymarket: {
-        gammaApiUrl: 'https://gamma-api.polymarket.com',
-        clobApiUrl: 'https://clob.polymarket.com',
-        rateLimitBuffer: 80,
-      },
-      langgraph: {
-        checkpointer: 'memory',
-        recursionLimit: 25,
-        streamMode: 'values',
-      },
+    mockConfig = createConfig({
       opik: {
         projectName: 'test-newsdata-integration',
         tags: ['e2e-test', 'newsdata'],
@@ -56,110 +47,7 @@ describe('NewsData.io Workflow E2E Integration Tests', () => {
         timeoutMs: 30000, // Longer timeout for E2E tests
         minAgentsRequired: 2,
       },
-      consensus: {
-        minEdgeThreshold: 0.05,
-        highDisagreementThreshold: 0.15,
-      },
-      logging: {
-        level: 'info',
-        auditTrailRetentionDays: 30,
-      },
-      advancedAgents: {
-        eventIntelligence: {
-          enabled: false,
-          breakingNews: true,
-          eventImpact: true,
-        },
-        pollingStatistical: {
-          enabled: false,
-          pollingIntelligence: true,
-          historicalPattern: true,
-        },
-        sentimentNarrative: {
-          enabled: false,
-          mediaSentiment: true,
-          socialSentiment: true,
-          narrativeVelocity: true,
-        },
-        priceAction: {
-          enabled: false,
-          momentum: true,
-          meanReversion: true,
-          minVolumeThreshold: 1000,
-        },
-        eventScenario: {
-          enabled: false,
-          catalyst: true,
-          tailRisk: true,
-        },
-        riskPhilosophy: {
-          enabled: false,
-          aggressive: true,
-          conservative: true,
-          neutral: true,
-        },
-      },
-      externalData: {
-        news: {
-          provider: 'none',
-          cacheTTL: 900,
-          maxArticles: 20,
-        },
-        polling: {
-          provider: 'none',
-          cacheTTL: 3600,
-        },
-        social: {
-          providers: [],
-          cacheTTL: 300,
-          maxMentions: 100,
-        },
-      },
-      newsData: {
-        enabled: true,
-        apiKey: 'test-api-key',
-        rateLimiting: {
-          requestsPerWindow: 100,
-          windowSizeMs: 15 * 60 * 1000,
-          dailyQuota: 1000,
-        },
-        cache: {
-          enabled: true,
-          ttl: {
-            latest: 300,
-            crypto: 300,
-            market: 300,
-            archive: 1800,
-          },
-          maxSize: 1000,
-        },
-        circuitBreaker: {
-          enabled: true,
-          failureThreshold: 5,
-          resetTimeoutMs: 60000,
-        },
-      },
-      signalFusion: {
-        baseWeights: {
-          'market_microstructure': 1.0,
-          'probability_baseline': 1.0,
-          'risk_assessment': 1.0,
-        },
-        contextAdjustments: true,
-        conflictThreshold: 0.20,
-        alignmentBonus: 0.20,
-      },
-      costOptimization: {
-        maxCostPerAnalysis: 2.0,
-        skipLowImpactAgents: false,
-        batchLLMRequests: true,
-      },
-      performanceTracking: {
-        enabled: false,
-        evaluateOnResolution: true,
-        minSampleSize: 10,
-      },
-    };
+    });
 
     // Mock Polymarket client
     mockPolymarketClient = {
@@ -196,9 +84,11 @@ describe('NewsData.io Workflow E2E Integration Tests', () => {
 
       // Verify workflow execution
       expect(result).toBeDefined();
-      expect(result?.marketId).toBe('test-market-123');
-      expect(result?.action).toBeDefined();
-      expect(result?.explanation).toBeDefined();
+      expect(result.recommendation).toBeDefined();
+      expect(result.agentSignals).toBeDefined();
+      expect(result.recommendation?.marketId).toBe('test-market-123');
+      expect(result.recommendation?.action).toBeDefined();
+      expect(result.recommendation?.explanation).toBeDefined();
 
       // Verify Polymarket client was called
       expect(mockPolymarketClient.fetchMarketData).toHaveBeenCalledWith('test-condition-456');
@@ -213,8 +103,8 @@ describe('NewsData.io Workflow E2E Integration Tests', () => {
 
       // Verify workflow still completes
       expect(result).toBeDefined();
-      expect(result?.marketId).toBe('test-market-123');
-      expect(result?.action).toBeDefined();
+      expect(result.recommendation?.marketId).toBe('test-market-123');
+      expect(result.recommendation?.action).toBeDefined();
     }, 30000);
 
     test('should handle missing NewsData API key gracefully', async () => {
@@ -226,7 +116,7 @@ describe('NewsData.io Workflow E2E Integration Tests', () => {
 
       // Verify workflow still completes
       expect(result).toBeDefined();
-      expect(result?.marketId).toBe('test-market-123');
+      expect(result.recommendation?.marketId).toBe('test-market-123');
     }, 30000);
   });
 
@@ -283,7 +173,7 @@ describe('NewsData.io Workflow E2E Integration Tests', () => {
       expect(results).toHaveLength(3);
       results.forEach(result => {
         expect(result).toBeDefined();
-        expect(result?.marketId).toBe('test-market-123');
+        expect(result.recommendation?.marketId).toBe('test-market-123');
       });
 
       // Verify Polymarket was called for each workflow

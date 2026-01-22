@@ -11,7 +11,7 @@ import { OpikCallbackHandler } from 'opik-langchain';
 import { GraphState, type GraphStateType } from './models/state.js';
 import type { EngineConfig } from './config/index.js';
 import type { PolymarketClient } from './utils/polymarket-client.js';
-import type { TradeRecommendation } from './models/types.js';
+import type { TradeRecommendation, AgentSignal } from './models/types.js';
 import { GraphExecutionLogger } from './utils/audit-logger.js';
 import { createDataIntegrationLayer } from './utils/data-integration.js';
 import { createPostgresCheckpointer } from './database/postgres-checkpointer.js';
@@ -348,6 +348,15 @@ export async function getCheckpointer(
 }
 
 /**
+ * Analysis result containing recommendation and agent signals
+ */
+export interface AnalysisResult {
+  recommendation: TradeRecommendation | null;
+  agentSignals: AgentSignal[];
+  cost?: number;
+}
+
+/**
  * Analyze a prediction market
  *
  * This is the main entry point for the Market Intelligence Engine.
@@ -357,7 +366,7 @@ export async function getCheckpointer(
  * @param config - Engine configuration
  * @param polymarketClient - Polymarket API client
  * @param supabaseManager - Optional Supabase client manager for PostgreSQL checkpointing
- * @returns Trade recommendation
+ * @returns Analysis result with recommendation and agent signals
  */
 export async function analyzeMarket(
   conditionId: string,
@@ -365,7 +374,7 @@ export async function analyzeMarket(
   polymarketClient: PolymarketClient,
   supabaseManager?: SupabaseClientManager,
   existingOpikHandler?: any
-): Promise<TradeRecommendation | null> {
+): Promise<AnalysisResult> {
   // Create structured logger for this execution
   const logger = new GraphExecutionLogger();
   logger.info('workflow', 'Starting market analysis', { conditionId });
@@ -393,10 +402,15 @@ export async function analyzeMarket(
     logger.info('workflow', 'Market analysis completed successfully', {
       action: result.recommendation?.action,
       expectedValue: result.recommendation?.expectedValue,
+      agentSignalsCount: result.agentSignals?.length || 0,
     });
 
-    // Return the final recommendation
-    return result.recommendation;
+    // Return the analysis result with recommendation and agent signals
+    return {
+      recommendation: result.recommendation,
+      agentSignals: result.agentSignals || [],
+      cost: 0, // TODO: Extract cost from Opik traces
+    };
   } catch (error) {
     logger.error('workflow', 'Market analysis failed', {
       error: error instanceof Error ? error.message : String(error),

@@ -179,13 +179,21 @@ program
 
       // Analyze market
       spinner.text = `Analyzing market ${conditionId}...`;
-      const recommendation = await analyzeMarket(conditionId, config, polymarketClient);
+      const analysisResult = await analyzeMarket(conditionId, config, polymarketClient);
 
       spinner.succeed(chalk.green('Analysis complete!'));
 
       // Display recommendation
-      if (recommendation) {
-        displayRecommendation(recommendation);
+      if (analysisResult.recommendation) {
+        displayRecommendation(analysisResult.recommendation);
+        
+        // Display agent signals if available
+        if (analysisResult.agentSignals.length > 0) {
+          console.log(chalk.bold('\nAgent Signals:'));
+          analysisResult.agentSignals.forEach((signal) => {
+            console.log(chalk.dim(`  - ${signal.agentName}: ${signal.direction} (confidence: ${(signal.confidence * 100).toFixed(1)}%, fair prob: ${(signal.fairProbability * 100).toFixed(1)}%)`));
+          });
+        }
       } else {
         console.log(chalk.yellow('\n⚠️  No recommendation generated'));
       }
@@ -314,7 +322,7 @@ program
         ? createConfig(configOverrides)
         : loadConfig();
 
-      const checkpointer = getCheckpointer(config);
+      const checkpointer = await getCheckpointer(config);
 
       // Try to get checkpoint state
       const checkpoint = await checkpointer.get({
@@ -438,7 +446,7 @@ async function displayDebugInfo(conditionId: string, config: EngineConfig): Prom
   console.log(chalk.dim('─'.repeat(60)));
 
   try {
-    const checkpointer = getCheckpointer(config);
+    const checkpointer = await getCheckpointer(config);
     const checkpoint = await checkpointer.get({
       configurable: { thread_id: conditionId },
     });
@@ -552,7 +560,7 @@ async function displayAgentSelection(conditionId: string, config: EngineConfig):
   console.log(chalk.dim('─'.repeat(60)));
 
   try {
-    const checkpointer = getCheckpointer(config);
+    const checkpointer = await getCheckpointer(config);
     const checkpoint = await checkpointer.get({
       configurable: { thread_id: conditionId },
     });
@@ -597,7 +605,7 @@ async function displaySignalFusion(conditionId: string, config: EngineConfig): P
   console.log(chalk.dim('─'.repeat(60)));
 
   try {
-    const checkpointer = getCheckpointer(config);
+    const checkpointer = await getCheckpointer(config);
     const checkpoint = await checkpointer.get({
       configurable: { thread_id: conditionId },
     });
@@ -653,7 +661,7 @@ async function displayRiskPerspectives(conditionId: string, config: EngineConfig
   console.log(chalk.dim('─'.repeat(60)));
 
   try {
-    const checkpointer = getCheckpointer(config);
+    const checkpointer = await getCheckpointer(config);
     const checkpoint = await checkpointer.get({
       configurable: { thread_id: conditionId },
     });
@@ -731,7 +739,7 @@ async function displayPerformanceMetrics(conditionId: string, config: EngineConf
   console.log(chalk.dim('─'.repeat(60)));
 
   try {
-    const checkpointer = getCheckpointer(config);
+    const checkpointer = await getCheckpointer(config);
     const checkpoint = await checkpointer.get({
       configurable: { thread_id: conditionId },
     });
