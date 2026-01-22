@@ -6,6 +6,10 @@
 
 export { marketIngestionNode, createMarketIngestionNode } from './market-ingestion.js';
 export {
+  keywordExtractionNode,
+  createKeywordExtractionNode,
+} from './keyword-extraction.js';
+export {
   createAgentNode,
   createLLMInstances,
   createAgentNodes,

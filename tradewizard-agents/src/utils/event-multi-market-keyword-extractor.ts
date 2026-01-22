@@ -1,18 +1,26 @@
 /**
  * Event-Based Multi-Market Keyword Extractor
  *
- * This module implements keyword extraction for Polymarket events that prioritizes
+ * This module implements AI-powered keyword extraction for Polymarket events that prioritizes
  * event-level tags while incorporating keywords from all constituent markets.
  * It provides comprehensive keyword analysis for event-centric intelligence gathering.
  * 
  * Features:
+ * - AI-powered intelligent keyword extraction and analysis
  * - Event-level keyword prioritization from tags, title, and description
  * - Multi-market keyword extraction and consolidation
  * - Cross-market theme identification and analysis
  * - Keyword ranking and relevance scoring for event-level analysis
  * - Political relevance filtering and concept extraction
+ * - Semantic understanding and context-aware processing
  */
 
+import { ChatOpenAI } from '@langchain/openai';
+import { ChatAnthropic } from '@langchain/anthropic';
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { OpikCallbackHandler } from 'opik-langchain';
+import { config } from '../config/index.js';
+import { z } from 'zod';
 import type {
   PolymarketEvent,
   PolymarketMarket,
@@ -25,6 +33,46 @@ import type {
 import { getLogger } from './logger.js';
 
 const logger = getLogger();
+
+/**
+ * AI-powered keyword analysis response schema
+ */
+const AIKeywordAnalysisSchema = z.object({
+  primaryKeywords: z.array(z.string()).describe('Most important keywords that capture the core essence of the event'),
+  semanticKeywords: z.array(z.string()).describe('Related terms and concepts that provide semantic context'),
+  politicalKeywords: z.array(z.string()).describe('Keywords specifically related to political events, elections, or governance'),
+  thematicClusters: z.array(z.object({
+    theme: z.string().describe('The main theme or topic'),
+    keywords: z.array(z.string()).describe('Keywords belonging to this theme'),
+    relevance: z.number().min(0).max(1).describe('Relevance score for this theme')
+  })).describe('Thematic groupings of related keywords'),
+  contextualInsights: z.array(z.string()).describe('Key insights about the event context and significance'),
+  riskFactors: z.array(z.string()).describe('Potential risk factors or uncertainties identified from the text'),
+  confidence: z.number().min(0).max(1).describe('Overall confidence in the keyword analysis')
+});
+
+type AIKeywordAnalysis = z.infer<typeof AIKeywordAnalysisSchema>;
+
+/**
+ * AI-powered concept extraction schema
+ */
+const AIConceptExtractionSchema = z.object({
+  concepts: z.array(z.object({
+    concept: z.string().describe('The main concept or entity'),
+    keywords: z.array(z.string()).describe('Related keywords for this concept'),
+    category: z.enum(['person', 'organization', 'event', 'policy', 'location', 'date', 'other']).describe('Category of the concept'),
+    importance: z.number().min(0).max(1).describe('Importance score for this concept'),
+    context: z.string().describe('Brief context about why this concept is relevant')
+  })).describe('Extracted concepts with their associated keywords'),
+  relationships: z.array(z.object({
+    concept1: z.string(),
+    concept2: z.string(),
+    relationship: z.string().describe('Type of relationship between concepts'),
+    strength: z.number().min(0).max(1).describe('Strength of the relationship')
+  })).describe('Relationships between identified concepts')
+});
+
+type AIConceptExtraction = z.infer<typeof AIConceptExtractionSchema>;
 
 /**
  * Keywords extracted from individual markets
@@ -55,10 +103,11 @@ export interface ProcessedEventKeywords {
 export type KeywordExtractionMode = 'event_priority' | 'market_priority' | 'balanced';
 
 /**
- * Event-Based Multi-Market Keyword Extractor
+ * AI-Powered Event-Based Multi-Market Keyword Extractor
  * 
  * Extracts and processes keywords from Polymarket events with multiple markets,
  * prioritizing event-level information while incorporating market-specific terms.
+ * Uses AI agents for intelligent semantic analysis and context understanding.
  */
 export class EventMultiMarketKeywordExtractor {
   private readonly politicalKeywords = new Set([
@@ -80,17 +129,370 @@ export class EventMultiMarketKeywordExtractor {
     'me', 'him', 'her', 'us', 'them', 'my', 'your', 'his', 'her', 'its', 'our', 'their'
   ]);
 
-  constructor(private readonly extractionMode: KeywordExtractionMode = 'event_priority') {
-    // Store extraction mode for future use in ranking algorithms
-    logger.info(`EventMultiMarketKeywordExtractor initialized with mode: ${this.extractionMode}`);
+  private readonly keywordAnalysisAgentBase: ChatOpenAI | ChatAnthropic | ChatGoogleGenerativeAI;
+  private readonly conceptExtractionAgentBase: ChatOpenAI | ChatAnthropic | ChatGoogleGenerativeAI;
+  private readonly opikHandler: OpikCallbackHandler;
+
+  constructor(
+    private readonly extractionMode: KeywordExtractionMode = 'event_priority',
+    llmConfig?: {
+      keywordAgent?: any;
+      conceptAgent?: any;
+      opikHandler?: any; // Accept Opik handler from workflow
+    }
+  ) {
+    // Use provided Opik handler or create a new one (for standalone usage)
+    this.opikHandler = llmConfig?.opikHandler || new OpikCallbackHandler({
+      projectName: config.opik.projectName,
+    });
+
+    // Initialize AI agents for intelligent keyword extraction with Opik tracing
+    const { keywordAgentBase } = this.createLLMInstancePair(config, 0.1);
+    const { conceptAgentBase } = this.createLLMInstancePair(config, 0.2);
+    
+    this.keywordAnalysisAgentBase = keywordAgentBase;
+    this.conceptExtractionAgentBase = conceptAgentBase;
+
+    logger.info({
+      mode: this.extractionMode,
+      opikProject: config.opik.projectName,
+      opikTracking: config.opik.trackCosts,
+    }, `AI-Powered EventMultiMarketKeywordExtractor initialized with mode: ${this.extractionMode}`);
   }
 
   /**
-   * Extract comprehensive keywords from a Polymarket event
+   * Creates an LLM instance pair based on the current configuration
+   * Returns both base instance and Opik-configured version
    */
-  extractKeywordsFromEvent(event: PolymarketEvent): EventKeywords {
-    logger.info(`Extracting keywords from event: ${event.id} (${event.title})`);
+  private createLLMInstancePair(config: any, temperature: number): {
+    keywordAgent?: any;
+    conceptAgent?: any;
+    keywordAgentBase: ChatOpenAI | ChatAnthropic | ChatGoogleGenerativeAI;
+    conceptAgentBase: ChatOpenAI | ChatAnthropic | ChatGoogleGenerativeAI;
+  } {
+    const baseLLM = this.createBaseLLMInstance(config, temperature);
+    const opikConfiguredLLM = baseLLM.withConfig({
+      callbacks: [this.opikHandler],
+      tags: ['keyword-extraction', 'event-analysis', this.getProviderTag(config)],
+    });
 
+    return {
+      keywordAgent: opikConfiguredLLM,
+      conceptAgent: opikConfiguredLLM,
+      keywordAgentBase: baseLLM,
+      conceptAgentBase: baseLLM,
+    };
+  }
+
+  /**
+   * Creates a base LLM instance based on the current configuration
+   * Respects the LLM_SINGLE_PROVIDER setting
+   */
+  private createBaseLLMInstance(config: any, temperature: number): ChatOpenAI | ChatAnthropic | ChatGoogleGenerativeAI {
+    const singleProvider = config.llm.singleProvider;
+    
+    // If single provider is set, use only that provider
+    if (singleProvider === 'google' && config.llm.google) {
+      return new ChatGoogleGenerativeAI({
+        apiKey: config.llm.google.apiKey,
+        model: config.llm.google.defaultModel,
+        temperature,
+      });
+    }
+    
+    if (singleProvider === 'openai' && config.llm.openai) {
+      return new ChatOpenAI({
+        apiKey: config.llm.openai.apiKey,
+        model: config.llm.openai.defaultModel,
+        temperature,
+      });
+    }
+    
+    if (singleProvider === 'anthropic' && config.llm.anthropic) {
+      return new ChatAnthropic({
+        apiKey: config.llm.anthropic.apiKey,
+        model: config.llm.anthropic.defaultModel,
+        temperature,
+      });
+    }
+    
+    // Fallback: try available providers in order of preference
+    if (config.llm.google) {
+      return new ChatGoogleGenerativeAI({
+        apiKey: config.llm.google.apiKey,
+        model: config.llm.google.defaultModel,
+        temperature,
+      });
+    }
+    
+    if (config.llm.openai) {
+      return new ChatOpenAI({
+        apiKey: config.llm.openai.apiKey,
+        model: config.llm.openai.defaultModel,
+        temperature,
+      });
+    }
+    
+    if (config.llm.anthropic) {
+      return new ChatAnthropic({
+        apiKey: config.llm.anthropic.apiKey,
+        model: config.llm.anthropic.defaultModel,
+        temperature,
+      });
+    }
+    
+    throw new Error('No LLM provider configured. Please set up at least one LLM provider (OpenAI, Anthropic, or Google).');
+  }
+
+  /**
+   * Get provider tag for Opik tracing
+   */
+  private getProviderTag(config: any): string {
+    const singleProvider = config.llm.singleProvider;
+    if (singleProvider) return singleProvider;
+    
+    if (config.llm.google) return 'google-genai';
+    if (config.llm.openai) return 'openai';
+    if (config.llm.anthropic) return 'anthropic';
+    
+    return 'unknown';
+  }
+
+  /**
+   * Flush Opik traces for proper observability
+   */
+  async flushOpikTraces(): Promise<void> {
+    try {
+      await this.opikHandler.flushAsync();
+      logger.debug('EventMultiMarketKeywordExtractor: Opik traces flushed successfully');
+    } catch (error) {
+      logger.warn({
+        error: error instanceof Error ? error.message : String(error),
+      }, 'EventMultiMarketKeywordExtractor: Failed to flush Opik traces');
+    }
+  }
+
+  /**
+   * Extract comprehensive keywords from a Polymarket event using AI-powered analysis
+   */
+  async extractKeywordsFromEvent(event: PolymarketEvent): Promise<EventKeywords> {
+    const startTime = Date.now();
+    logger.info({
+      eventId: event.id,
+      eventTitle: event.title,
+      marketCount: event.markets?.length || 0,
+      opikProject: config.opik.projectName,
+    }, `Extracting keywords from event: ${event.id} (${event.title})`);
+
+    try {
+      // Step 1: AI-powered keyword analysis
+      const aiAnalysis = await this.performAIKeywordAnalysis(event);
+      
+      // Step 2: Traditional rule-based extraction (as fallback and validation)
+      const traditionalKeywords = this.extractTraditionalKeywords(event);
+      
+      // Step 3: AI-powered concept extraction
+      const aiConcepts = await this.performAIConceptExtraction(event);
+      
+      // Step 4: Combine and enhance with AI insights
+      const enhanced = this.combineAIAndTraditionalAnalysis(aiAnalysis, traditionalKeywords, aiConcepts);
+      
+      // Step 5: Extract market-level keywords
+      const marketKeywords = this.extractKeywordsFromAllMarkets(event.markets);
+
+      // Step 6: Identify themes using AI-enhanced analysis
+      const themes = await this.identifyAIEnhancedThemes(event.markets, aiAnalysis);
+      
+      // Step 7: Create final concepts combining AI and traditional approaches
+      const concepts = this.createEnhancedConcepts(aiConcepts, event);
+
+      // Step 8: Rank keywords using AI insights
+      const combined = this.combineEventAndMarketKeywords(enhanced.eventLevel, marketKeywords);
+      const ranked = this.rankKeywordsByEventRelevance(combined, event, aiAnalysis);
+
+      const result: EventKeywords = {
+        eventLevel: enhanced.eventLevel,
+        marketLevel: marketKeywords.flatMap(mk => [...mk.primary, ...mk.secondary, ...mk.outcomes]),
+        combined,
+        themes,
+        concepts,
+        ranked
+      };
+
+      const duration = Date.now() - startTime;
+      logger.info({
+        eventId: event.id,
+        duration,
+        keywordCount: result.combined.length,
+        themeCount: result.themes.length,
+        conceptCount: result.concepts.length,
+        opikProject: config.opik.projectName,
+      }, `AI-enhanced extraction completed: ${result.combined.length} combined keywords, ${result.themes.length} themes, ${result.concepts.length} concepts`);
+
+      // Flush Opik traces for this extraction
+      await this.flushOpikTraces();
+      
+      return result;
+
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      logger.warn({
+        eventId: event.id,
+        duration,
+        error: error instanceof Error ? error.message : String(error),
+        opikProject: config.opik.projectName,
+      }, `AI keyword extraction failed, falling back to traditional method: ${error}`);
+
+      // Still flush traces even on error
+      await this.flushOpikTraces();
+      
+      return this.extractTraditionalKeywords(event);
+    }
+  }
+
+  /**
+   * Perform AI-powered keyword analysis on the event
+   */
+  private async performAIKeywordAnalysis(event: PolymarketEvent): Promise<AIKeywordAnalysis> {
+    const eventContext = this.buildEventContext(event);
+    
+    const prompt = `Analyze the following prediction market event and extract comprehensive keywords:
+
+EVENT CONTEXT:
+${eventContext}
+
+Please provide a thorough keyword analysis focusing on:
+1. Primary keywords that capture the core essence of this event
+2. Semantic keywords that provide related context and meaning
+3. Political keywords if this is a political/governance event
+4. Thematic clusters that group related concepts
+5. Contextual insights about the event's significance
+6. Risk factors or uncertainties you identify
+
+Be precise and focus on terms that would be valuable for market intelligence and trading decisions.`;
+
+    const structuredAgent = this.keywordAnalysisAgentBase.withStructuredOutput(AIKeywordAnalysisSchema).withConfig({
+      callbacks: [this.opikHandler],
+      tags: ['keyword-extraction', 'ai-analysis', this.getProviderTag(config)],
+    });
+    
+    const response = await structuredAgent.invoke([
+      {
+        role: 'system',
+        content: 'You are an expert market intelligence analyst specializing in keyword extraction for prediction markets. Focus on identifying terms that are most relevant for trading decisions and market analysis.'
+      },
+      {
+        role: 'user',
+        content: prompt
+      }
+    ]);
+
+    return response;
+  }
+
+  /**
+   * Perform AI-powered concept extraction
+   */
+  private async performAIConceptExtraction(event: PolymarketEvent): Promise<AIConceptExtraction> {
+    const eventContext = this.buildEventContext(event);
+    
+    const prompt = `Extract key concepts and entities from this prediction market event:
+
+EVENT CONTEXT:
+${eventContext}
+
+Identify:
+1. Important concepts/entities (people, organizations, events, policies, locations, dates)
+2. Relationships between these concepts
+3. Why each concept is relevant to the market outcome
+
+Focus on concepts that could influence the market resolution or trading decisions.`;
+
+    const structuredAgent = this.conceptExtractionAgentBase.withStructuredOutput(AIConceptExtractionSchema).withConfig({
+      callbacks: [this.opikHandler],
+      tags: ['concept-extraction', 'ai-analysis', this.getProviderTag(config)],
+    });
+    
+    const response = await structuredAgent.invoke([
+      {
+        role: 'system',
+        content: 'You are an expert in entity recognition and concept extraction for prediction markets. Focus on identifying concepts that are most relevant for understanding market dynamics and outcomes.'
+      },
+      {
+        role: 'user',
+        content: prompt
+      }
+    ]);
+
+    return response;
+  }
+
+  /**
+   * Build comprehensive event context for AI analysis
+   */
+  private buildEventContext(event: PolymarketEvent): string {
+    const context = [
+      `Title: ${event.title}`,
+      `Description: ${event.description}`,
+      `Tags: ${event.tags.map(tag => tag.label).join(', ')}`,
+      `Markets (${event.markets.length}):`
+    ];
+
+    event.markets.forEach((market, index) => {
+      context.push(`  ${index + 1}. ${market.question}`);
+      if (market.description) {
+        context.push(`     Description: ${market.description}`);
+      }
+      try {
+        const outcomes = JSON.parse(market.outcomes);
+        context.push(`     Outcomes: ${outcomes.join(', ')}`);
+      } catch {
+        context.push(`     Outcomes: ${market.outcomes}`);
+      }
+    });
+
+    return context.join('\n');
+  }
+
+  /**
+   * Combine AI analysis with traditional keyword extraction
+   */
+  private combineAIAndTraditionalAnalysis(
+    aiAnalysis: AIKeywordAnalysis,
+    traditional: EventKeywords,
+    aiConcepts: AIConceptExtraction
+  ): { eventLevel: string[]; enhanced: boolean } {
+    const combined = new Set<string>();
+    
+    // Add AI-extracted keywords with high priority
+    aiAnalysis.primaryKeywords.forEach(keyword => combined.add(keyword.toLowerCase()));
+    aiAnalysis.semanticKeywords.forEach(keyword => combined.add(keyword.toLowerCase()));
+    aiAnalysis.politicalKeywords.forEach(keyword => combined.add(keyword.toLowerCase()));
+    
+    // Add thematic keywords
+    aiAnalysis.thematicClusters.forEach(cluster => {
+      cluster.keywords.forEach(keyword => combined.add(keyword.toLowerCase()));
+    });
+    
+    // Add concept keywords
+    aiConcepts.concepts.forEach(concept => {
+      combined.add(concept.concept.toLowerCase());
+      concept.keywords.forEach(keyword => combined.add(keyword.toLowerCase()));
+    });
+    
+    // Merge with traditional keywords (lower priority)
+    traditional.eventLevel.forEach(keyword => combined.add(keyword.toLowerCase()));
+    
+    return {
+      eventLevel: Array.from(combined),
+      enhanced: true
+    };
+  }
+
+  /**
+   * Traditional keyword extraction (fallback method)
+   */
+  private extractTraditionalKeywords(event: PolymarketEvent): EventKeywords {
     // Extract event-level keywords
     const eventTags = this.extractKeywordsFromEventTags(event.tags);
     const eventTitle = this.extractKeywordsFromText(event.title, 'event_title');
@@ -100,14 +502,10 @@ export class EventMultiMarketKeywordExtractor {
     const marketKeywords = this.extractKeywordsFromAllMarkets(event.markets);
 
     // Process and combine keywords
-    const processed = this.processEventMetadata(event);
     const combined = this.combineEventAndMarketKeywords(
       [...eventTags, ...eventTitle, ...eventDescription],
       marketKeywords
     );
-
-    // Log processed metadata for debugging
-    logger.debug(`Processed event metadata: ${processed.political.length} political keywords, ${processed.derived.length} derived keywords`);
 
     // Identify themes and concepts
     const themes = this.identifyCommonThemes(event.markets);
@@ -116,7 +514,7 @@ export class EventMultiMarketKeywordExtractor {
     // Rank keywords by relevance
     const ranked = this.rankKeywordsByEventRelevance(combined, event);
 
-    const result: EventKeywords = {
+    return {
       eventLevel: [...eventTags, ...eventTitle, ...eventDescription],
       marketLevel: marketKeywords.flatMap(mk => [...mk.primary, ...mk.secondary, ...mk.outcomes]),
       combined,
@@ -124,11 +522,99 @@ export class EventMultiMarketKeywordExtractor {
       concepts,
       ranked
     };
-
-    logger.info(`Extracted ${result.combined.length} combined keywords, ${result.themes.length} themes, ${result.concepts.length} concepts`);
-    return result;
   }
 
+  /**
+   * AI-enhanced theme identification across markets
+   */
+  private async identifyAIEnhancedThemes(
+    markets: PolymarketMarket[], 
+    aiAnalysis: AIKeywordAnalysis
+  ): Promise<ThemeKeywords[]> {
+    // Start with traditional theme identification
+    const traditionalThemes = this.identifyCommonThemes(markets);
+    
+    // Enhance with AI-identified thematic clusters
+    const aiThemes: ThemeKeywords[] = aiAnalysis.thematicClusters.map(cluster => ({
+      theme: cluster.theme,
+      keywords: cluster.keywords,
+      marketIds: markets.map(m => m.id), // AI themes apply to all markets in the event
+      relevanceScore: cluster.relevance
+    }));
+
+    // Combine and deduplicate themes
+    const allThemes = [...traditionalThemes, ...aiThemes];
+    const themeMap = new Map<string, ThemeKeywords>();
+
+    for (const theme of allThemes) {
+      const normalizedTheme = theme.theme.toLowerCase();
+      if (themeMap.has(normalizedTheme)) {
+        const existing = themeMap.get(normalizedTheme)!;
+        // Merge keywords and market IDs
+        existing.keywords = [...new Set([...existing.keywords, ...theme.keywords])];
+        existing.marketIds = [...new Set([...existing.marketIds, ...theme.marketIds])];
+        existing.relevanceScore = Math.max(existing.relevanceScore, theme.relevanceScore);
+      } else {
+        themeMap.set(normalizedTheme, theme);
+      }
+    }
+
+    return Array.from(themeMap.values())
+      .sort((a, b) => b.relevanceScore - a.relevanceScore);
+  }
+
+  /**
+   * Create enhanced concepts combining AI and traditional extraction
+   */
+  private createEnhancedConcepts(
+    aiConcepts: AIConceptExtraction, 
+    event: PolymarketEvent
+  ): ConceptKeywords[] {
+    const concepts: ConceptKeywords[] = [];
+
+    // Add AI-extracted concepts
+    for (const concept of aiConcepts.concepts) {
+      concepts.push({
+        concept: concept.concept,
+        keywords: concept.keywords,
+        source: this.mapAICategoryToSource(concept.category),
+        confidence: concept.importance
+      });
+    }
+
+    // Add traditional concepts as backup
+    const traditionalConcepts = this.extractEventLevelConcepts(event);
+    for (const traditional of traditionalConcepts) {
+      // Only add if not already covered by AI concepts
+      const exists = concepts.some(c => 
+        c.concept.toLowerCase() === traditional.concept.toLowerCase()
+      );
+      if (!exists) {
+        concepts.push(traditional);
+      }
+    }
+
+    return concepts.sort((a, b) => b.confidence - a.confidence);
+  }
+
+  /**
+   * Map AI concept categories to our source types
+   */
+  private mapAICategoryToSource(category: string): ConceptKeywords['source'] {
+    switch (category) {
+      case 'person':
+      case 'organization':
+      case 'location':
+        return 'event_description';
+      case 'event':
+      case 'policy':
+        return 'event_title';
+      case 'date':
+        return 'event_tags';
+      default:
+        return 'event_description';
+    }
+  }
   /**
    * Extract keywords from event tags
    */
@@ -291,7 +777,7 @@ export class EventMultiMarketKeywordExtractor {
     }
 
     // Apply cross-market bonus for keywords appearing in multiple markets
-    for (const [keyword, data] of keywordScores) {
+    for (const [, data] of keywordScores) {
       if (data.marketIds.size > 1) {
         data.score += data.marketIds.size * 0.5; // Bonus for cross-market presence
       }
@@ -428,7 +914,7 @@ export class EventMultiMarketKeywordExtractor {
       contexts: string[];
       semanticVariations: Set<string>;
     }>,
-    markets: PolymarketMarket[]
+    _markets: PolymarketMarket[]
   ): Map<string, {
     keywords: Set<string>;
     marketIds: Set<string>;
@@ -563,20 +1049,43 @@ export class EventMultiMarketKeywordExtractor {
   }
 
   /**
-   * Rank keywords by relevance to the event
+   * Rank keywords by relevance to the event using AI insights
    */
-  rankKeywordsByEventRelevance(keywords: string[], event: PolymarketEvent): RankedKeyword[] {
+  rankKeywordsByEventRelevance(
+    keywords: string[], 
+    event: PolymarketEvent, 
+    aiAnalysis?: AIKeywordAnalysis
+  ): RankedKeyword[] {
     const ranked: RankedKeyword[] = [];
 
     for (const keyword of keywords) {
-      const relevanceScore = this.calculateKeywordRelevance(keyword, event);
+      let relevanceScore = this.calculateKeywordRelevance(keyword, event);
+      
+      // Boost relevance based on AI analysis
+      if (aiAnalysis) {
+        if (aiAnalysis.primaryKeywords.includes(keyword)) {
+          relevanceScore += 0.3; // High boost for AI-identified primary keywords
+        } else if (aiAnalysis.semanticKeywords.includes(keyword)) {
+          relevanceScore += 0.2; // Medium boost for semantic keywords
+        } else if (aiAnalysis.politicalKeywords.includes(keyword)) {
+          relevanceScore += 0.25; // High boost for political keywords
+        }
+        
+        // Check thematic clusters
+        for (const cluster of aiAnalysis.thematicClusters) {
+          if (cluster.keywords.includes(keyword)) {
+            relevanceScore += cluster.relevance * 0.15; // Boost based on theme relevance
+          }
+        }
+      }
+
       const source = this.determineKeywordSource(keyword, event);
       const frequency = this.calculateKeywordFrequency(keyword, event);
       const marketIds = this.findKeywordMarkets(keyword, event);
 
       ranked.push({
         keyword,
-        relevanceScore,
+        relevanceScore: Math.min(relevanceScore, 1.0), // Cap at 1.0
         source,
         frequency,
         marketIds: marketIds.length > 0 ? marketIds : undefined,

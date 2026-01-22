@@ -45,6 +45,11 @@ export const GraphState = Annotation.Root({
   mbd: Annotation<MarketBriefingDocument | null>,
 
   /**
+   * Keywords extracted from the market and event context
+   */
+  marketKeywords: Annotation<import('./types.js').EventKeywords | null>,
+
+  /**
    * Error that occurred during market ingestion (if any)
    */
   ingestionError: Annotation<IngestionError | null>,
@@ -56,9 +61,7 @@ export const GraphState = Annotation.Root({
   /**
    * List of active agent names selected for this market analysis
    */
-  activeAgents: Annotation<string[]>({
-    default: () => [],
-  }),
+  activeAgents: Annotation<string[]>,
 
   // ============================================================================
   // External Data (Advanced Agent League)
@@ -266,6 +269,7 @@ export const GraphState = Annotation.Root({
     errorRate: number;
     lastUpdated: number;
   }>>({
+    reducer: (current, update) => ({ ...current, ...update }),
     default: () => ({}),
   }),
 

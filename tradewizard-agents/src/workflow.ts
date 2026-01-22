@@ -18,6 +18,7 @@ import { createPostgresCheckpointer } from './database/postgres-checkpointer.js'
 import type { SupabaseClientManager } from './database/supabase-client.js';
 import {
   createMarketIngestionNode,
+  createKeywordExtractionNode,
   createAgentNodes,
   createThesisConstructionNode,
   createCrossExaminationNode,
@@ -54,7 +55,8 @@ import {
 export async function createWorkflow(
   config: EngineConfig,
   polymarketClient: PolymarketClient,
-  supabaseManager?: SupabaseClientManager
+  supabaseManager?: SupabaseClientManager,
+  existingOpikHandler?: any
 ) {
   // Create data integration layer for external data sources
   // Filter out 'newsdata' provider as it's handled separately by enhanced agents
@@ -84,6 +86,7 @@ export async function createWorkflow(
 
   // Create all node functions
   const marketIngestion = createMarketIngestionNode(polymarketClient);
+  const keywordExtraction = createKeywordExtractionNode(config, existingOpikHandler);
   
   // Create agents (enhanced or standard based on configuration)
   let agents;
@@ -141,6 +144,7 @@ export async function createWorkflow(
   const workflow = new StateGraph(GraphState)
     // Add all nodes to the graph
     .addNode('market_ingestion', marketIngestion)
+    .addNode('keyword_extraction', keywordExtraction)
     .addNode('dynamic_agent_selection', dynamicAgentSelection)
     
     // MVP agents
@@ -195,17 +199,17 @@ export async function createWorkflow(
         if (state.ingestionError) {
           return 'error';
         }
-        // Otherwise, proceed to dynamic agent selection
-        return 'agent_selection';
+        // Otherwise, proceed to keyword extraction
+        return 'keyword_extraction';
       },
       {
-        agent_selection: 'dynamic_agent_selection',
+        keyword_extraction: 'keyword_extraction',
         error: END,
       }
     )
 
-    // Add edge from ingestion to dynamic agent selection
-    .addEdge('market_ingestion', 'dynamic_agent_selection')
+    // Add edge from keyword extraction to dynamic agent selection
+    .addEdge('keyword_extraction', 'dynamic_agent_selection')
 
     // Add conditional edges from dynamic agent selection to all agent nodes
     // Agents execute in parallel based on activeAgents list
@@ -284,8 +288,8 @@ export async function createWorkflow(
     checkpointer,
   });
 
-  // Initialize OpikCallbackHandler
-  const opikHandler = new OpikCallbackHandler({
+  // Initialize OpikCallbackHandler (use existing or create new)
+  const opikHandler = existingOpikHandler || new OpikCallbackHandler({
     projectName: config.opik.projectName,
   });
 
@@ -359,14 +363,15 @@ export async function analyzeMarket(
   conditionId: string,
   config: EngineConfig,
   polymarketClient: PolymarketClient,
-  supabaseManager?: SupabaseClientManager
+  supabaseManager?: SupabaseClientManager,
+  existingOpikHandler?: any
 ): Promise<TradeRecommendation | null> {
   // Create structured logger for this execution
   const logger = new GraphExecutionLogger();
   logger.info('workflow', 'Starting market analysis', { conditionId });
 
   // Create the workflow
-  const { app, opikHandler } = await createWorkflow(config, polymarketClient, supabaseManager);
+  const { app, opikHandler } = await createWorkflow(config, polymarketClient, supabaseManager, existingOpikHandler);
 
   try {
     // Execute the workflow with thread_id for checkpointing and tracing

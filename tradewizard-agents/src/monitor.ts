@@ -16,6 +16,7 @@ import { createQuotaManager } from './utils/api-quota-manager.js';
 import { createMarketDiscoveryEngine } from './utils/market-discovery.js';
 import { createPolymarketClient } from './utils/polymarket-client.js';
 import { createMonitorService } from './utils/monitor-service.js';
+import { OpikCallbackHandler } from 'opik-langchain';
 import { createHealthCheckServer } from './utils/health-check-server.js';
 import { validateMonitorEnvOrExit } from './utils/env-validator.js';
 
@@ -60,23 +61,29 @@ async function main(): Promise<void> {
     // 4. Create Polymarket client
     const polymarketClient = createPolymarketClient(config.polymarket);
 
-    // 5. Create market discovery engine
-    const discovery = createMarketDiscoveryEngine(config.polymarket);
+    // 5. Create shared Opik handler for unified tracing
+    const opikHandler = new OpikCallbackHandler({
+      projectName: config.opik.projectName,
+    });
 
-    // 6. Create monitor service
+    // 6. Create market discovery engine with Opik handler
+    const discovery = createMarketDiscoveryEngine(config.polymarket, opikHandler);
+
+    // 7. Create monitor service
     monitorService = createMonitorService(
       config,
       supabaseManager,
       database,
       quotaManager,
       discovery,
-      polymarketClient
+      polymarketClient,
+      opikHandler
     );
 
-    // 7. Initialize monitor service
+    // 8. Initialize monitor service
     await monitorService.initialize();
 
-    // 8. Create health check server
+    // 9. Create health check server
     const healthCheckPort = parseInt(process.env.HEALTH_CHECK_PORT || '3000', 10);
     const enableManualTriggers = process.env.ENABLE_MANUAL_TRIGGERS !== 'false';
 

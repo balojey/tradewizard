@@ -109,7 +109,8 @@ export class AutomatedMarketMonitor implements MonitorService {
     private database: DatabasePersistence,
     private quotaManager: APIQuotaManager,
     private discovery: MarketDiscoveryEngine,
-    private polymarketClient: PolymarketClient
+    private polymarketClient: PolymarketClient,
+    private opikHandler?: any
   ) {
     // Create scheduler with bound analysis cycle function
     this.scheduler = this.createScheduler();
@@ -247,7 +248,8 @@ export class AutomatedMarketMonitor implements MonitorService {
         conditionId,
         this.config,
         this.polymarketClient,
-        this.supabaseManager
+        this.supabaseManager,
+        this.opikHandler
       );
 
       if (!recommendation) {
@@ -554,7 +556,8 @@ export function createMonitorService(
   database: DatabasePersistence,
   quotaManager: APIQuotaManager,
   discovery: MarketDiscoveryEngine,
-  polymarketClient: PolymarketClient
+  polymarketClient: PolymarketClient,
+  opikHandler?: any
 ): MonitorService {
   return new AutomatedMarketMonitor(
     config,
@@ -562,6 +565,7 @@ export function createMonitorService(
     database,
     quotaManager,
     discovery,
-    polymarketClient
+    polymarketClient,
+    opikHandler
   );
 }

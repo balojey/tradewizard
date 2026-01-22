@@ -146,10 +146,12 @@ export class PolymarketDiscoveryEngine implements MarketDiscoveryEngine {
   private readonly keywordExtractor: EventMultiMarketKeywordExtractor;
   private readonly config: EngineConfig['polymarket'];
 
-  constructor(config: EngineConfig['polymarket']) {
+  constructor(config: EngineConfig['polymarket'], opikHandler?: any) {
     this.config = config;
     this.eventClient = createEnhancedEventPolymarketClient(config);
-    this.keywordExtractor = new EventMultiMarketKeywordExtractor(config.keywordExtractionMode);
+    this.keywordExtractor = new EventMultiMarketKeywordExtractor(config.keywordExtractionMode, {
+      opikHandler,
+    });
     
     logger.info({
       politicsTagId: config.politicsTagId,
@@ -172,7 +174,7 @@ export class PolymarketDiscoveryEngine implements MarketDiscoveryEngine {
       );
 
       // Convert events to markets while preserving event context
-      const marketsWithEventContext = this.convertEventsToMarkets(rankedEvents);
+      const marketsWithEventContext = await this.convertEventsToMarkets(rankedEvents);
 
       // Rank markets using enhanced algorithm with event context
       const rankedMarkets = this.rankMarketsWithEventContext(marketsWithEventContext);
@@ -289,25 +291,12 @@ export class PolymarketDiscoveryEngine implements MarketDiscoveryEngine {
    * Convert ranked events to markets with event context
    * Implements Requirements 1.2, 1.4 - event metadata extraction and market relationships
    */
-  private convertEventsToMarkets(rankedEvents: RankedEvent[]): PolymarketMarket[] {
+  private async convertEventsToMarkets(rankedEvents: RankedEvent[]): Promise<PolymarketMarket[]> {
     const markets: PolymarketMarket[] = [];
 
     for (const rankedEvent of rankedEvents) {
       const { event, marketAnalysis } = rankedEvent;
       
-      // Extract keywords for enhanced context
-      let eventKeywords: EventKeywords | null = null;
-      if (this.config.enableEventBasedKeywords) {
-        try {
-          eventKeywords = this.keywordExtractor.extractKeywordsFromEvent(event);
-        } catch (error) {
-          logger.warn({ 
-            eventId: event.id, 
-            error: (error as Error).message 
-          }, '[PolymarketDiscoveryEngine] Failed to extract event keywords');
-        }
-      }
-
       // Convert each market in the event
       for (const market of event.markets) {
         const enhancedMarket: PolymarketMarket = {
@@ -335,11 +324,11 @@ export class PolymarketDiscoveryEngine implements MarketDiscoveryEngine {
           eventId: event.id,
           eventTitle: event.title,
           
-          // Additional context for enhanced ranking
+          // Additional context for enhanced ranking (no keywords here - will be extracted in workflow)
           _eventContext: {
             event,
             marketAnalysis,
-            eventKeywords,
+            eventKeywords: null, // Will be populated by workflow node
             eventTags: event.tags.map(tag => tag.label),
             totalEventVolume: marketAnalysis.totalVolume,
             totalEventLiquidity: marketAnalysis.totalLiquidity,
@@ -754,7 +743,8 @@ export class PolymarketDiscoveryEngine implements MarketDiscoveryEngine {
  * Maintains backward compatibility while providing enhanced event-based discovery
  */
 export function createMarketDiscoveryEngine(
-  config: EngineConfig['polymarket']
+  config: EngineConfig['polymarket'],
+  opikHandler?: any
 ): MarketDiscoveryEngine {
-  return new PolymarketDiscoveryEngine(config);
+  return new PolymarketDiscoveryEngine(config, opikHandler);
 }
