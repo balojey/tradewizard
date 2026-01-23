@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Suspense } from "react";
 import { Navbar } from "@/components/ui/navbar";
-import { CategoriesBar } from "@/components/categories-bar";
 import MagicProvider from "@/lib/magic";
 
 const geistSans = Geist({
@@ -33,9 +31,6 @@ export default function RootLayout({
       >
         <MagicProvider>
           <Navbar />
-          <Suspense fallback={<div className="h-12 border-b border-border/40 bg-background/95" />}>
-            <CategoriesBar />
-          </Suspense>
           <main className="flex-1">
             {children}
           </main>

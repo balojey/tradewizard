@@ -1,6 +1,7 @@
 import { MarketCard } from "@/components/market-card";
 import { HomeHero } from "@/components/home-hero";
-import { getEvents } from "@/lib/polymarket";
+import { PoliticsTagBar } from "@/components/politics-tag-bar";
+import { getPoliticalEvents, getPoliticalTagDisplayName } from "@/lib/politics-data";
 
 // Server Component
 export default async function Home({
@@ -9,23 +10,24 @@ export default async function Home({
   searchParams: Promise<{ tag?: string }>;
 }) {
   const params = await searchParams;
-  const tag = params.tag;
+  const tag = params.tag || "all";
 
-  // Fetch real data
-  const events = await getEvents({
+  // Fetch politics-focused data using the new utility
+  const events = await getPoliticalEvents({
+    tag,
     limit: 20,
     active: true,
     closed: false,
-    tag_slug: tag !== "All" && tag ? tag.toLowerCase() : undefined
   });
 
   return (
     <div className="min-h-screen bg-background">
       <HomeHero />
+      <PoliticsTagBar currentTag={tag} />
       
       <section id="markets" className="container max-w-screen-2xl mx-auto px-4 py-8">
         <h2 className="mb-6 text-xl font-bold tracking-tight">
-          {tag ? `${tag} Markets` : "Trending Markets"}
+          {getPoliticalTagDisplayName(tag)}
         </h2>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
