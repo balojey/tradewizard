@@ -25,12 +25,12 @@ export default async function Home({
       <HomeHero />
       <PoliticsTagBar currentTag={tag} />
       
-      <section id="markets" className="container max-w-screen-2xl mx-auto px-4 py-8">
-        <h2 className="mb-6 text-xl font-bold tracking-tight">
+      <section id="markets" className="container max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-12">
+        <h2 className="mb-4 sm:mb-6 lg:mb-8 text-lg sm:text-xl lg:text-2xl font-bold tracking-tight">
           {getPoliticalTagDisplayName(tag)}
         </h2>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
           {events.map((event) => {
             // Parsing outcomes from the first market in the event for display
             // Polymarket events group markets. Usually the main market is relevant.
