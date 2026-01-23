@@ -1,6 +1,6 @@
 import { MarketCard } from "@/components/market-card";
+import { HomeHero } from "@/components/home-hero";
 import { getEvents } from "@/lib/polymarket";
-import { Suspense } from "react";
 
 // Server Component
 export default async function Home({
@@ -20,8 +20,10 @@ export default async function Home({
   });
 
   return (
-    <div className="min-h-screen bg-background pb-12">
-      <section className="container max-w-screen-2xl mx-auto px-4 py-8">
+    <div className="min-h-screen bg-background">
+      <HomeHero />
+      
+      <section id="markets" className="container max-w-screen-2xl mx-auto px-4 py-8">
         <h2 className="mb-6 text-xl font-bold tracking-tight">
           {tag ? `${tag} Markets` : "Trending Markets"}
         </h2>
@@ -53,7 +55,7 @@ export default async function Home({
                 id={event.id}
                 title={event.title}
                 image={event.image || (market.group === "nba" ? "bg-orange-500" : "")} // Use event image
-                volume={`$${(event.volume || 0).toLocaleString(undefined, { maximumFractionDigits: 0, notation: "compact" })}`}
+                volume={`${(event.volume || 0).toLocaleString(undefined, { maximumFractionDigits: 0, notation: "compact" })}`}
                 isNew={event.new}
                 outcomes={outcomes}
               />
