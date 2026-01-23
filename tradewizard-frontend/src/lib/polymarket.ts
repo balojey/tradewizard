@@ -1,8 +1,13 @@
 
-// Polymarket Gamma API Client
+/**
+ * Polymarket Gamma API Client
+ * Legacy interfaces maintained for backward compatibility
+ * New code should use the enhanced types and functions from polymarket-data.ts
+ */
 
 export const API_BASE_URL = "https://gamma-api.polymarket.com";
 
+// Legacy interfaces for backward compatibility
 export interface Outcome {
     price: number;
     name: string;
