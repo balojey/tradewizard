@@ -10,6 +10,10 @@
 
 import { PostgresSaver } from '@langchain/langgraph-checkpoint-postgres';
 import type { SupabaseClientManager } from './supabase-client.js';
+import dns from 'dns';
+
+// Force IPv4 resolution to avoid IPv6 connectivity issues
+dns.setDefaultResultOrder('ipv4first');
 
 /**
  * PostgreSQL checkpointer configuration
@@ -39,10 +43,14 @@ export async function createPostgresCheckpointer(
   // Create PostgresSaver
   const checkpointer = PostgresSaver.fromConnString(connectionString);
 
-  // Setup the checkpointer (creates tables if they don't exist)
-  await checkpointer.setup();
-
-  console.log('[PostgresCheckpointer] Checkpointer initialized successfully');
+  try {
+    // Setup the checkpointer (creates tables if they don't exist)
+    await checkpointer.setup();
+    console.log('[PostgresCheckpointer] Checkpointer initialized successfully');
+  } catch (error) {
+    console.error('[PostgresCheckpointer] Failed to setup checkpointer:', error);
+    throw error;
+  }
 
   return checkpointer;
 }
@@ -54,6 +62,13 @@ export async function createPostgresCheckpointer(
  * @returns PostgreSQL connection string
  */
 function getConnectionString(_supabaseManager: SupabaseClientManager): string {
+  // Check for explicit database URL first (for production with connection pooling)
+  const explicitDbUrl = process.env.SUPABASE_DATABASE_URL;
+  if (explicitDbUrl) {
+    console.log('[PostgresCheckpointer] Using explicit SUPABASE_DATABASE_URL');
+    return explicitDbUrl;
+  }
+
   // Get Supabase URL from environment
   const supabaseUrl = process.env.SUPABASE_URL;
   if (!supabaseUrl) {
@@ -68,6 +83,7 @@ function getConnectionString(_supabaseManager: SupabaseClientManager): string {
   }
 
   // Get database password from environment
+  // For pooler connections, we need the actual database password, not the service role key
   const dbPassword = process.env.SUPABASE_DB_PASSWORD || process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!dbPassword) {
     throw new Error(
@@ -75,10 +91,26 @@ function getConnectionString(_supabaseManager: SupabaseClientManager): string {
     );
   }
 
-  // Construct PostgreSQL connection string
-  // Supabase PostgreSQL connection format:
-  // postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres
-  const connectionString = `postgresql://postgres:${dbPassword}@db.${projectRef}.supabase.co:5432/postgres`;
+  // Force use of connection pooling to get IPv4 connectivity
+  // The direct db.*.supabase.co endpoints only have IPv6, but pooler has IPv4
+  const usePooling = true; // Always use pooling to avoid IPv6 connectivity issues
+  
+  let connectionString: string;
+  
+  if (usePooling) {
+    // Use connection pooling - this provides IPv4 connectivity
+    // Format: postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres?pgbouncer=true
+    const region = process.env.SUPABASE_REGION || 'us-east-1'; // Default region
+    connectionString = `postgresql://postgres.${projectRef}:${dbPassword}@aws-0-${region}.pooler.supabase.com:6543/postgres?pgbouncer=true`;
+    console.log('[PostgresCheckpointer] Using connection pooling for IPv4 connectivity');
+  } else {
+    // Direct connection for development - force IPv4 to avoid IPv6 connectivity issues
+    // Format: postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres?sslmode=require
+    connectionString = `postgresql://postgres:${dbPassword}@db.${projectRef}.supabase.co:5432/postgres?sslmode=require`;
+    console.log('[PostgresCheckpointer] Using direct connection for development');
+  }
+
+  console.log('[PostgresCheckpointer] Connection string constructed:', connectionString.replace(dbPassword, '[REDACTED]'));
 
   return connectionString;
 }

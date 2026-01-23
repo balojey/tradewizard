@@ -324,7 +324,12 @@ async function createCheckpointer(
           'PostgreSQL checkpointer requires Supabase client manager. Pass supabaseManager to createWorkflow().'
         );
       }
-      return await createPostgresCheckpointer(supabaseManager);
+      try {
+        return await createPostgresCheckpointer(supabaseManager);
+      } catch (error) {
+        console.warn('[Workflow] PostgreSQL checkpointer failed, falling back to memory:', error.message);
+        return new MemorySaver();
+      }
     default:
       return new MemorySaver();
   }
