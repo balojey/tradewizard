@@ -72,12 +72,16 @@ export interface GetEventsParams {
 export async function getEvents(params: GetEventsParams = {}): Promise<Event[]> {
     const searchParams = new URLSearchParams();
 
+    // Default to politics tag if no specific tag is provided (Requirement 1.1, 1.2)
+    const defaultToPolitics = !params.tag_slug && !params.tag_id && !params.slug && !params.id;
+    
     if (params.limit) searchParams.set("limit", params.limit.toString());
     if (params.offset) searchParams.set("offset", params.offset.toString());
     if (params.active !== undefined) searchParams.set("active", params.active.toString());
     if (params.closed !== undefined) searchParams.set("closed", params.closed.toString());
     if (params.archived !== undefined) searchParams.set("archived", params.archived.toString());
     if (params.tag_slug) searchParams.set("tag_slug", params.tag_slug);
+    else if (defaultToPolitics) searchParams.set("tag_slug", "politics"); // Default politics filter
     if (params.tag_id) searchParams.set("tag_id", params.tag_id);
     if (params.ascending !== undefined) searchParams.set("ascending", params.ascending.toString());
     if (params.slug) searchParams.set("slug", params.slug);
@@ -89,12 +93,34 @@ export async function getEvents(params: GetEventsParams = {}): Promise<Event[]> 
         });
 
         if (!res.ok) {
-            throw new Error(`Failed to fetch events: ${res.statusText}`);
+            // Enhanced error handling for API failures (Requirement 5.5)
+            const errorMessage = `Failed to fetch events: ${res.status} ${res.statusText}`;
+            console.error(errorMessage);
+            
+            // Return empty array as graceful fallback
+            return [];
         }
 
-        return await res.json();
+        const events = await res.json();
+        
+        // Validate response structure
+        if (!Array.isArray(events)) {
+            console.error("Invalid API response: expected array of events");
+            return [];
+        }
+
+        return events;
     } catch (error) {
-        console.error("Error fetching events:", error);
+        // Enhanced error handling with specific error types (Requirement 5.5)
+        if (error instanceof TypeError && error.message.includes('fetch')) {
+            console.error("Network error fetching events:", error.message);
+        } else if (error instanceof SyntaxError) {
+            console.error("JSON parsing error:", error.message);
+        } else {
+            console.error("Unexpected error fetching events:", error);
+        }
+        
+        // Always return empty array as fallback to prevent UI crashes
         return [];
     }
 }

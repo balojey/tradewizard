@@ -1,245 +1,254 @@
 /**
- * Data processing utilities for transforming Polymarket events into UI-ready format
+ * Comprehensive data processing pipeline for Polymarket API integration
+ * Implements Requirements 5.1, 5.2, 5.3, 5.6
  */
 
 import { 
   PolymarketEvent, 
   ProcessedEvent, 
-  ProcessingResult, 
-  ProcessingConfig,
-  DEFAULT_PROCESSING_CONFIG 
+  ProcessingConfig, 
+  DEFAULT_PROCESSING_CONFIG,
+  ProcessingResult 
 } from './polymarket-types';
 import { 
-  processMarketOutcomes, 
+  processEvent, 
+  processEvents, 
+  validateEventData,
+  generateFallbackEvent,
   formatVolume, 
-  getTagSlugs, 
-  getTagLabels 
-} from './market-type-detection';
+  determineMarketType,
+  parseMarketOutcomes,
+  parseMarketPrices
+} from './polymarket-parser';
 
 /**
- * Processes a single Polymarket event into UI-ready format
+ * Main data processing pipeline entry point
+ * Processes raw Polymarket events into UI-ready format with comprehensive error handling
  */
-export function processPolymarketEvent(
-  event: PolymarketEvent, 
-  config: ProcessingConfig = DEFAULT_PROCESSING_CONFIG
-): ProcessingResult<ProcessedEvent> {
-  try {
-    // Process market outcomes and determine type
-    const { marketType, outcomes } = processMarketOutcomes(event);
+export class PolymarketDataProcessor {
+  private config: ProcessingConfig;
 
-    // Create processed event
-    const processedEvent: ProcessedEvent = {
-      id: event.id,
-      title: event.title,
-      description: event.description,
-      image: event.image || event.icon || '',
-      volume: event.volume,
-      volumeFormatted: formatVolume(event.volume),
-      isNew: event.new,
-      active: event.active,
-      closed: event.closed,
-      marketType,
-      outcomes,
-      tags: getTagSlugs(event),
-      tagLabels: getTagLabels(event),
-      endDate: event.endDate,
-      startDate: event.startDate,
-      slug: event.slug,
-      ticker: event.ticker
-    };
+  constructor(config: ProcessingConfig = DEFAULT_PROCESSING_CONFIG) {
+    this.config = config;
+  }
 
-    return {
-      success: true,
-      data: processedEvent,
-      fallbackUsed: false
-    };
+  /**
+   * Process a single event with full error handling and fallbacks
+   */
+  async processEvent(event: PolymarketEvent): Promise<ProcessingResult<ProcessedEvent>> {
+    try {
+      // Validate event data first
+      const validationResult = validateEventData(event);
+      if (!validationResult.success) {
+        if (this.config.enableFallbacks) {
+          return {
+            success: false,
+            data: generateFallbackEvent(event, this.config),
+            error: validationResult.error,
+            fallbackUsed: true,
+          };
+        }
+        return {
+          success: false,
+          error: validationResult.error,
+        };
+      }
 
-  } catch (error) {
-    if (config.logErrors) {
-      console.error('Error processing Polymarket event:', error);
-    }
-
-    if (config.enableFallbacks) {
-      // Create fallback event
-      const fallbackEvent: ProcessedEvent = {
-        id: event.id,
-        title: event.title || 'Unknown Market',
-        description: event.description || '',
-        image: event.image || event.icon || '',
-        volume: event.volume || 0,
-        volumeFormatted: formatVolume(event.volume || 0),
-        isNew: event.new || false,
-        active: event.active || false,
-        closed: event.closed || false,
-        marketType: 'simple',
-        outcomes: [
-          { name: 'Yes', probability: 50, color: 'yes' },
-          { name: 'No', probability: 50, color: 'no' }
-        ],
-        tags: getTagSlugs(event),
-        tagLabels: getTagLabels(event),
-        endDate: event.endDate || '',
-        startDate: event.startDate || '',
-        slug: event.slug || '',
-        ticker: event.ticker || ''
+      // Process the validated event
+      return processEvent(validationResult.data!, this.config);
+    } catch (error) {
+      const errorResult: ProcessingResult<ProcessedEvent> = {
+        success: false,
+        error: {
+          type: 'unknown',
+          message: `Processing pipeline error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          originalData: event,
+        },
       };
 
-      return {
-        success: true,
-        data: fallbackEvent,
-        fallbackUsed: true
-      };
-    }
-
-    return {
-      success: false,
-      error: {
-        type: 'unknown',
-        message: error instanceof Error ? error.message : 'Unknown processing error',
-        originalData: event
+      if (this.config.enableFallbacks) {
+        errorResult.data = generateFallbackEvent(event, this.config);
+        errorResult.fallbackUsed = true;
       }
-    };
-  }
-}
 
-/**
- * Processes multiple Polymarket events
- */
-export function processPolymarketEvents(
-  events: PolymarketEvent[], 
-  config: ProcessingConfig = DEFAULT_PROCESSING_CONFIG
-): ProcessingResult<ProcessedEvent[]> {
-  const processedEvents: ProcessedEvent[] = [];
-  const errors: any[] = [];
-  let fallbacksUsed = 0;
-
-  for (const event of events) {
-    const result = processPolymarketEvent(event, config);
-    
-    if (result.success && result.data) {
-      processedEvents.push(result.data);
-      if (result.fallbackUsed) {
-        fallbacksUsed++;
-      }
-    } else if (result.error) {
-      errors.push(result.error);
+      return errorResult;
     }
   }
 
-  if (processedEvents.length === 0 && errors.length > 0) {
-    return {
-      success: false,
-      error: {
-        type: 'unknown',
-        message: `Failed to process any events. ${errors.length} errors occurred.`,
-        originalData: events
-      }
-    };
-  }
+  /**
+   * Process multiple events with batch error handling
+   */
+  async processEvents(events: PolymarketEvent[]): Promise<ProcessingResult<ProcessedEvent[]>> {
+    const results: ProcessedEvent[] = [];
+    const errors: any[] = [];
 
-  return {
-    success: true,
-    data: processedEvents,
-    fallbackUsed: fallbacksUsed > 0
-  };
-}
-
-/**
- * Filters events by political tags
- */
-export function filterPoliticalEvents(events: ProcessedEvent[]): ProcessedEvent[] {
-  return events.filter(event => 
-    event.tags.includes('politics') || 
-    event.tags.some(tag => 
-      ['trump', 'elections', 'u-s-politics', 'immigration', 'world', 'france', 'macron'].includes(tag)
-    )
-  );
-}
-
-/**
- * Filters events by specific tag
- */
-export function filterEventsByTag(events: ProcessedEvent[], tagSlug: string): ProcessedEvent[] {
-  if (tagSlug === 'all' || !tagSlug) {
-    return events;
-  }
-  
-  return events.filter(event => event.tags.includes(tagSlug));
-}
-
-/**
- * Sorts events by volume (descending)
- */
-export function sortEventsByVolume(events: ProcessedEvent[]): ProcessedEvent[] {
-  return [...events].sort((a, b) => b.volume - a.volume);
-}
-
-/**
- * Sorts events by creation date (newest first)
- */
-export function sortEventsByDate(events: ProcessedEvent[]): ProcessedEvent[] {
-  return [...events].sort((a, b) => 
-    new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
-  );
-}
-
-/**
- * Gets unique political tags from events
- */
-export function getUniquePoliticalTags(events: ProcessedEvent[]): Array<{slug: string, label: string, count: number}> {
-  const tagCounts = new Map<string, {label: string, count: number}>();
-  
-  events.forEach(event => {
-    event.tags.forEach((tagSlug, index) => {
-      const tagLabel = event.tagLabels[index] || tagSlug;
+    for (const event of events) {
+      const result = await this.processEvent(event);
       
-      // Only include political tags
-      if (['politics', 'trump', 'elections', 'u-s-politics', 'immigration', 'world', 'france', 'macron'].includes(tagSlug)) {
-        const existing = tagCounts.get(tagSlug);
-        if (existing) {
-          existing.count++;
-        } else {
-          tagCounts.set(tagSlug, { label: tagLabel, count: 1 });
+      if (result.success && result.data) {
+        results.push(result.data);
+      } else {
+        errors.push(result.error);
+        
+        // Include fallback data if available
+        if (result.fallbackUsed && result.data) {
+          results.push(result.data);
         }
       }
+    }
+
+    return {
+      success: errors.length === 0,
+      data: results,
+      error: errors.length > 0 ? {
+        type: 'unknown',
+        message: `Failed to process ${errors.length} out of ${events.length} events`,
+      } : undefined,
+    };
+  }
+
+  /**
+   * Process events with political filtering
+   */
+  async processPoliticalEvents(events: PolymarketEvent[]): Promise<ProcessingResult<ProcessedEvent[]>> {
+    // First process all events
+    const processResult = await this.processEvents(events);
+    
+    if (!processResult.data) {
+      return processResult;
+    }
+
+    // Filter for political events
+    const politicalEvents = processResult.data.filter(event => {
+      const politicalTags = ['politics', 'trump', 'elections', 'us-politics', 'immigration', 'world'];
+      return event.tags.some(tag => 
+        politicalTags.includes(tag.toLowerCase()) ||
+        tag.toLowerCase().includes('politic') ||
+        tag.toLowerCase().includes('election')
+      );
     });
-  });
 
-  return Array.from(tagCounts.entries())
-    .map(([slug, {label, count}]) => ({slug, label, count}))
-    .sort((a, b) => b.count - a.count);
+    return {
+      ...processResult,
+      data: politicalEvents,
+    };
+  }
+
+  /**
+   * Utility method to test market outcome parsing
+   */
+  testMarketOutcomeParsing(outcomesJson: string, pricesJson: string): {
+    outcomes: string[];
+    prices: number[];
+    success: boolean;
+    errors: string[];
+  } {
+    const errors: string[] = [];
+    
+    const outcomesResult = parseMarketOutcomes(outcomesJson, this.config);
+    const pricesResult = parseMarketPrices(pricesJson, 2, this.config);
+
+    if (!outcomesResult.success && outcomesResult.error) {
+      errors.push(`Outcomes: ${outcomesResult.error.message}`);
+    }
+
+    if (!pricesResult.success && pricesResult.error) {
+      errors.push(`Prices: ${pricesResult.error.message}`);
+    }
+
+    return {
+      outcomes: outcomesResult.data || [],
+      prices: pricesResult.data || [],
+      success: errors.length === 0,
+      errors,
+    };
+  }
+
+  /**
+   * Utility method to classify market types
+   */
+  classifyMarketType(event: PolymarketEvent): {
+    type: 'simple' | 'complex';
+    reasoning: string;
+    marketCount: number;
+    hasGroupItems: boolean;
+  } {
+    const marketType = determineMarketType(event);
+    const marketCount = event.markets?.length || 0;
+    const hasGroupItems = event.markets?.some(m => m.groupItemTitle) || false;
+
+    let reasoning = '';
+    if (marketType === 'simple') {
+      reasoning = hasGroupItems 
+        ? 'Has group items but classified as simple due to other factors'
+        : 'Single market type with basic Yes/No outcomes';
+    } else {
+      reasoning = hasGroupItems
+        ? 'Multiple markets with group item titles indicating categories'
+        : 'Multiple markets with different questions or threshold patterns';
+    }
+
+    return {
+      type: marketType,
+      reasoning,
+      marketCount,
+      hasGroupItems,
+    };
+  }
+
+  /**
+   * Get processing statistics
+   */
+  getProcessingStats(events: PolymarketEvent[]): {
+    total: number;
+    simple: number;
+    complex: number;
+    withImages: number;
+    withoutImages: number;
+    political: number;
+    averageVolume: number;
+  } {
+    const stats = {
+      total: events.length,
+      simple: 0,
+      complex: 0,
+      withImages: 0,
+      withoutImages: 0,
+      political: 0,
+      averageVolume: 0,
+    };
+
+    let totalVolume = 0;
+
+    for (const event of events) {
+      const marketType = determineMarketType(event);
+      if (marketType === 'simple') stats.simple++;
+      else stats.complex++;
+
+      if (event.image) stats.withImages++;
+      else stats.withoutImages++;
+
+      if (event.tags?.some(t => t.slug.toLowerCase().includes('politic'))) {
+        stats.political++;
+      }
+
+      totalVolume += event.volume || 0;
+    }
+
+    stats.averageVolume = events.length > 0 ? totalVolume / events.length : 0;
+
+    return stats;
+  }
 }
 
-/**
- * Validates that an event has minimum required data
- */
-export function validateEventData(event: PolymarketEvent): boolean {
-  return !!(
-    event.id &&
-    event.title &&
-    event.markets &&
-    event.markets.length > 0 &&
-    event.tags &&
-    event.tags.length > 0
-  );
-}
+// Export a default instance for convenience
+export const defaultProcessor = new PolymarketDataProcessor();
 
-/**
- * Transforms ProcessedEvent to MarketCard props format
- */
-export function eventToMarketCardProps(event: ProcessedEvent) {
-  return {
-    id: event.id,
-    title: event.title,
-    image: event.image,
-    volume: event.volumeFormatted,
-    outcomes: event.outcomes.map(outcome => ({
-      name: outcome.name,
-      probability: outcome.probability,
-      color: outcome.color || 'neutral' as const,
-      category: outcome.category
-    })),
-    isNew: event.isNew,
-    marketType: event.marketType
-  };
-}
+// Export utility functions for direct use
+export { 
+  formatVolume, 
+  determineMarketType,
+  parseMarketOutcomes,
+  parseMarketPrices,
+  generateFallbackEvent
+} from './polymarket-parser';

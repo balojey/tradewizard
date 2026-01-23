@@ -150,6 +150,7 @@ export function parseMarketPrices(
 
 /**
  * Determine market type based on market structure
+ * Enhanced logic for better classification (Requirements 5.1, 5.2)
  */
 export function determineMarketType(event: PolymarketEvent): MarketType {
   if (!event.markets || event.markets.length === 0) {
@@ -161,11 +162,32 @@ export function determineMarketType(event: PolymarketEvent): MarketType {
     market.groupItemTitle && market.groupItemTitle.trim() !== ''
   );
 
-  return hasGroupItems ? 'complex' : 'simple';
+  // Additional classification logic for complex markets
+  if (hasGroupItems) {
+    return 'complex';
+  }
+
+  // Check if there are multiple markets with different questions - also indicates complex
+  const uniqueQuestions = new Set(event.markets.map(m => m.question));
+  if (uniqueQuestions.size > 1) {
+    return 'complex';
+  }
+
+  // Check for threshold-based markets (common pattern in complex markets)
+  const hasThresholds = event.markets.some(market =>
+    market.question.includes('>=') ||
+    market.question.includes('<=') ||
+    market.question.includes('between') ||
+    market.question.includes('range') ||
+    market.groupItemThreshold
+  );
+
+  return hasThresholds ? 'complex' : 'simple';
 }
 
 /**
  * Process outcomes for simple markets (Yes/No)
+ * Enhanced with better fallback handling (Requirements 5.3, 5.6)
  */
 function processSimpleOutcomes(
   market: PolymarketMarket,
@@ -173,6 +195,14 @@ function processSimpleOutcomes(
 ): ProcessedOutcome[] {
   const outcomesResult = parseMarketOutcomes(market.outcomes, config);
   const pricesResult = parseMarketPrices(market.outcomePrices, outcomesResult.data?.length || 2, config);
+
+  // Use fallback if parsing failed
+  if (!outcomesResult.success || !pricesResult.success) {
+    if (config.logErrors) {
+      console.warn('Using fallback outcomes for simple market:', market.id);
+    }
+    return generateFallbackOutcomes('simple', config);
+  }
 
   const outcomes = outcomesResult.data || ['Yes', 'No'];
   const prices = pricesResult.data || [config.defaultProbability, config.defaultProbability];
@@ -187,12 +217,14 @@ function processSimpleOutcomes(
 
 /**
  * Process outcomes for complex markets (multiple categories with Yes/No)
+ * Enhanced with better fallback handling (Requirements 5.3, 5.6)
  */
 function processComplexOutcomes(
   event: PolymarketEvent,
   config: ProcessingConfig = DEFAULT_PROCESSING_CONFIG
 ): ProcessedOutcome[] {
   const outcomes: ProcessedOutcome[] = [];
+  let hasValidOutcomes = false;
 
   for (const market of event.markets) {
     if (!market.groupItemTitle) continue;
@@ -200,27 +232,101 @@ function processComplexOutcomes(
     const outcomesResult = parseMarketOutcomes(market.outcomes, config);
     const pricesResult = parseMarketPrices(market.outcomePrices, outcomesResult.data?.length || 2, config);
 
-    const marketOutcomes = outcomesResult.data || ['Yes', 'No'];
-    const prices = pricesResult.data || [config.defaultProbability, config.defaultProbability];
+    if (outcomesResult.success && pricesResult.success) {
+      hasValidOutcomes = true;
+      const marketOutcomes = outcomesResult.data || ['Yes', 'No'];
+      const prices = pricesResult.data || [config.defaultProbability, config.defaultProbability];
 
-    // For complex markets, we typically want to show the "Yes" probability for each category
-    const yesIndex = marketOutcomes.findIndex(outcome => outcome.toLowerCase() === 'yes');
-    const yesProbability = yesIndex >= 0 ? prices[yesIndex] : config.defaultProbability;
+      // For complex markets, we typically want to show the "Yes" probability for each category
+      const yesIndex = marketOutcomes.findIndex(outcome => outcome.toLowerCase() === 'yes');
+      const yesProbability = yesIndex >= 0 ? prices[yesIndex] : config.defaultProbability;
 
-    outcomes.push({
-      name: 'Yes',
-      probability: yesProbability,
-      color: 'yes',
-      category: market.groupItemTitle,
-    });
+      outcomes.push({
+        name: 'Yes',
+        probability: yesProbability,
+        color: 'yes',
+        category: market.groupItemTitle,
+      });
+    } else if (config.logErrors) {
+      console.warn('Failed to process complex market outcome:', market.id);
+    }
+  }
+
+  // Use fallback if no valid outcomes were processed
+  if (!hasValidOutcomes || outcomes.length === 0) {
+    if (config.logErrors) {
+      console.warn('Using fallback outcomes for complex market:', event.id);
+    }
+    return generateFallbackOutcomes('complex', config);
   }
 
   return outcomes;
 }
 
 /**
- * Format volume number to human-readable string
+ * Generate fallback outcomes for malformed or missing data
+ * Implements Requirements 5.3, 5.6
  */
+export function generateFallbackOutcomes(
+  marketType: MarketType = 'simple',
+  config: ProcessingConfig = DEFAULT_PROCESSING_CONFIG
+): ProcessedOutcome[] {
+  if (marketType === 'simple') {
+    return [
+      { 
+        name: 'Yes', 
+        probability: config.defaultProbability, 
+        color: 'yes' 
+      },
+      { 
+        name: 'No', 
+        probability: 1 - config.defaultProbability, 
+        color: 'no' 
+      }
+    ];
+  } else {
+    // For complex markets, provide multiple category fallbacks
+    const categories = ['Option A', 'Option B', 'Option C'];
+    return categories.map(category => ({
+      name: 'Yes',
+      probability: config.defaultProbability,
+      color: 'yes' as const,
+      category
+    }));
+  }
+}
+
+/**
+ * Enhanced fallback event generation for complete API failures
+ * Implements Requirements 5.6, 9.2, 9.4
+ */
+export function generateFallbackEvent(
+  partialData?: Partial<PolymarketEvent>,
+  config: ProcessingConfig = DEFAULT_PROCESSING_CONFIG
+): ProcessedEvent {
+  const fallbackId = partialData?.id || `fallback-${Date.now()}`;
+  const fallbackTitle = partialData?.title || 'Market data unavailable';
+  
+  return {
+    id: fallbackId,
+    title: fallbackTitle,
+    description: partialData?.description || 'Market information could not be loaded',
+    image: partialData?.image || '',
+    volume: partialData?.volume || 0,
+    volumeFormatted: formatVolume(partialData?.volume || 0),
+    isNew: partialData?.new || false,
+    active: partialData?.active || false,
+    closed: partialData?.closed || true,
+    marketType: 'simple',
+    outcomes: generateFallbackOutcomes('simple', config),
+    tags: partialData?.tags?.map(t => t.slug) || ['politics'],
+    tagLabels: partialData?.tags?.map(t => t.label) || ['Politics'],
+    endDate: partialData?.endDate || new Date().toISOString(),
+    startDate: partialData?.startDate || new Date().toISOString(),
+    slug: partialData?.slug || fallbackId,
+    ticker: partialData?.ticker || fallbackId.toUpperCase(),
+  };
+}
 export function formatVolume(volume: number): string {
   if (volume >= 1_000_000) {
     return `$${(volume / 1_000_000).toFixed(1)}M`;
@@ -245,50 +351,82 @@ export function isPoliticalEvent(event: PolymarketEvent): boolean {
 
 /**
  * Process a single Polymarket event into UI-friendly format
+ * Enhanced with comprehensive fallback handling (Requirements 5.1, 5.2, 5.3, 5.6)
  */
 export function processEvent(
   event: PolymarketEvent,
   config: ProcessingConfig = DEFAULT_PROCESSING_CONFIG
 ): ProcessingResult<ProcessedEvent> {
   try {
+    // Validate event has minimum required data
+    if (!event.id || !event.title) {
+      if (config.enableFallbacks) {
+        return {
+          success: false,
+          data: generateFallbackEvent(event, config),
+          error: {
+            type: 'validation',
+            message: 'Event missing required fields (id, title)',
+            originalData: event,
+          },
+          fallbackUsed: true,
+        };
+      } else {
+        return {
+          success: false,
+          error: {
+            type: 'validation',
+            message: 'Event missing required fields (id, title)',
+            originalData: event,
+          },
+        };
+      }
+    }
+
     const marketType = determineMarketType(event);
     
     let outcomes: ProcessedOutcome[];
-    if (marketType === 'simple' && event.markets.length > 0) {
+    if (marketType === 'simple' && event.markets && event.markets.length > 0) {
       outcomes = processSimpleOutcomes(event.markets[0], config);
-    } else if (marketType === 'complex') {
+    } else if (marketType === 'complex' && event.markets && event.markets.length > 0) {
       outcomes = processComplexOutcomes(event, config);
     } else {
-      // Fallback for events without markets
-      outcomes = [
-        { name: 'Yes', probability: config.defaultProbability, color: 'yes' },
-        { name: 'No', probability: config.defaultProbability, color: 'no' },
-      ];
+      // Fallback for events without markets or invalid market data
+      if (config.logErrors) {
+        console.warn('Event has no valid markets, using fallback outcomes:', event.id);
+      }
+      outcomes = generateFallbackOutcomes(marketType, config);
+    }
+
+    // Ensure we have at least some outcomes
+    if (!outcomes || outcomes.length === 0) {
+      outcomes = generateFallbackOutcomes(marketType, config);
     }
 
     const processedEvent: ProcessedEvent = {
       id: event.id,
       title: event.title,
-      description: event.description,
+      description: event.description || '',
       image: event.image || event.icon || '',
-      volume: event.volume,
-      volumeFormatted: formatVolume(event.volume),
-      isNew: event.new,
-      active: event.active,
-      closed: event.closed,
+      volume: event.volume || 0,
+      volumeFormatted: formatVolume(event.volume || 0),
+      isNew: event.new || false,
+      active: event.active || false,
+      closed: event.closed || false,
       marketType,
       outcomes,
       tags: event.tags?.map(tag => tag.slug) || [],
       tagLabels: event.tags?.map(tag => tag.label) || [],
-      endDate: event.endDate,
-      startDate: event.startDate,
-      slug: event.slug,
-      ticker: event.ticker,
+      endDate: event.endDate || new Date().toISOString(),
+      startDate: event.startDate || new Date().toISOString(),
+      slug: event.slug || event.id,
+      ticker: event.ticker || event.id.toUpperCase(),
     };
 
     return { success: true, data: processedEvent };
   } catch (error) {
-    return {
+    // Enhanced error handling with fallback generation
+    const errorResult: ProcessingResult<ProcessedEvent> = {
       success: false,
       error: {
         type: 'unknown',
@@ -296,6 +434,14 @@ export function processEvent(
         originalData: event,
       },
     };
+
+    // Provide fallback if enabled
+    if (config.enableFallbacks) {
+      errorResult.data = generateFallbackEvent(event, config);
+      errorResult.fallbackUsed = true;
+    }
+
+    return errorResult;
   }
 }
 

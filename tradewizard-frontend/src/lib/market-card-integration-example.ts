@@ -3,7 +3,7 @@
  */
 
 import { PolymarketEvent } from './polymarket-types';
-import { processPolymarketEvent, eventToMarketCardProps } from './polymarket-data-processor';
+import { defaultProcessor } from './polymarket-data-processor';
 
 // Example: Simple market (single Yes/No market)
 export const simpleMarketExample: PolymarketEvent = {
@@ -265,11 +265,22 @@ export const complexMarketExample: PolymarketEvent = {
 /**
  * Example usage: Processing and rendering simple market
  */
-export function getSimpleMarketCardProps() {
-  const result = processPolymarketEvent(simpleMarketExample);
+export async function getSimpleMarketCardProps() {
+  const result = await defaultProcessor.processEvent(simpleMarketExample);
   
   if (result.success && result.data) {
-    return eventToMarketCardProps(result.data);
+    return {
+      id: result.data.id,
+      title: result.data.title,
+      image: result.data.image,
+      volume: result.data.volumeFormatted,
+      isNew: result.data.isNew,
+      outcomes: result.data.outcomes.map(outcome => ({
+        name: outcome.name,
+        probability: Math.round(outcome.probability * 100),
+        color: outcome.color
+      }))
+    };
   }
   
   throw new Error('Failed to process simple market example');
@@ -278,11 +289,23 @@ export function getSimpleMarketCardProps() {
 /**
  * Example usage: Processing and rendering complex market
  */
-export function getComplexMarketCardProps() {
-  const result = processPolymarketEvent(complexMarketExample);
+export async function getComplexMarketCardProps() {
+  const result = await defaultProcessor.processEvent(complexMarketExample);
   
   if (result.success && result.data) {
-    return eventToMarketCardProps(result.data);
+    return {
+      id: result.data.id,
+      title: result.data.title,
+      image: result.data.image,
+      volume: result.data.volumeFormatted,
+      isNew: result.data.isNew,
+      outcomes: result.data.outcomes.map(outcome => ({
+        name: outcome.name,
+        probability: Math.round(outcome.probability * 100),
+        color: outcome.color,
+        category: outcome.category
+      }))
+    };
   }
   
   throw new Error('Failed to process complex market example');
@@ -295,9 +318,9 @@ export function getComplexMarketCardProps() {
  * import { MarketCard } from '@/components/market-card';
  * import { getSimpleMarketCardProps, getComplexMarketCardProps } from '@/lib/market-card-integration-example';
  * 
- * export function ExampleMarketGrid() {
- *   const simpleProps = getSimpleMarketCardProps();
- *   const complexProps = getComplexMarketCardProps();
+ * export async function ExampleMarketGrid() {
+ *   const simpleProps = await getSimpleMarketCardProps();
+ *   const complexProps = await getComplexMarketCardProps();
  *   
  *   return (
  *     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
