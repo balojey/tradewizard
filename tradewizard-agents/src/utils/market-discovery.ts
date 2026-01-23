@@ -290,37 +290,50 @@ export class PolymarketDiscoveryEngine implements MarketDiscoveryEngine {
   /**
    * Convert ranked events to markets with event context
    * Implements Requirements 1.2, 1.4 - event metadata extraction and market relationships
+   * Enhanced with event-level deduplication to ensure diverse market selection
    */
   private async convertEventsToMarkets(rankedEvents: RankedEvent[]): Promise<PolymarketMarket[]> {
     const markets: PolymarketMarket[] = [];
+    const seenEvents = new Set<string>();
 
     for (const rankedEvent of rankedEvents) {
       const { event, marketAnalysis } = rankedEvent;
       
-      // Convert each market in the event
-      for (const market of event.markets) {
+      // Skip if we've already processed this event (deduplication)
+      if (seenEvents.has(event.id)) {
+        logger.debug({ eventId: event.id, eventTitle: event.title }, 
+          '[PolymarketDiscoveryEngine] Skipping duplicate event');
+        continue;
+      }
+      
+      seenEvents.add(event.id);
+      
+      // Select the best market from this event (highest volume/liquidity)
+      const bestMarket = this.selectBestMarketFromEvent(event);
+      
+      if (bestMarket) {
         const enhancedMarket: PolymarketMarket = {
           // Backward compatibility fields
-          conditionId: market.conditionId || market.id,
-          question: market.question,
-          description: market.description || '',
-          endDate: market.endDate,
-          createdAt: market.createdAt,
-          slug: market.slug,
-          outcomes: this.parseOutcomes(market.outcomes),
-          outcomePrices: this.parseOutcomePrices(market.outcomePrices),
-          volume: market.volume,
-          volume24hr: market.volume24hr,
-          liquidity: market.liquidity || '0',
+          conditionId: bestMarket.conditionId || bestMarket.id,
+          question: bestMarket.question,
+          description: bestMarket.description || '',
+          endDate: bestMarket.endDate,
+          createdAt: bestMarket.createdAt,
+          slug: bestMarket.slug,
+          outcomes: this.parseOutcomes(bestMarket.outcomes),
+          outcomePrices: this.parseOutcomePrices(bestMarket.outcomePrices),
+          volume: bestMarket.volume,
+          volume24hr: bestMarket.volume24hr,
+          liquidity: bestMarket.liquidity || '0',
           trades24h: undefined, // Not available in events API
-          active: market.active,
-          closed: market.closed,
+          active: bestMarket.active,
+          closed: bestMarket.closed,
           
           // Enhanced fields for event-based analysis
-          id: market.id,
-          volumeNum: market.volumeNum,
-          liquidityNum: market.liquidityNum,
-          competitive: market.competitive,
+          id: bestMarket.id,
+          volumeNum: bestMarket.volumeNum,
+          liquidityNum: bestMarket.liquidityNum,
+          competitive: bestMarket.competitive,
           eventId: event.id,
           eventTitle: event.title,
           
@@ -338,10 +351,57 @@ export class PolymarketDiscoveryEngine implements MarketDiscoveryEngine {
         };
 
         markets.push(enhancedMarket);
+        
+        logger.debug({ 
+          eventId: event.id, 
+          eventTitle: event.title,
+          selectedMarketId: bestMarket.id,
+          totalMarketsInEvent: event.markets.length 
+        }, '[PolymarketDiscoveryEngine] Selected best market from event');
       }
     }
 
+    logger.info({
+      totalEvents: rankedEvents.length,
+      uniqueEvents: seenEvents.size,
+      marketsSelected: markets.length,
+    }, '[PolymarketDiscoveryEngine] Event-level deduplication completed');
+
     return markets;
+  }
+
+  /**
+   * Select the best market from an event based on volume and liquidity
+   * Prioritizes markets with highest trading activity and liquidity
+   */
+  private selectBestMarketFromEvent(event: any): any | null {
+    if (!event.markets || event.markets.length === 0) {
+      return null;
+    }
+    
+    // If only one market, return it
+    if (event.markets.length === 1) {
+      return event.markets[0];
+    }
+    
+    // Sort markets by volume24hr (descending), then by liquidity (descending)
+    const sortedMarkets = event.markets
+      .filter((market: any) => market.active && !market.closed)
+      .sort((a: any, b: any) => {
+        // Primary sort: volume24hr
+        const volumeA = a.volume24hr || 0;
+        const volumeB = b.volume24hr || 0;
+        if (volumeB !== volumeA) {
+          return volumeB - volumeA;
+        }
+        
+        // Secondary sort: liquidity
+        const liquidityA = parseFloat(a.liquidity || '0');
+        const liquidityB = parseFloat(b.liquidity || '0');
+        return liquidityB - liquidityA;
+      });
+    
+    return sortedMarkets[0] || null;
   }
 
   /**
