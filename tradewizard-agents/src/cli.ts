@@ -12,6 +12,7 @@ import ora from 'ora';
 import { analyzeMarket, getCheckpointer } from './workflow.js';
 import { loadConfig, createConfig, type EngineConfig } from './config/index.js';
 import { PolymarketClient } from './utils/polymarket-client.js';
+import { createSupabaseClientManager } from './database/supabase-client.js';
 import type { TradeRecommendation } from './models/types.js';
 import type { GraphStateType } from './models/state.js';
 
@@ -177,9 +178,14 @@ program
       spinner.text = 'Connecting to Polymarket...';
       const polymarketClient = new PolymarketClient(config.polymarket);
 
+      // Initialize Supabase client manager for PostgreSQL checkpointing
+      spinner.text = 'Initializing database connection...';
+      const supabaseManager = createSupabaseClientManager();
+      await supabaseManager.connect();
+
       // Analyze market
       spinner.text = `Analyzing market ${conditionId}...`;
-      const analysisResult = await analyzeMarket(conditionId, config, polymarketClient);
+      const analysisResult = await analyzeMarket(conditionId, config, polymarketClient, supabaseManager);
 
       spinner.succeed(chalk.green('Analysis complete!'));
 
