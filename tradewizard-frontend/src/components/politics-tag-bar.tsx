@@ -5,7 +5,8 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
 import { Vote, ChevronLeft, ChevronRight } from "lucide-react";
-import { useRef } from "react";
+import { useRef, useCallback, useEffect } from "react";
+import { isValidPoliticalTag } from "@/lib/politics-data";
 
 // Politics-focused related tags based on Polymarket data
 const RELATED_TAGS = [
@@ -24,7 +25,41 @@ interface PoliticsTagBarProps {
 export function PoliticsTagBar({ currentTag = "all" }: PoliticsTagBarProps) {
     const router = useRouter();
     const pathname = usePathname();
+    const searchParams = useSearchParams();
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    // Enhanced navigation function with proper URL handling (Requirements 8.4, 8.5)
+    const navigateToTag = useCallback((tagSlug: string) => {
+        // Validate tag before navigation
+        const validatedTag = isValidPoliticalTag(tagSlug) ? tagSlug : "all";
+        
+        // Create new URL search params
+        const params = new URLSearchParams(searchParams.toString());
+        
+        if (validatedTag === "all") {
+            // Remove tag parameter for "all" to keep URL clean
+            params.delete("tag");
+        } else {
+            params.set("tag", validatedTag);
+        }
+        
+        // Build new URL
+        const newUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
+        
+        // Navigate with proper browser history support
+        router.push(newUrl, { scroll: false });
+    }, [router, pathname, searchParams]);
+
+    // Handle browser back/forward navigation (Requirement 8.5)
+    useEffect(() => {
+        const handlePopState = () => {
+            // The component will re-render with new searchParams automatically
+            // This ensures proper state synchronization with browser navigation
+        };
+        
+        window.addEventListener('popstate', handlePopState);
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, []);
 
     const scroll = (direction: "left" | "right") => {
         if (scrollContainerRef.current) {
@@ -71,20 +106,20 @@ export function PoliticsTagBar({ currentTag = "all" }: PoliticsTagBarProps) {
                                 const isActive = currentTag.toLowerCase() === tag.slug.toLowerCase();
                                 
                                 return (
-                                    <Link key={tag.slug} href={`/?tag=${tag.slug}`} passHref>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className={cn(
-                                                "whitespace-nowrap h-7 sm:h-8 px-2 sm:px-4 text-xs sm:text-sm font-medium transition-all duration-300 hover:bg-muted/80 hover:text-foreground hover:scale-105 active:scale-95",
-                                                isActive 
-                                                    ? "bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 shadow-sm" 
-                                                    : "text-muted-foreground hover:text-foreground hover:shadow-sm"
-                                            )}
-                                        >
-                                            {tag.label}
-                                        </Button>
-                                    </Link>
+                                    <button
+                                        key={tag.slug}
+                                        onClick={() => navigateToTag(tag.slug)}
+                                        className={cn(
+                                            "whitespace-nowrap h-7 sm:h-8 px-2 sm:px-4 text-xs sm:text-sm font-medium transition-all duration-300 hover:bg-muted/80 hover:text-foreground hover:scale-105 active:scale-95 rounded-md border-0 bg-transparent cursor-pointer",
+                                            isActive 
+                                                ? "bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 shadow-sm" 
+                                                : "text-muted-foreground hover:text-foreground hover:shadow-sm"
+                                        )}
+                                        aria-pressed={isActive}
+                                        aria-label={`Filter by ${tag.label} markets`}
+                                    >
+                                        {tag.label}
+                                    </button>
                                 );
                             })}
                         </div>

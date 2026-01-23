@@ -119,14 +119,14 @@ This implementation plan transforms the TradeWizard homepage into a politics-foc
     - **Property 5: Image Display Priority**
     - **Validates: Requirements 6.2, 7.3, 9.1**
 
-- [ ] 8. Update homepage integration and routing
-  - [ ] 8.1 Modify homepage server component
+- [x] 8. Update homepage integration and routing
+  - [x] 8.1 Modify homepage server component
     - Update page.tsx to use politics-focused data fetching
     - Integrate new PoliticsTagBar component
     - Ensure proper server-side rendering with tag filters
     - _Requirements: 1.1, 1.4, 1.5_
   
-  - [ ] 8.2 Add URL routing for tag filters
+  - [x] 8.2 Add URL routing for tag filters
     - Implement search params handling for tag selection
     - Add proper navigation between different political tag views
     - Ensure browser back/forward navigation works correctly
