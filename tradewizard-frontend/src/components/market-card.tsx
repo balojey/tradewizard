@@ -4,11 +4,13 @@ import Link from "next/link";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { TrendingUp } from "lucide-react";
+import { MarketType, ProcessedOutcome } from "@/lib/polymarket-types";
 
 interface Outcome {
     name: string;
     probability: number;
     color: "yes" | "no" | "neutral";
+    category?: string;
 }
 
 interface MarketCardProps {
@@ -18,11 +20,12 @@ interface MarketCardProps {
     volume: string;
     outcomes: Outcome[];
     isNew?: boolean;
+    marketType?: MarketType;
 }
 
-export function MarketCard({ id, title, image, volume, outcomes, isNew }: MarketCardProps) {
+export function MarketCard({ id, title, image, volume, outcomes, isNew, marketType = 'simple' }: MarketCardProps) {
     return (
-        <Link href={`/market/${id}`} className="group block h-full">
+        <Link href={`/market/${id}`} className="group block h-full cursor-pointer">
             <Card className="h-full flex flex-col overflow-hidden border-border/40 bg-card transition-all duration-300 hover:border-primary/50 hover:shadow-lg hover:-translate-y-0.5">
                 <div className="relative aspect-[1.91/1] w-full overflow-hidden bg-muted">
                     {image ? (
@@ -63,33 +66,87 @@ export function MarketCard({ id, title, image, volume, outcomes, isNew }: Market
                         {title}
                     </h3>
 
-                    <div className="space-y-2.5">
-                        {outcomes.map((outcome, idx) => (
-                            <div key={idx} className="space-y-1.5">
-                                <div className="flex justify-between text-sm">
-                                    <span className="font-medium text-muted-foreground">{outcome.name}</span>
-                                    <span className={cn(
-                                        "font-bold font-mono",
-                                        outcome.color === 'yes' ? "text-emerald-500 dark:text-emerald-400" :
-                                            outcome.color === 'no' ? "text-red-500 dark:text-red-400" : "text-foreground"
-                                    )}>
-                                        {outcome.probability}%
-                                    </span>
-                                </div>
-                                <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-                                    <div
-                                        className={cn("h-full rounded-full transition-all duration-500 ease-out",
-                                            outcome.color === 'yes' ? "bg-emerald-500 dark:bg-emerald-500" :
-                                                outcome.color === 'no' ? "bg-red-500 dark:bg-red-500" : "bg-primary"
-                                        )}
-                                        style={{ width: `${outcome.probability}%` }}
-                                    />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                    {marketType === 'simple' ? (
+                        <SimpleMarketOutcomes outcomes={outcomes} />
+                    ) : (
+                        <ComplexMarketOutcomes outcomes={outcomes} />
+                    )}
                 </CardContent>
             </Card>
         </Link>
+    );
+}
+
+/**
+ * Renders outcomes for simple markets (Yes/No format)
+ */
+function SimpleMarketOutcomes({ outcomes }: { outcomes: Outcome[] }) {
+    return (
+        <div className="space-y-2.5">
+            {outcomes.map((outcome, idx) => (
+                <div key={idx} className="space-y-1.5">
+                    <div className="flex justify-between text-sm">
+                        <span className="font-medium text-muted-foreground">{outcome.name}</span>
+                        <span className={cn(
+                            "font-bold font-mono",
+                            outcome.color === 'yes' ? "text-emerald-500 dark:text-emerald-400" :
+                                outcome.color === 'no' ? "text-red-500 dark:text-red-400" : "text-foreground"
+                        )}>
+                            {outcome.probability}%
+                        </span>
+                    </div>
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+                        <div
+                            className={cn("h-full rounded-full transition-all duration-500 ease-out",
+                                outcome.color === 'yes' ? "bg-emerald-500 dark:bg-emerald-500" :
+                                    outcome.color === 'no' ? "bg-red-500 dark:bg-red-500" : "bg-primary"
+                            )}
+                            style={{ width: `${outcome.probability}%` }}
+                        />
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+/**
+ * Renders outcomes for complex markets (Category + Yes/No format)
+ */
+function ComplexMarketOutcomes({ outcomes }: { outcomes: Outcome[] }) {
+    return (
+        <div className="space-y-3">
+            {outcomes.map((outcome, idx) => (
+                <div key={idx} className="space-y-1.5">
+                    {/* Category title */}
+                    <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-foreground truncate">
+                            {outcome.category || outcome.name}
+                        </span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">Yes</span>
+                            <span className={cn(
+                                "text-sm font-bold font-mono",
+                                outcome.color === 'yes' ? "text-emerald-500 dark:text-emerald-400" :
+                                    outcome.color === 'no' ? "text-red-500 dark:text-red-400" : "text-foreground"
+                            )}>
+                                {outcome.probability}%
+                            </span>
+                        </div>
+                    </div>
+                    
+                    {/* Probability bar */}
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+                        <div
+                            className={cn("h-full rounded-full transition-all duration-500 ease-out",
+                                outcome.color === 'yes' ? "bg-emerald-500 dark:bg-emerald-500" :
+                                    outcome.color === 'no' ? "bg-red-500 dark:bg-red-500" : "bg-primary"
+                            )}
+                            style={{ width: `${outcome.probability}%` }}
+                        />
+                    </div>
+                </div>
+            ))}
+        </div>
     );
 }
