@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { TrendingUp, Vote } from "lucide-react";
+import { TrendingUp, Vote, AlertTriangle } from "lucide-react";
 import { MarketType, ProcessedOutcome } from "@/lib/polymarket-types";
+import { ErrorBoundary, MarketErrorFallback } from "@/components/error-boundary";
+import { MarketImage } from "@/components/market-image";
 
 interface Outcome {
     name: string;
@@ -17,138 +19,227 @@ interface MarketCardProps {
     id: string;
     title: string;
     image: string;
+    marketImage?: string; // Additional fallback image from market data
     volume: string;
     outcomes: Outcome[];
     isNew?: boolean;
     marketType?: MarketType;
+    hasError?: boolean;
+    errorMessage?: string;
 }
 
-export function MarketCard({ id, title, image, volume, outcomes, isNew, marketType = 'simple' }: MarketCardProps) {
-    return (
-        <Link href={`/market/${id}`} className="group block h-full cursor-pointer">
-            <Card className="h-full flex flex-col overflow-hidden border-border/40 bg-card transition-all duration-300 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-1 hover:bg-card/95">
-                <div className="relative aspect-[1.91/1] w-full overflow-hidden bg-muted">
-                    {image ? (
-                        <div className="relative h-full w-full">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                                src={image}
-                                alt={title}
-                                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                }}
-                            />
-                            {/* Fallback gradient if image fails to load */}
-                            <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 hidden flex items-center justify-center">
-                                <Vote className="h-12 w-12 text-white/80" />
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700">
-                            <Vote className="h-12 w-12 text-white/80" />
-                        </div>
-                    )}
+/**
+ * Enhanced MarketCard with comprehensive error handling and fallbacks
+ * Implements Requirements 9.1, 9.2, 9.4, 9.5
+ */
+export function MarketCard({ 
+    id, 
+    title, 
+    image, 
+    marketImage,
+    volume, 
+    outcomes, 
+    isNew, 
+    marketType = 'simple',
+    hasError = false,
+    errorMessage
+}: MarketCardProps) {
+    // Handle malformed or missing data with fallbacks
+    const safeTitle = title || "Market data unavailable";
+    const safeVolume = volume || "0";
+    const safeOutcomes = outcomes && outcomes.length > 0 ? outcomes : getDefaultOutcomes(marketType);
+    const safeId = id || `fallback-${Date.now()}`;
 
-                    {isNew && (
-                        <div className="absolute left-1.5 sm:left-2 top-1.5 sm:top-2 rounded-full bg-blue-600/90 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-sm">
-                            New
-                        </div>
-                    )}
-
-                    <div className="absolute bottom-1.5 sm:bottom-2 right-1.5 sm:right-2 rounded-md bg-black/60 px-1 sm:px-1.5 py-0.5 text-[9px] sm:text-[10px] font-medium text-white backdrop-blur-sm flex items-center gap-0.5 sm:gap-1">
-                        <TrendingUp className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
-                        {volume}
-                    </div>
-                </div>
-
-                <CardContent className="flex-1 p-3 sm:p-4 space-y-3 sm:space-y-4">
-                    <h3 className="line-clamp-2 text-sm sm:text-base font-semibold leading-snug tracking-tight text-foreground group-hover:text-primary transition-colors">
-                        {title}
-                    </h3>
-
-                    {marketType === 'simple' ? (
-                        <SimpleMarketOutcomes outcomes={outcomes} />
-                    ) : (
-                        <ComplexMarketOutcomes outcomes={outcomes} />
-                    )}
+    // If the market has critical errors, show error state
+    if (hasError) {
+        return (
+            <Card className="h-full border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/20">
+                <CardContent className="flex flex-col items-center justify-center p-6 text-center h-full min-h-[300px]">
+                    <AlertTriangle className="h-8 w-8 text-red-500 mb-3" />
+                    <h4 className="text-sm font-medium text-red-900 dark:text-red-100 mb-2">
+                        Market Unavailable
+                    </h4>
+                    <p className="text-xs text-red-700 dark:text-red-300">
+                        {errorMessage || "Unable to load market data"}
+                    </p>
                 </CardContent>
             </Card>
-        </Link>
+        );
+    }
+
+    return (
+        <ErrorBoundary fallback={MarketErrorFallback}>
+            <Link href={`/market/${safeId}`} className="group block h-full cursor-pointer">
+                <Card className="h-full flex flex-col overflow-hidden border-border/40 bg-card transition-all duration-300 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-1 hover:bg-card/95">
+                    <div className="relative aspect-[1.91/1] w-full overflow-hidden bg-muted">
+                        <MarketImage
+                            eventImage={image}
+                            marketImage={marketImage}
+                            title={safeTitle}
+                            className="w-full h-full"
+                            onImageError={(source) => {
+                                if (process.env.NODE_ENV === 'development') {
+                                    console.warn(`Failed to load ${source} image for market ${safeId}`);
+                                }
+                            }}
+                        />
+
+                        {isNew && (
+                            <div className="absolute left-1.5 sm:left-2 top-1.5 sm:top-2 rounded-full bg-blue-600/90 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-sm">
+                                New
+                            </div>
+                        )}
+
+                        <div className="absolute bottom-1.5 sm:bottom-2 right-1.5 sm:right-2 rounded-md bg-black/60 px-1 sm:px-1.5 py-0.5 text-[9px] sm:text-[10px] font-medium text-white backdrop-blur-sm flex items-center gap-0.5 sm:gap-1">
+                            <TrendingUp className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                            {safeVolume}
+                        </div>
+                    </div>
+
+                    <CardContent className="flex-1 p-3 sm:p-4 space-y-3 sm:space-y-4">
+                        <h3 className="line-clamp-2 text-sm sm:text-base font-semibold leading-snug tracking-tight text-foreground group-hover:text-primary transition-colors">
+                            {safeTitle}
+                        </h3>
+
+                        {marketType === 'simple' ? (
+                            <SimpleMarketOutcomes outcomes={safeOutcomes} />
+                        ) : (
+                            <ComplexMarketOutcomes outcomes={safeOutcomes} />
+                        )}
+                    </CardContent>
+                </Card>
+            </Link>
+        </ErrorBoundary>
     );
 }
 
 /**
+ * Generate default outcomes for fallback scenarios
+ * Implements Requirements 9.2, 9.5
+ */
+function getDefaultOutcomes(marketType: MarketType = 'simple'): Outcome[] {
+    if (marketType === 'simple') {
+        return [
+            { name: 'Yes', probability: 50, color: 'yes' },
+            { name: 'No', probability: 50, color: 'no' }
+        ];
+    } else {
+        return [
+            { name: 'Yes', probability: 50, color: 'yes', category: 'Option A' },
+            { name: 'Yes', probability: 50, color: 'yes', category: 'Option B' }
+        ];
+    }
+}
+
+/**
  * Renders outcomes for simple markets (Yes/No format)
+ * Enhanced with error handling for malformed outcome data
+ * Implements Requirements 9.2, 9.5
  */
 function SimpleMarketOutcomes({ outcomes }: { outcomes: Outcome[] }) {
+    // Ensure we have valid outcomes
+    const safeOutcomes = outcomes && outcomes.length > 0 ? outcomes : [
+        { name: 'Yes', probability: 50, color: 'yes' as const },
+        { name: 'No', probability: 50, color: 'no' as const }
+    ];
+
     return (
         <div className="space-y-2 sm:space-y-2.5">
-            {outcomes.map((outcome, idx) => (
-                <div key={idx} className="space-y-1 sm:space-y-1.5">
-                    <div className="flex justify-between text-xs sm:text-sm">
-                        <span className="font-medium text-muted-foreground">{outcome.name}</span>
-                        <span className={cn(
-                            "font-bold font-mono transition-colors duration-200",
-                            outcome.color === 'yes' ? "text-emerald-600 dark:text-emerald-400" :
-                                outcome.color === 'no' ? "text-red-600 dark:text-red-400" : "text-foreground"
-                        )}>
-                            {outcome.probability}%
-                        </span>
+            {safeOutcomes.map((outcome, idx) => {
+                // Validate individual outcome data
+                const safeName = outcome.name || `Option ${idx + 1}`;
+                const safeProbability = typeof outcome.probability === 'number' && 
+                                      !isNaN(outcome.probability) && 
+                                      outcome.probability >= 0 && 
+                                      outcome.probability <= 100 
+                                      ? outcome.probability : 50;
+                const safeColor = outcome.color || 'neutral';
+
+                return (
+                    <div key={idx} className="space-y-1 sm:space-y-1.5">
+                        <div className="flex justify-between text-xs sm:text-sm">
+                            <span className="font-medium text-muted-foreground">{safeName}</span>
+                            <span className={cn(
+                                "font-bold font-mono transition-colors duration-200",
+                                safeColor === 'yes' ? "text-emerald-600 dark:text-emerald-400" :
+                                    safeColor === 'no' ? "text-red-600 dark:text-red-400" : "text-foreground"
+                            )}>
+                                {Math.round(safeProbability)}%
+                            </span>
+                        </div>
+                        <div className="h-1.5 sm:h-2 w-full overflow-hidden rounded-full bg-secondary/60 group-hover:bg-secondary transition-colors duration-200">
+                            <div
+                                className={cn("h-full rounded-full transition-all duration-700 ease-out group-hover:shadow-sm",
+                                    safeColor === 'yes' ? "bg-emerald-500 dark:bg-emerald-500 group-hover:bg-emerald-600 dark:group-hover:bg-emerald-400" :
+                                        safeColor === 'no' ? "bg-red-500 dark:bg-red-500 group-hover:bg-red-600 dark:group-hover:bg-red-400" : "bg-primary group-hover:bg-primary/90"
+                                )}
+                                style={{ width: `${Math.min(Math.max(safeProbability, 0), 100)}%` }}
+                            />
+                        </div>
                     </div>
-                    <div className="h-1.5 sm:h-2 w-full overflow-hidden rounded-full bg-secondary/60 group-hover:bg-secondary transition-colors duration-200">
-                        <div
-                            className={cn("h-full rounded-full transition-all duration-700 ease-out group-hover:shadow-sm",
-                                outcome.color === 'yes' ? "bg-emerald-500 dark:bg-emerald-500 group-hover:bg-emerald-600 dark:group-hover:bg-emerald-400" :
-                                    outcome.color === 'no' ? "bg-red-500 dark:bg-red-500 group-hover:bg-red-600 dark:group-hover:bg-red-400" : "bg-primary group-hover:bg-primary/90"
-                            )}
-                            style={{ width: `${outcome.probability}%` }}
-                        />
-                    </div>
-                </div>
-            ))}
+                );
+            })}
         </div>
     );
 }
 
 /**
  * Renders outcomes for complex markets (Category + Yes/No format)
+ * Enhanced with error handling for malformed outcome data
+ * Implements Requirements 9.2, 9.5
  */
 function ComplexMarketOutcomes({ outcomes }: { outcomes: Outcome[] }) {
+    // Ensure we have valid outcomes
+    const safeOutcomes = outcomes && outcomes.length > 0 ? outcomes : [
+        { name: 'Yes', probability: 50, color: 'yes' as const, category: 'Option A' },
+        { name: 'Yes', probability: 50, color: 'yes' as const, category: 'Option B' }
+    ];
+
     return (
         <div className="space-y-2.5 sm:space-y-3">
-            {outcomes.map((outcome, idx) => (
-                <div key={idx} className="space-y-1 sm:space-y-1.5">
-                    {/* Category title */}
-                    <div className="flex items-center justify-between">
-                        <span className="text-xs sm:text-sm font-medium text-foreground truncate">
-                            {outcome.category || outcome.name}
-                        </span>
-                        <div className="flex items-center gap-1.5 sm:gap-2">
-                            <span className="text-[10px] sm:text-xs text-muted-foreground">Yes</span>
-                            <span className={cn(
-                                "text-xs sm:text-sm font-bold font-mono transition-colors duration-200",
-                                outcome.color === 'yes' ? "text-emerald-600 dark:text-emerald-400" :
-                                    outcome.color === 'no' ? "text-red-600 dark:text-red-400" : "text-foreground"
-                            )}>
-                                {outcome.probability}%
+            {safeOutcomes.map((outcome, idx) => {
+                // Validate individual outcome data
+                const safeName = outcome.name || 'Yes';
+                const safeProbability = typeof outcome.probability === 'number' && 
+                                      !isNaN(outcome.probability) && 
+                                      outcome.probability >= 0 && 
+                                      outcome.probability <= 100 
+                                      ? outcome.probability : 50;
+                const safeColor = outcome.color || 'yes';
+                const safeCategory = outcome.category || `Option ${idx + 1}`;
+
+                return (
+                    <div key={idx} className="space-y-1 sm:space-y-1.5">
+                        {/* Category title */}
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs sm:text-sm font-medium text-foreground truncate">
+                                {safeCategory}
                             </span>
+                            <div className="flex items-center gap-1.5 sm:gap-2">
+                                <span className="text-[10px] sm:text-xs text-muted-foreground">{safeName}</span>
+                                <span className={cn(
+                                    "text-xs sm:text-sm font-bold font-mono transition-colors duration-200",
+                                    safeColor === 'yes' ? "text-emerald-600 dark:text-emerald-400" :
+                                        safeColor === 'no' ? "text-red-600 dark:text-red-400" : "text-foreground"
+                                )}>
+                                    {Math.round(safeProbability)}%
+                                </span>
+                            </div>
+                        </div>
+                        
+                        {/* Probability bar */}
+                        <div className="h-1.5 sm:h-2 w-full overflow-hidden rounded-full bg-secondary/60 group-hover:bg-secondary transition-colors duration-200">
+                            <div
+                                className={cn("h-full rounded-full transition-all duration-700 ease-out group-hover:shadow-sm",
+                                    safeColor === 'yes' ? "bg-emerald-500 dark:bg-emerald-500 group-hover:bg-emerald-600 dark:group-hover:bg-emerald-400" :
+                                        safeColor === 'no' ? "bg-red-500 dark:bg-red-500 group-hover:bg-red-600 dark:group-hover:bg-red-400" : "bg-primary group-hover:bg-primary/90"
+                                )}
+                                style={{ width: `${Math.min(Math.max(safeProbability, 0), 100)}%` }}
+                            />
                         </div>
                     </div>
-                    
-                    {/* Probability bar */}
-                    <div className="h-1.5 sm:h-2 w-full overflow-hidden rounded-full bg-secondary/60 group-hover:bg-secondary transition-colors duration-200">
-                        <div
-                            className={cn("h-full rounded-full transition-all duration-700 ease-out group-hover:shadow-sm",
-                                outcome.color === 'yes' ? "bg-emerald-500 dark:bg-emerald-500 group-hover:bg-emerald-600 dark:group-hover:bg-emerald-400" :
-                                    outcome.color === 'no' ? "bg-red-500 dark:bg-red-500 group-hover:bg-red-600 dark:group-hover:bg-red-400" : "bg-primary group-hover:bg-primary/90"
-                            )}
-                            style={{ width: `${outcome.probability}%` }}
-                        />
-                    </div>
-                </div>
-            ))}
+                );
+            })}
         </div>
     );
 }

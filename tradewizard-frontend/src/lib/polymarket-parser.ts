@@ -312,6 +312,7 @@ export function generateFallbackEvent(
     title: fallbackTitle,
     description: partialData?.description || 'Market information could not be loaded',
     image: partialData?.image || '',
+    marketImage: partialData?.markets?.[0]?.image || undefined,
     volume: partialData?.volume || 0,
     volumeFormatted: formatVolume(partialData?.volume || 0),
     isNew: partialData?.new || false,
@@ -421,6 +422,8 @@ export function processEvent(
       startDate: event.startDate || new Date().toISOString(),
       slug: event.slug || event.id,
       ticker: event.ticker || event.id.toUpperCase(),
+      // Add market image as fallback
+      marketImage: event.markets?.[0]?.image || undefined,
     };
 
     return { success: true, data: processedEvent };

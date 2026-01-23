@@ -178,6 +178,7 @@ export interface ProcessedEvent {
   title: string;
   description: string;
   image: string;
+  marketImage?: string; // Fallback image from market data
   volume: number;
   volumeFormatted: string; // Human-readable format (e.g., "$1.2M")
   isNew: boolean;
@@ -196,7 +197,7 @@ export interface ProcessedEvent {
 
 // Error types for data processing
 export interface DataProcessingError {
-  type: 'parsing' | 'validation' | 'network' | 'unknown';
+  type: 'parsing' | 'validation' | 'network' | 'rendering' | 'unknown';
   message: string;
   originalData?: any;
   field?: string;
