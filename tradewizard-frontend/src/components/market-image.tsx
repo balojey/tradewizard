@@ -94,12 +94,17 @@ export function MarketImage({
             onLoad={handleImageLoad}
             onError={handleImageError}
             loading="lazy"
+            role="img"
           />
           
           {/* Loading state overlay - only show when actually loading */}
           {isLoading && (
-            <div className="absolute inset-0 bg-muted animate-pulse flex items-center justify-center z-10">
-              <Vote className="h-8 w-8 text-muted-foreground/50" />
+            <div 
+              className="absolute inset-0 bg-muted animate-pulse flex items-center justify-center z-10"
+              aria-label="Loading market image"
+              role="status"
+            >
+              <Vote className="h-8 w-8 text-muted-foreground/50" aria-hidden="true" />
             </div>
           )}
         </div>
@@ -128,17 +133,21 @@ function FallbackGradient({
   hasImageError: boolean;
 }) {
   return (
-    <div className={cn(
-      "absolute inset-0 flex items-center justify-center bg-gradient-to-br",
-      gradient
-    )}>
+    <div 
+      className={cn(
+        "absolute inset-0 flex items-center justify-center bg-gradient-to-br",
+        gradient
+      )}
+      role="img"
+      aria-label={hasImageError ? `Image unavailable for ${title}` : `Placeholder image for ${title}`}
+    >
       {hasImageError ? (
         <div className="flex flex-col items-center text-white/80">
-          <AlertCircle className="h-8 w-8 mb-2" />
-          <span className="text-xs text-center px-2">Image unavailable</span>
+          <AlertCircle className="h-8 w-8 mb-2" aria-hidden="true" />
+          <span className="text-xs text-center px-2" aria-hidden="true">Image unavailable</span>
         </div>
       ) : (
-        <Vote className="h-12 w-12 text-white/80" />
+        <Vote className="h-12 w-12 text-white/80" aria-hidden="true" />
       )}
     </div>
   );

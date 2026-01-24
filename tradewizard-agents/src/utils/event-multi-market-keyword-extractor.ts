@@ -989,6 +989,7 @@ Focus on concepts that could influence the market resolution or trading decision
 
   /**
    * Rank keywords by relevance to the event using AI insights
+   * Limited to top 10 most relevant keywords arranged by relevance
    */
   rankKeywordsByEventRelevance(
     keywords: string[], 
@@ -1032,7 +1033,10 @@ Focus on concepts that could influence the market resolution or trading decision
       });
     }
 
-    return ranked.sort((a, b) => b.relevanceScore - a.relevanceScore);
+    // Sort by relevance score (highest first) and limit to top 10
+    return ranked
+      .sort((a, b) => b.relevanceScore - a.relevanceScore)
+      .slice(0, 10);
   }
 
   /**

@@ -383,10 +383,8 @@ export class NewsDataIntegrationLayer implements AgentNewsInterface {
     // Use AI-enhanced keywords if available, otherwise fall back to simple extraction
     let keywords: string[];
     if (enhancedKeywords) {
-      // Use the top-ranked keywords from AI extraction for better news relevance
-      keywords = enhancedKeywords.ranked
-        .slice(0, 8) // Use top 8 keywords for better search precision
-        .map(rk => rk.keyword);
+      // Use ALL ranked keywords (already limited to 10 and arranged by relevance)
+      keywords = enhancedKeywords.ranked.map(rk => rk.keyword);
       
       this.logger?.logDataFetch({
         timestamp: Date.now(),
@@ -400,8 +398,8 @@ export class NewsDataIntegrationLayer implements AgentNewsInterface {
         duration: 0,
       });
     } else {
-      // Fallback to simple extraction
-      keywords = this.extractKeywordsFromMarket(market);
+      // Fallback to simple extraction (limit to 10)
+      keywords = this.extractKeywordsFromMarket(market).slice(0, 10);
       
       this.logger?.logDataFetch({
         timestamp: Date.now(),
@@ -420,8 +418,8 @@ export class NewsDataIntegrationLayer implements AgentNewsInterface {
     // Determine appropriate categories based on market content
     const categories = this.inferCategoriesFromMarket(market);
     
-    // Build search query with enhanced keywords
-    const query = keywords.length > 0 ? keywords.join(' OR ') : market.question;
+    // Build search query with top 5 keywords (query length limit: 100 chars)
+    const query = keywords.length > 0 ? keywords.slice(0, 5).join(' OR ') : market.question;
     
     return {
       query,

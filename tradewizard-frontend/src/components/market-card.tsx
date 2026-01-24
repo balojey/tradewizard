@@ -69,8 +69,12 @@ export function MarketCard({
 
     return (
         <ErrorBoundary fallback={MarketErrorFallback}>
-            <Link href={`/market/${safeId}`} className="group block h-full cursor-pointer">
-                <Card className="h-full flex flex-col overflow-hidden border-border/40 bg-card transition-all duration-300 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-1 hover:bg-card/95">
+            <Link 
+                href={`/market/${safeId}`} 
+                className="group block h-full cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-lg"
+                aria-label={`View market: ${safeTitle}. Volume: ${safeVolume}${isNew ? '. New market' : ''}`}
+            >
+                <Card className="h-full flex flex-col overflow-hidden border-border/40 bg-card transition-all duration-300 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-1 hover:bg-card/95 focus-within:border-primary/50 focus-within:shadow-lg">
                     <div className="relative aspect-[1.91/1] w-full overflow-hidden bg-muted">
                         <MarketImage
                             eventImage={image}
@@ -85,14 +89,21 @@ export function MarketCard({
                         />
 
                         {isNew && (
-                            <div className="absolute left-1.5 sm:left-2 top-1.5 sm:top-2 rounded-full bg-blue-600/90 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-sm">
+                            <div 
+                                className="absolute left-1.5 sm:left-2 top-1.5 sm:top-2 rounded-full bg-blue-600/90 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-sm"
+                                aria-label="New market"
+                                role="status"
+                            >
                                 New
                             </div>
                         )}
 
-                        <div className="absolute bottom-1.5 sm:bottom-2 right-1.5 sm:right-2 rounded-md bg-black/60 px-1 sm:px-1.5 py-0.5 text-[9px] sm:text-[10px] font-medium text-white backdrop-blur-sm flex items-center gap-0.5 sm:gap-1">
-                            <TrendingUp className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
-                            {safeVolume}
+                        <div 
+                            className="absolute bottom-1.5 sm:bottom-2 right-1.5 sm:right-2 rounded-md bg-black/60 px-1 sm:px-1.5 py-0.5 text-[9px] sm:text-[10px] font-medium text-white backdrop-blur-sm flex items-center gap-0.5 sm:gap-1"
+                            aria-label={`Trading volume: ${safeVolume}`}
+                        >
+                            <TrendingUp className="h-2.5 w-2.5 sm:h-3 sm:w-3" aria-hidden="true" />
+                            <span>{safeVolume}</span>
                         </div>
                     </div>
 
@@ -101,11 +112,16 @@ export function MarketCard({
                             {safeTitle}
                         </h3>
 
-                        {marketType === 'simple' ? (
-                            <SimpleMarketOutcomes outcomes={safeOutcomes} />
-                        ) : (
-                            <ComplexMarketOutcomes outcomes={safeOutcomes} />
-                        )}
+                        <div 
+                            role="region" 
+                            aria-label="Market outcomes and probabilities"
+                        >
+                            {marketType === 'simple' ? (
+                                <SimpleMarketOutcomes outcomes={safeOutcomes} />
+                            ) : (
+                                <ComplexMarketOutcomes outcomes={safeOutcomes} />
+                            )}
+                        </div>
                     </CardContent>
                 </Card>
             </Link>
@@ -144,7 +160,7 @@ function SimpleMarketOutcomes({ outcomes }: { outcomes: Outcome[] }) {
     ];
 
     return (
-        <div className="space-y-2 sm:space-y-2.5">
+        <div className="space-y-2 sm:space-y-2.5" role="list" aria-label="Market outcomes">
             {safeOutcomes.map((outcome, idx) => {
                 // Validate individual outcome data
                 const safeName = outcome.name || `Option ${idx + 1}`;
@@ -156,18 +172,28 @@ function SimpleMarketOutcomes({ outcomes }: { outcomes: Outcome[] }) {
                 const safeColor = outcome.color || 'neutral';
 
                 return (
-                    <div key={idx} className="space-y-1 sm:space-y-1.5">
+                    <div key={idx} className="space-y-1 sm:space-y-1.5" role="listitem">
                         <div className="flex justify-between text-xs sm:text-sm">
                             <span className="font-medium text-muted-foreground">{safeName}</span>
-                            <span className={cn(
-                                "font-bold font-mono transition-colors duration-200",
-                                safeColor === 'yes' ? "text-emerald-600 dark:text-emerald-400" :
-                                    safeColor === 'no' ? "text-red-600 dark:text-red-400" : "text-foreground"
-                            )}>
+                            <span 
+                                className={cn(
+                                    "font-bold font-mono transition-colors duration-200",
+                                    safeColor === 'yes' ? "text-emerald-600 dark:text-emerald-400" :
+                                        safeColor === 'no' ? "text-red-600 dark:text-red-400" : "text-foreground"
+                                )}
+                                aria-label={`${safeName} probability: ${Math.round(safeProbability)} percent`}
+                            >
                                 {Math.round(safeProbability)}%
                             </span>
                         </div>
-                        <div className="h-1.5 sm:h-2 w-full overflow-hidden rounded-full bg-secondary/60 group-hover:bg-secondary transition-colors duration-200">
+                        <div 
+                            className="h-1.5 sm:h-2 w-full overflow-hidden rounded-full bg-secondary/60 group-hover:bg-secondary transition-colors duration-200"
+                            role="progressbar"
+                            aria-valuenow={safeProbability}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-label={`${safeName} probability bar`}
+                        >
                             <div
                                 className={cn("h-full rounded-full transition-all duration-700 ease-out group-hover:shadow-sm",
                                     safeColor === 'yes' ? "bg-emerald-500 dark:bg-emerald-500 group-hover:bg-emerald-600 dark:group-hover:bg-emerald-400" :
@@ -196,7 +222,7 @@ function ComplexMarketOutcomes({ outcomes }: { outcomes: Outcome[] }) {
     ];
 
     return (
-        <div className="space-y-2.5 sm:space-y-3">
+        <div className="space-y-2.5 sm:space-y-3" role="list" aria-label="Market outcome categories">
             {safeOutcomes.map((outcome, idx) => {
                 // Validate individual outcome data
                 const safeName = outcome.name || 'Yes';
@@ -209,7 +235,7 @@ function ComplexMarketOutcomes({ outcomes }: { outcomes: Outcome[] }) {
                 const safeCategory = outcome.category || `Option ${idx + 1}`;
 
                 return (
-                    <div key={idx} className="space-y-1 sm:space-y-1.5">
+                    <div key={idx} className="space-y-1 sm:space-y-1.5" role="listitem">
                         {/* Category title */}
                         <div className="flex items-center justify-between">
                             <span className="text-xs sm:text-sm font-medium text-foreground truncate">
@@ -217,18 +243,28 @@ function ComplexMarketOutcomes({ outcomes }: { outcomes: Outcome[] }) {
                             </span>
                             <div className="flex items-center gap-1.5 sm:gap-2">
                                 <span className="text-[10px] sm:text-xs text-muted-foreground">{safeName}</span>
-                                <span className={cn(
-                                    "text-xs sm:text-sm font-bold font-mono transition-colors duration-200",
-                                    safeColor === 'yes' ? "text-emerald-600 dark:text-emerald-400" :
-                                        safeColor === 'no' ? "text-red-600 dark:text-red-400" : "text-foreground"
-                                )}>
+                                <span 
+                                    className={cn(
+                                        "text-xs sm:text-sm font-bold font-mono transition-colors duration-200",
+                                        safeColor === 'yes' ? "text-emerald-600 dark:text-emerald-400" :
+                                            safeColor === 'no' ? "text-red-600 dark:text-red-400" : "text-foreground"
+                                    )}
+                                    aria-label={`${safeCategory} ${safeName} probability: ${Math.round(safeProbability)} percent`}
+                                >
                                     {Math.round(safeProbability)}%
                                 </span>
                             </div>
                         </div>
                         
                         {/* Probability bar */}
-                        <div className="h-1.5 sm:h-2 w-full overflow-hidden rounded-full bg-secondary/60 group-hover:bg-secondary transition-colors duration-200">
+                        <div 
+                            className="h-1.5 sm:h-2 w-full overflow-hidden rounded-full bg-secondary/60 group-hover:bg-secondary transition-colors duration-200"
+                            role="progressbar"
+                            aria-valuenow={safeProbability}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-label={`${safeCategory} ${safeName} probability bar`}
+                        >
                             <div
                                 className={cn("h-full rounded-full transition-all duration-700 ease-out group-hover:shadow-sm",
                                     safeColor === 'yes' ? "bg-emerald-500 dark:bg-emerald-500 group-hover:bg-emerald-600 dark:group-hover:bg-emerald-400" :

@@ -401,20 +401,20 @@ export function createEnhancedBreakingNewsAgent(
     // Use AI-enhanced keywords if available, otherwise fall back to simple extraction
     let keywords: string[];
     if (state.marketKeywords?.ranked) {
-      // Use AI-enhanced keywords for better news relevance
-      keywords = state.marketKeywords.ranked
-        .slice(0, 8) // Use top 8 keywords for better search precision
-        .map(rk => rk.keyword);
+      // Use ALL AI-enhanced keywords (already limited to 10 and arranged by relevance)
+      keywords = state.marketKeywords.ranked.map(rk => rk.keyword);
       
       logger.info({
         agentName: 'breaking_news_agent',
         keywordSource: 'ai-enhanced',
         keywordCount: keywords.length,
-        topKeywords: keywords.slice(0, 5)
-      }, 'Using AI-enhanced keywords for news search');
+        usedKeywords: keywords.slice(0, 5),
+        allKeywords: keywords
+      }, 'Using top 5 AI-enhanced keywords for news search (query length limit: 100 chars)');
     } else {
-      // Fallback to simple extraction
-      keywords = utils.extractKeywords(`${state.mbd.question} ${state.mbd.resolutionCriteria || ''}`);
+      // Fallback to simple extraction (limit to 10)
+      keywords = utils.extractKeywords(`${state.mbd.question} ${state.mbd.resolutionCriteria || ''}`)
+        .slice(0, 10);
       
       logger.warn({
         agentName: 'breaking_news_agent',
@@ -423,9 +423,9 @@ export function createEnhancedBreakingNewsAgent(
       }, 'Using fallback keyword extraction - AI keywords not available');
     }
     
-    // Fetch latest news using NewsData.io tools with enhanced keywords
+    // Fetch latest news using NewsData.io tools with top 5 keywords (query length limit: 100 chars)
     const newsArticles = await newsTools.fetchLatestNews({
-      query: keywords.slice(0, 5).join(' OR '), // Use top 5 keywords for better precision
+      query: keywords.slice(0, 5).join(' OR '), // Use top 5 keywords to stay within 100-char limit
       size: 10, // Reduced for free tier
       removeDuplicates: true,
       sort: 'relevancy',

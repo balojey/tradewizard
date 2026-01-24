@@ -3,14 +3,39 @@ import { HomeHero } from "@/components/home-hero";
 import { PoliticsTagBar } from "@/components/politics-tag-bar";
 import { getPoliticalEvents, getPoliticalTagDisplayName, isValidPoliticalTag } from "@/lib/politics-data";
 import { Suspense } from "react";
+import { preloadImages } from "@/lib/image-utils";
 
-// Loading component for server-side rendering
+// Loading component for server-side rendering with enhanced skeleton
 function MarketGridSkeleton() {
   return (
     <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
       {Array.from({ length: 8 }).map((_, i) => (
         <div key={i} className="animate-pulse">
-          <div className="bg-muted rounded-lg h-64 w-full" />
+          <div className="bg-muted rounded-lg overflow-hidden">
+            {/* Image skeleton */}
+            <div className="aspect-[1.91/1] bg-muted-foreground/10" />
+            {/* Content skeleton */}
+            <div className="p-3 sm:p-4 space-y-3">
+              {/* Title skeleton */}
+              <div className="space-y-2">
+                <div className="h-4 bg-muted-foreground/20 rounded w-3/4" />
+                <div className="h-4 bg-muted-foreground/20 rounded w-1/2" />
+              </div>
+              {/* Outcomes skeleton */}
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <div className="h-3 bg-muted-foreground/20 rounded w-12" />
+                  <div className="h-3 bg-muted-foreground/20 rounded w-8" />
+                </div>
+                <div className="h-2 bg-muted-foreground/10 rounded" />
+                <div className="flex justify-between">
+                  <div className="h-3 bg-muted-foreground/20 rounded w-10" />
+                  <div className="h-3 bg-muted-foreground/20 rounded w-8" />
+                </div>
+                <div className="h-2 bg-muted-foreground/10 rounded" />
+              </div>
+            </div>
+          </div>
         </div>
       ))}
     </div>
@@ -42,6 +67,15 @@ export default async function Home({
     closed: false,
   });
 
+  // Preload critical images for better performance (Requirement 6.4, 9.4)
+  const criticalImages = events.slice(0, 4).map(event => event.image).filter(Boolean);
+  if (criticalImages.length > 0) {
+    // Fire and forget - don't await to avoid blocking render
+    preloadImages(criticalImages, { priority: 'high', timeout: 5000 }).catch(() => {
+      // Silently handle preload failures
+    });
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <HomeHero />
@@ -56,7 +90,12 @@ export default async function Home({
 
         {/* Market Grid with Suspense for better SSR performance */}
         <Suspense fallback={<MarketGridSkeleton />}>
-          <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+          <div 
+            className="grid grid-cols-1 gap-3 sm:gap-4 lg:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
+            role="grid"
+            aria-label={`${getPoliticalTagDisplayName(validatedTag)} markets`}
+            id={`markets-${validatedTag}`}
+          >
             {events.map((event) => {
               // Enhanced market data processing with better error handling
               const market = event.markets?.[0];
@@ -88,15 +127,16 @@ export default async function Home({
               }
 
               return (
-                <MarketCard
-                  key={event.id}
-                  id={event.id}
-                  title={event.title}
-                  image={event.image || (market.group === "nba" ? "bg-orange-500" : "")} // Use event image
-                  volume={`${(event.volume || 0).toLocaleString(undefined, { maximumFractionDigits: 0, notation: "compact" })}`}
-                  isNew={event.new}
-                  outcomes={outcomes}
-                />
+                <div key={event.id} role="gridcell">
+                  <MarketCard
+                    id={event.id}
+                    title={event.title}
+                    image={event.image || (market.group === "nba" ? "bg-orange-500" : "")} // Use event image
+                    volume={`${(event.volume || 0).toLocaleString(undefined, { maximumFractionDigits: 0, notation: "compact" })}`}
+                    isNew={event.new}
+                    outcomes={outcomes}
+                  />
+                </div>
               );
             })}
           </div>
@@ -104,7 +144,7 @@ export default async function Home({
 
         {/* Enhanced empty state with tag-specific messaging */}
         {events.length === 0 && (
-          <div className="py-20 text-center">
+          <div className="py-20 text-center" role="status" aria-live="polite">
             <div className="text-muted-foreground mb-2">
               No active markets found for {getPoliticalTagDisplayName(validatedTag).toLowerCase()}.
             </div>
