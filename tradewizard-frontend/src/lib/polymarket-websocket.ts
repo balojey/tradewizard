@@ -3,6 +3,7 @@
  * Handles real-time data connections for price updates, order updates, and market data
  */
 
+import { useState, useEffect } from 'react';
 import type {
   WebSocketMessage,
   PriceUpdate,
@@ -528,11 +529,11 @@ export const polymarketWebSocket = new PolymarketWebSocketService();
  * React hook for WebSocket connection status
  */
 export function useWebSocketStatus() {
-  const [status, setStatus] = React.useState<ConnectionStatus>(
+  const [status, setStatus] = useState<ConnectionStatus>(
     polymarketWebSocket.getConnectionStatus()
   );
 
-  React.useEffect(() => {
+  useEffect(() => {
     polymarketWebSocket.onConnectionStatusChange(setStatus);
     
     return () => {
@@ -547,9 +548,9 @@ export function useWebSocketStatus() {
  * React hook for price updates
  */
 export function usePriceUpdates(tokenId?: string) {
-  const [priceUpdate, setPriceUpdate] = React.useState<PriceUpdate | null>(null);
+  const [priceUpdate, setPriceUpdate] = useState<PriceUpdate | null>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!tokenId) return;
 
     const unsubscribe = polymarketWebSocket.onTokenPriceUpdate(tokenId, setPriceUpdate);
@@ -568,9 +569,9 @@ export function usePriceUpdates(tokenId?: string) {
  * React hook for order updates
  */
 export function useOrderUpdates(userAddress?: string) {
-  const [orderUpdate, setOrderUpdate] = React.useState<OrderUpdate | null>(null);
+  const [orderUpdate, setOrderUpdate] = useState<OrderUpdate | null>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!userAddress) return;
 
     const unsubscribe = polymarketWebSocket.onOrderUpdate(setOrderUpdate);
@@ -584,6 +585,3 @@ export function useOrderUpdates(userAddress?: string) {
 
   return orderUpdate;
 }
-
-// Note: React import would be added at the top in a real implementation
-declare const React: any;
