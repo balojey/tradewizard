@@ -593,6 +593,14 @@ export function useRealtime(): RealtimeContextValue {
   return context;
 }
 
+/**
+ * Optional hook to access real-time context (returns null if provider not available)
+ */
+export function useRealtimeOptional(): RealtimeContextValue | null {
+  const context = useContext(RealtimeContext);
+  return context || null;
+}
+
 // ============================================================================
 // Specialized Hooks
 // ============================================================================
@@ -639,6 +647,48 @@ export function useRealtimePrices(tokenIds: string[]) {
     prices,
     isSubscribed: tokenIds.every(id => state.prices.subscriptions.has(id)),
     lastUpdated: Math.max(...tokenIds.map(id => state.prices.lastUpdated[id] || 0)),
+  };
+}
+
+/**
+ * Safe hook for price updates with real-time data (returns empty data if provider not available)
+ */
+export function useRealtimePricesSafe(tokenIds: string[]) {
+  const realtimeContext = useRealtimeOptional();
+
+  const fallbackReturn = useMemo(() => ({
+    prices: {} as Record<string, PriceUpdate>,
+    isSubscribed: false,
+    lastUpdated: 0,
+  }), []);
+
+  const prices = useMemo(() => {
+    if (!realtimeContext) return {};
+    
+    return tokenIds.reduce((acc, tokenId) => {
+      const update = realtimeContext.getPriceUpdate(tokenId);
+      if (update) {
+        acc[tokenId] = update;
+      }
+      return acc;
+    }, {} as Record<string, PriceUpdate>);
+  }, [tokenIds, realtimeContext]);
+
+  useEffect(() => {
+    if (!realtimeContext || tokenIds.length === 0) return;
+
+    realtimeContext.subscribeToPrices(tokenIds);
+    return () => realtimeContext.unsubscribeFromPrices(tokenIds);
+  }, [tokenIds, realtimeContext]);
+
+  if (!realtimeContext) {
+    return fallbackReturn;
+  }
+
+  return {
+    prices,
+    isSubscribed: tokenIds.every(id => realtimeContext.state.prices.subscriptions.has(id)),
+    lastUpdated: Math.max(...tokenIds.map(id => realtimeContext.state.prices.lastUpdated[id] || 0)),
   };
 }
 

@@ -3,6 +3,8 @@
  * Implements Requirements 6.2, 7.3, 9.1
  */
 
+import React from 'react';
+
 export interface ImageLoadResult {
   src: string;
   success: boolean;
@@ -17,6 +19,13 @@ export interface ImagePreloadOptions {
 }
 
 /**
+ * Check if we're in a browser environment
+ */
+function isBrowser(): boolean {
+  return typeof window !== 'undefined' && typeof document !== 'undefined';
+}
+
+/**
  * Preload a single image with timeout and error handling
  */
 export function preloadImage(
@@ -27,6 +36,17 @@ export function preloadImage(
   const startTime = Date.now();
 
   return new Promise((resolve) => {
+    // If not in browser, return failure immediately
+    if (!isBrowser()) {
+      resolve({
+        src,
+        success: false,
+        error: 'Not in browser environment',
+        loadTime: 0,
+      });
+      return;
+    }
+
     const img = new Image();
     let resolved = false;
 
@@ -214,24 +234,49 @@ export function prioritizeImageSources(
 }
 
 /**
+ * Safe base64 encoding that works in both browser and Node.js
+ */
+function safeBase64Encode(str: string): string {
+  if (typeof btoa !== 'undefined') {
+    return btoa(str);
+  }
+  // Fallback for Node.js environment
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(str).toString('base64');
+  }
+  // If neither is available, return the string as-is (shouldn't happen in practice)
+  return str;
+}
+
+/**
  * Create a data URL for a solid color fallback
  */
 export function createColorFallback(color: string = '#6366f1'): string {
+  // If not in browser, return a simple SVG data URL
+  if (!isBrowser()) {
+    const svg = `<svg width="1" height="1" xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1" fill="${color}"/></svg>`;
+    return `data:image/svg+xml;base64,${safeBase64Encode(svg)}`;
+  }
+
   // Create a 1x1 pixel data URL with the specified color
-  const canvas = document.createElement('canvas');
-  canvas.width = 1;
-  canvas.height = 1;
-  
-  const ctx = canvas.getContext('2d');
-  if (ctx) {
-    ctx.fillStyle = color;
-    ctx.fillRect(0, 0, 1, 1);
-    return canvas.toDataURL();
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 1;
+    
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = color;
+      ctx.fillRect(0, 0, 1, 1);
+      return canvas.toDataURL();
+    }
+  } catch (error) {
+    // Canvas failed, fall through to SVG
   }
   
   // Fallback to SVG data URL if canvas fails
   const svg = `<svg width="1" height="1" xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1" fill="${color}"/></svg>`;
-  return `data:image/svg+xml;base64,${btoa(svg)}`;
+  return `data:image/svg+xml;base64,${safeBase64Encode(svg)}`;
 }
 
 /**
@@ -244,6 +289,14 @@ export function useImageLoader(sources: string[], options: ImagePreloadOptions =
   const [loadResults, setLoadResults] = React.useState<ImageLoadResult[]>([]);
 
   React.useEffect(() => {
+    // Only run in browser environment
+    if (!isBrowser()) {
+      setCurrentImage(null);
+      setIsLoading(false);
+      setHasError(true);
+      return;
+    }
+
     if (sources.length === 0) {
       setCurrentImage(null);
       setIsLoading(false);
@@ -281,4 +334,3 @@ export function useImageLoader(sources: string[], options: ImagePreloadOptions =
 }
 
 // Re-export React for the hook
-import React from 'react';

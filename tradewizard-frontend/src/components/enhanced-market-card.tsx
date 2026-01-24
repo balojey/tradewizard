@@ -16,7 +16,7 @@ import type { ProcessedMarket } from '../lib/polymarket-api-types';
 import { formatVolume } from '../lib/polymarket-config';
 import { RealtimePrice } from './realtime-price';
 import { ConnectionIndicator } from './connection-status';
-import { useRealtimePrices } from '../lib/realtime-context';
+import { useRealtimePricesSafe } from '../lib/realtime-context';
 import { MarketImage } from '@/components/market-image';
 
 interface EnhancedMarketCardProps {
@@ -42,7 +42,7 @@ export function EnhancedMarketCard({
   
   // Get real-time price updates for market outcomes
   const tokenIds = enableRealtime ? market.outcomes.map(outcome => outcome.tokenId).filter(Boolean) : [];
-  const { prices, isSubscribed } = useRealtimePrices(tokenIds);
+  const { prices, isSubscribed } = useRealtimePricesSafe(tokenIds);
 
   // Calculate time until market ends
   const timeUntilEnd = new Date(market.endDate).getTime() - Date.now();

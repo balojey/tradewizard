@@ -15,7 +15,7 @@ import {
   Activity,
   Clock,
 } from 'lucide-react';
-import { useRealtimePrices } from '../lib/realtime-context';
+import { useRealtimePricesSafe } from '../lib/realtime-context';
 import type { PriceUpdate } from '../lib/polymarket-api-types';
 import { formatProbability, formatPriceChange, getPriceChangeColor } from '../lib/polymarket-config';
 
@@ -42,7 +42,7 @@ export function RealtimePrice({
   size = 'md',
   animated = true,
 }: RealtimePriceProps) {
-  const { prices, isSubscribed } = useRealtimePrices([tokenId]);
+  const { prices, isSubscribed } = useRealtimePricesSafe([tokenId]);
   const priceUpdate = prices[tokenId];
   
   const [previousPrice, setPreviousPrice] = useState<number | null>(null);
@@ -168,7 +168,7 @@ export function RealtimePriceChart({
   height = 60,
   maxDataPoints = 50,
 }: RealtimePriceChartProps) {
-  const { prices } = useRealtimePrices([tokenId]);
+  const { prices } = useRealtimePricesSafe([tokenId]);
   const priceUpdate = prices[tokenId];
   
   const [priceHistory, setPriceHistory] = useState<{ price: number; timestamp: number }[]>([]);
@@ -268,7 +268,7 @@ export function RealtimePriceGrid({
   columns = 2,
   showLabels = true,
 }: RealtimePriceGridProps) {
-  const { prices, isSubscribed } = useRealtimePrices(tokenIds);
+  const { prices, isSubscribed } = useRealtimePricesSafe(tokenIds);
 
   const gridCols = {
     1: 'grid-cols-1',
@@ -327,7 +327,7 @@ export function RealtimePriceTicker({
   className = '',
   speed = 'medium',
 }: RealtimePriceTickerProps) {
-  const { prices } = useRealtimePrices(tokenIds);
+  const { prices } = useRealtimePricesSafe(tokenIds);
 
   const speedDuration = {
     slow: 60,
@@ -397,7 +397,7 @@ export function RealtimePriceTicker({
  * Hook for managing real-time price subscriptions
  */
 export function usePriceSubscription(tokenIds: string[]) {
-  const { prices, isSubscribed, lastUpdated } = useRealtimePrices(tokenIds);
+  const { prices, isSubscribed, lastUpdated } = useRealtimePricesSafe(tokenIds);
   
   const priceData = useMemo(() => {
     return tokenIds.map(tokenId => ({
