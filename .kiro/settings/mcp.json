@@ -1,5 +1,9 @@
 {
   "mcpServers": {
+    "Railway": {
+      "command": "npx",
+      "args": ["-y", "@railway/mcp-server"]
+    },
     "magic-link-docs": {
       "url": "https://docs.magic.link/mcp",
       "disabled": false
