@@ -35,7 +35,22 @@ export function Navbar() {
                                 TradeWizard
                             </span>
                         </Link>
-                        {/* Main navigation removed as it's now in CategoriesBar */}
+                        
+                        {/* Navigation Links */}
+                        <nav className="hidden md:flex items-center gap-6">
+                            <Link 
+                                href="/" 
+                                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                                Markets
+                            </Link>
+                            <Link 
+                                href="/dashboard" 
+                                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                                Dashboard
+                            </Link>
+                        </nav>
                     </div>
 
                     {/* Center: Search Bar */}
