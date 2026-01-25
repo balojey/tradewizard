@@ -4,6 +4,9 @@ import { PoliticsTagBar } from "@/components/politics-tag-bar";
 import { getPoliticalEvents, getPoliticalTagDisplayName, isValidPoliticalTag } from "@/lib/politics-data";
 import { Suspense } from "react";
 import { preloadImages } from "@/lib/image-utils";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Search } from "lucide-react";
 
 // Loading component for server-side rendering with enhanced skeleton
 function MarketGridSkeleton() {
@@ -84,9 +87,20 @@ export default async function Home({
       <PoliticsTagBar currentTag={validatedTag} />
       
       <section id="markets" className="container max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-12">
-        <h2 className="mb-4 sm:mb-6 lg:mb-8 text-lg sm:text-xl lg:text-2xl font-bold tracking-tight">
-          {getPoliticalTagDisplayName(validatedTag)}
-        </h2>
+        <div className="flex items-center justify-between mb-4 sm:mb-6 lg:mb-8">
+          <h2 className="text-lg sm:text-xl lg:text-2xl font-bold tracking-tight">
+            {getPoliticalTagDisplayName(validatedTag)}
+          </h2>
+          
+          {/* Search Button */}
+          <Link href="/search">
+            <Button variant="outline" className="gap-2">
+              <Search className="h-4 w-4" />
+              <span className="hidden sm:inline">Search Markets</span>
+              <span className="sm:hidden">Search</span>
+            </Button>
+          </Link>
+        </div>
 
         {/* Market Grid with Suspense for better SSR performance */}
         <Suspense fallback={<MarketGridSkeleton />}>
