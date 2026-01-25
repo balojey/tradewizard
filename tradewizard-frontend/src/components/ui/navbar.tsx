@@ -82,17 +82,17 @@ export function Navbar() {
     return (
         <>
             <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
-                <div className="container flex h-14 max-w-screen-2xl items-center mx-auto px-4 gap-4">
+                <div className="container flex h-14 sm:h-16 max-w-screen-2xl items-center mx-auto px-3 sm:px-4 gap-2 sm:gap-4">
 
-                    {/* Left: Logo & Links */}
-                    <div className="flex items-center gap-6 md:gap-8 flex-1 md:flex-none">
-                        <Link href="/" className="flex items-center space-x-2">
-                            <span className="font-bold text-xl tracking-tight bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
+                    {/* Left: Logo & Links - Enhanced mobile layout */}
+                    <div className="flex items-center gap-3 sm:gap-6 md:gap-8 flex-1 md:flex-none min-w-0">
+                        <Link href="/" className="flex items-center space-x-2 flex-shrink-0">
+                            <span className="font-bold text-lg sm:text-xl tracking-tight bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
                                 TradeWizard
                             </span>
                         </Link>
                         
-                        {/* Navigation Links */}
+                        {/* Navigation Links - Hidden on mobile, shown on md+ */}
                         <nav className="hidden md:flex items-center gap-6">
                             <Link 
                                 href="/" 
@@ -109,8 +109,8 @@ export function Navbar() {
                         </nav>
                     </div>
 
-                    {/* Center: Search Bar (Desktop) */}
-                    <div className="flex-1 hidden md:flex max-w-xl mx-auto">
+                    {/* Center: Search Bar (Desktop) - Enhanced responsive layout */}
+                    <div className="flex-1 hidden md:flex max-w-sm lg:max-w-xl mx-auto">
                         <div className="relative w-full">
                             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                             <input
@@ -120,7 +120,7 @@ export function Navbar() {
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 onKeyDown={handleSearchKeyPress}
-                                className="h-10 w-full rounded-lg border border-input bg-muted/30 px-10 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                className="h-9 sm:h-10 w-full rounded-lg border border-input bg-muted/30 px-10 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                             />
                             {searchQuery && (
                                 <Button
@@ -140,24 +140,25 @@ export function Navbar() {
                         </div>
                     </div>
 
-                    {/* Right: Auth & Tools */}
-                    <div className="flex items-center gap-2 justify-end flex-1 md:flex-none">
+                    {/* Right: Auth & Tools - Enhanced mobile layout */}
+                    <div className="flex items-center gap-1 sm:gap-2 justify-end flex-1 md:flex-none">
                         {isLoggedIn ? (
                             <UserMenu />
                         ) : (
                             <>
                                 <Button 
                                     variant="ghost" 
-                                    className="hidden sm:flex text-sm font-medium"
+                                    className="hidden sm:flex text-sm font-medium h-9"
                                     onClick={handleLoginClick}
                                 >
                                     Log In
                                 </Button>
                                 <Button 
-                                    className="h-9 px-4 font-semibold text-white bg-blue-600 hover:bg-blue-700"
+                                    className="h-9 px-3 sm:px-4 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700"
                                     onClick={handleSignupClick}
                                 >
-                                    Sign Up
+                                    <span className="hidden xs:inline">Sign Up</span>
+                                    <span className="xs:hidden">Join</span>
                                 </Button>
                             </>
                         )}
@@ -166,22 +167,22 @@ export function Navbar() {
                         <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="md:hidden"
+                            className="md:hidden h-9 w-9"
                             onClick={() => setShowMobileSearch(!showMobileSearch)}
                         >
-                            {showMobileSearch ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
+                            {showMobileSearch ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
                         </Button>
                         
-                        <Button variant="ghost" size="icon">
-                            <Menu className="h-5 w-5" />
+                        <Button variant="ghost" size="icon" className="h-9 w-9">
+                            <Menu className="h-4 w-4" />
                         </Button>
                     </div>
                 </div>
 
-                {/* Mobile Search Bar */}
+                {/* Mobile Search Bar - Enhanced mobile layout */}
                 {showMobileSearch && (
                     <div className="md:hidden border-t border-border/40 bg-background/95 backdrop-blur-md">
-                        <div className="container max-w-screen-2xl mx-auto px-4 py-3">
+                        <div className="container max-w-screen-2xl mx-auto px-3 sm:px-4 py-3">
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                 <input
@@ -189,7 +190,7 @@ export function Navbar() {
                                     type="text"
                                     placeholder="Search markets..."
                                     onKeyDown={handleMobileSearchKeyPress}
-                                    className="h-10 w-full rounded-lg border border-input bg-background px-10 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                    className="h-12 sm:h-10 w-full rounded-lg border border-input bg-background px-10 py-2 text-base sm:text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                                 />
                                 <Button
                                     variant="ghost"
@@ -200,7 +201,7 @@ export function Navbar() {
                                             handleSearch(input.value);
                                         }
                                     }}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 h-6 px-2 text-xs"
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 sm:h-6 px-3 sm:px-2 text-sm sm:text-xs font-medium"
                                 >
                                     Search
                                 </Button>

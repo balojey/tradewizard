@@ -8,10 +8,10 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
 
-// Loading component for server-side rendering with enhanced skeleton
+// Loading component for server-side rendering with enhanced skeleton - Enhanced responsive grid
 function MarketGridSkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+    <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:gap-5 xl:gap-6 xs:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
       {Array.from({ length: 8 }).map((_, i) => (
         <div key={i} className="animate-pulse">
           <div className="bg-muted rounded-lg overflow-hidden">
@@ -86,26 +86,26 @@ export default async function Home({
       {/* Politics Tag Bar with current tag state (Requirements 1.4, 1.5) */}
       <PoliticsTagBar currentTag={validatedTag} />
       
-      <section id="markets" className="container max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-12">
-        <div className="flex items-center justify-between mb-4 sm:mb-6 lg:mb-8">
-          <h2 className="text-lg sm:text-xl lg:text-2xl font-bold tracking-tight">
+      <section id="markets" className="container max-w-screen-2xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8 py-4 sm:py-6 lg:py-8 xl:py-12">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6 lg:mb-8">
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">
             {getPoliticalTagDisplayName(validatedTag)}
           </h2>
           
-          {/* Search Button */}
+          {/* Search Button - Enhanced mobile layout */}
           <Link href="/search">
-            <Button variant="outline" className="gap-2">
+            <Button variant="outline" className="gap-2 h-10 sm:h-9 px-4 sm:px-3">
               <Search className="h-4 w-4" />
-              <span className="hidden sm:inline">Search Markets</span>
-              <span className="sm:hidden">Search</span>
+              <span className="hidden xs:inline">Search Markets</span>
+              <span className="xs:hidden">Search</span>
             </Button>
           </Link>
         </div>
 
-        {/* Market Grid with Suspense for better SSR performance */}
+        {/* Market Grid with Suspense for better SSR performance - Enhanced responsive grid */}
         <Suspense fallback={<MarketGridSkeleton />}>
           <div 
-            className="grid grid-cols-1 gap-3 sm:gap-4 lg:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
+            className="grid grid-cols-1 gap-3 sm:gap-4 lg:gap-5 xl:gap-6 xs:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
             role="grid"
             aria-label={`${getPoliticalTagDisplayName(validatedTag)} markets`}
             id={`markets-${validatedTag}`}

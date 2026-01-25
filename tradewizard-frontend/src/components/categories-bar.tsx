@@ -86,34 +86,35 @@ export function CategoryFilter({
     const hasMoreCategories = filteredCategories.length > 4;
 
     return (
-        <div className="border-b border-border/40 bg-background/95 backdrop-blur-sm sticky top-16 z-40">
-            <div className="container max-w-screen-2xl mx-auto px-4">
-                <div className="flex h-12 items-center gap-1 overflow-x-auto scrollbar-hide">
+        <div className="border-b border-border/40 bg-background/95 backdrop-blur-sm sticky top-14 sm:top-16 z-40">
+            <div className="container max-w-screen-2xl mx-auto px-2 sm:px-4">
+                <div className="flex h-12 sm:h-14 items-center gap-1 overflow-x-auto scrollbar-hide">
 
-                    {/* Main Categories Section */}
-                    <div className="flex bg-transparent pr-4 border-r border-border/30 h-8 items-center gap-1 shrink-0">
+                    {/* Main Categories Section - Enhanced mobile layout */}
+                    <div className="flex bg-transparent pr-2 sm:pr-4 border-r border-border/30 h-8 sm:h-10 items-center gap-1 shrink-0">
                         {/* All/Trending Button */}
                         <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => handleCategoryClick(null)}
                             className={cn(
-                                "h-8 px-3 text-xs font-semibold transition-all duration-200",
+                                "h-8 sm:h-9 px-2 sm:px-3 text-xs sm:text-sm font-semibold transition-all duration-200 whitespace-nowrap",
                                 !activeCategory 
                                     ? "text-foreground bg-muted/60 shadow-sm" 
                                     : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                             )}
                         >
-                            <TrendingUp className="mr-1.5 h-3.5 w-3.5" />
-                            All Markets
+                            <TrendingUp className="mr-1 sm:mr-1.5 h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                            <span className="hidden xs:inline">All Markets</span>
+                            <span className="xs:hidden">All</span>
                             {showCounts && marketCounts['all'] && (
-                                <span className="ml-1.5 px-1.5 py-0.5 text-[10px] bg-primary/10 text-primary rounded-full">
+                                <span className="ml-1 sm:ml-1.5 px-1 sm:px-1.5 py-0.5 text-[9px] sm:text-[10px] bg-primary/10 text-primary rounded-full">
                                     {marketCounts['all']}
                                 </span>
                             )}
                         </Button>
 
-                        {/* Category Buttons */}
+                        {/* Category Buttons - Enhanced mobile layout */}
                         {visibleCategories.map((cat) => {
                             const isActive = activeCategory === cat.slug;
                             const count = marketCounts[cat.slug] || 0;
@@ -125,7 +126,7 @@ export function CategoryFilter({
                                     size="sm"
                                     onClick={() => handleCategoryClick(cat.slug)}
                                     className={cn(
-                                        "h-8 px-3 text-xs font-semibold transition-all duration-200 relative",
+                                        "h-8 sm:h-9 px-2 sm:px-3 text-xs sm:text-sm font-semibold transition-all duration-200 relative whitespace-nowrap",
                                         isActive 
                                             ? "text-foreground bg-muted/60 shadow-sm" 
                                             : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
@@ -134,11 +135,12 @@ export function CategoryFilter({
                                     disabled={count === 0}
                                     title={cat.description}
                                 >
-                                    {cat.icon && <cat.icon className="mr-1.5 h-3.5 w-3.5" />}
-                                    {cat.label}
+                                    {cat.icon && <cat.icon className="mr-1 sm:mr-1.5 h-3 w-3 sm:h-3.5 sm:w-3.5" />}
+                                    <span className="hidden xs:inline">{cat.label}</span>
+                                    <span className="xs:hidden">{cat.label.slice(0, 3)}</span>
                                     {showCounts && count > 0 && (
                                         <span className={cn(
-                                            "ml-1.5 px-1.5 py-0.5 text-[10px] rounded-full",
+                                            "ml-1 sm:ml-1.5 px-1 sm:px-1.5 py-0.5 text-[9px] sm:text-[10px] rounded-full",
                                             isActive 
                                                 ? "bg-primary/20 text-primary" 
                                                 : "bg-muted-foreground/10 text-muted-foreground"

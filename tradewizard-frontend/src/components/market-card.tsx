@@ -147,11 +147,11 @@ export function MarketCard({
                             }}
                         />
 
-                        {/* Status badges */}
-                        <div className="absolute left-1.5 sm:left-2 top-1.5 sm:top-2 flex flex-col gap-1">
+                        {/* Status badges - Enhanced mobile responsiveness */}
+                        <div className="absolute left-2 top-2 flex flex-col gap-1 max-w-[calc(100%-4rem)]">
                             {isNew && (
                                 <div 
-                                    className="rounded-full bg-blue-600/90 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-sm"
+                                    className="rounded-full bg-blue-600/90 px-2 py-1 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-sm"
                                     aria-label="New market"
                                     role="status"
                                 >
@@ -160,7 +160,7 @@ export function MarketCard({
                             )}
                             {featured && (
                                 <div 
-                                    className="rounded-full bg-amber-500/90 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-sm"
+                                    className="rounded-full bg-amber-500/90 px-2 py-1 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-sm"
                                     aria-label="Featured market"
                                     role="status"
                                 >
@@ -169,55 +169,56 @@ export function MarketCard({
                             )}
                             {trending && (
                                 <div 
-                                    className="rounded-full bg-emerald-500/90 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-sm flex items-center gap-0.5"
+                                    className="rounded-full bg-emerald-500/90 px-2 py-1 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-sm flex items-center gap-1"
                                     aria-label="Trending market"
                                     role="status"
                                 >
-                                    <Zap className="h-2 w-2" />
-                                    Trending
+                                    <Zap className="h-3 w-3" />
+                                    <span className="hidden xs:inline">Trending</span>
+                                    <span className="xs:hidden">Hot</span>
                                 </div>
                             )}
                         </div>
 
-                        {/* Real-time update indicator */}
+                        {/* Real-time update indicator - Enhanced mobile positioning */}
                         {enableRealTimeUpdates && isSubscribed && Object.keys(prices).length > 0 && (
-                            <div className="absolute top-1.5 sm:top-2 left-1.5 sm:left-2">
-                                <div className="rounded-full bg-emerald-500/90 p-1 backdrop-blur-sm animate-pulse">
-                                    <Activity className="h-2 w-2 text-white" />
+                            <div className="absolute top-2 right-2">
+                                <div className="rounded-full bg-emerald-500/90 p-1.5 backdrop-blur-sm animate-pulse shadow-sm">
+                                    <Activity className="h-3 w-3 text-white" />
                                 </div>
                             </div>
                         )}
 
-                        {/* Volume and time info */}
-                        <div className="absolute bottom-1.5 sm:bottom-2 right-1.5 sm:right-2 flex flex-col gap-1 items-end">
+                        {/* Volume and time info - Enhanced mobile layout */}
+                        <div className="absolute bottom-2 right-2 flex flex-col gap-1 items-end max-w-[calc(100%-4rem)]">
                             <div 
-                                className="rounded-md bg-black/60 px-1 sm:px-1.5 py-0.5 text-[9px] sm:text-[10px] font-medium text-white backdrop-blur-sm flex items-center gap-0.5 sm:gap-1"
+                                className="rounded-md bg-black/70 px-2 py-1 text-[10px] sm:text-xs font-medium text-white backdrop-blur-sm flex items-center gap-1"
                                 aria-label={`Trading volume: ${safeVolume}`}
                             >
-                                <TrendingUp className="h-2.5 w-2.5 sm:h-3 sm:w-3" aria-hidden="true" />
-                                <span>{safeVolume}</span>
+                                <TrendingUp className="h-3 w-3" aria-hidden="true" />
+                                <span className="truncate">{safeVolume}</span>
                             </div>
                             {timeUntilEnd && (
                                 <div 
-                                    className="rounded-md bg-black/60 px-1 sm:px-1.5 py-0.5 text-[9px] sm:text-[10px] font-medium text-white backdrop-blur-sm flex items-center gap-0.5 sm:gap-1"
+                                    className="rounded-md bg-black/70 px-2 py-1 text-[10px] sm:text-xs font-medium text-white backdrop-blur-sm flex items-center gap-1"
                                     aria-label={`Time until market ends: ${timeUntilEnd}`}
                                 >
-                                    <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3" aria-hidden="true" />
+                                    <Clock className="h-3 w-3" aria-hidden="true" />
                                     <span>{timeUntilEnd}</span>
                                 </div>
                             )}
                         </div>
 
-                        {/* AI Insights indicator */}
+                        {/* AI Insights indicator - Enhanced mobile positioning */}
                         {showAIInsights && aiInsights && (
-                            <div className="absolute top-1.5 sm:top-2 right-1.5 sm:right-2">
+                            <div className="absolute top-2 right-2 z-10">
                                 <AIInsightsIndicator insights={aiInsights} isHovered={isHovered} />
                             </div>
                         )}
                     </div>
 
-                    <CardContent className="flex-1 p-3 sm:p-4 space-y-3 sm:space-y-4">
-                        <h3 className="line-clamp-2 text-sm sm:text-base font-semibold leading-snug tracking-tight text-foreground group-hover:text-primary transition-colors">
+                    <CardContent className="flex-1 p-3 sm:p-4 lg:p-5 space-y-3 sm:space-y-4">
+                        <h3 className="line-clamp-2 text-sm sm:text-base lg:text-lg font-semibold leading-snug tracking-tight text-foreground group-hover:text-primary transition-colors">
                             {safeTitle}
                         </h3>
 

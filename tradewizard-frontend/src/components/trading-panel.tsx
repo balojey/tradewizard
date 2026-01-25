@@ -119,53 +119,56 @@ export function TradingPanel({
   const balancePercentages = [25, 50, 75, 100];
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-          <div>
-            <CardTitle className="text-lg">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
+      <Card className="w-full max-w-sm sm:max-w-lg max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 sm:pb-4 px-4 sm:px-6 pt-4 sm:pt-6">
+          <div className="min-w-0 flex-1 pr-2">
+            <CardTitle className="text-base sm:text-lg truncate">
               Trade {selectedOutcome.name}
             </CardTitle>
-            <div className="text-sm text-muted-foreground">
+            <div className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
               {market.title}
             </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>
+          <Button variant="ghost" size="sm" onClick={onClose} className="flex-shrink-0">
             <X className="h-4 w-4" />
           </Button>
         </CardHeader>
         
-        <CardContent className="space-y-6">
-          {/* Market Info */}
+        <CardContent className="space-y-4 sm:space-y-6 px-4 sm:px-6 pb-4 sm:pb-6">
+          {/* Market Info - Enhanced mobile layout */}
           <div className="p-3 bg-muted/50 rounded-lg space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Current Price:</span>
-              <span className="font-mono font-medium">
-                {(selectedOutcome.probability).toFixed(1)}%
-              </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
+              <div className="flex justify-between items-center">
+                <span className="text-xs sm:text-sm text-muted-foreground">Current Price:</span>
+                <span className="font-mono font-medium text-sm sm:text-base">
+                  {(selectedOutcome.probability).toFixed(1)}%
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs sm:text-sm text-muted-foreground">Best Bid/Ask:</span>
+                <span className="font-mono text-xs sm:text-sm">
+                  {selectedOutcome.bestBid ? (selectedOutcome.bestBid * 100).toFixed(1) : '--'}% / 
+                  {selectedOutcome.bestAsk ? (selectedOutcome.bestAsk * 100).toFixed(1) : '--'}%
+                </span>
+              </div>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Best Bid/Ask:</span>
-              <span className="font-mono text-sm">
-                {selectedOutcome.bestBid ? (selectedOutcome.bestBid * 100).toFixed(1) : '--'}% / 
-                {selectedOutcome.bestAsk ? (selectedOutcome.bestAsk * 100).toFixed(1) : '--'}%
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Your Balance:</span>
-              <span className="font-mono font-medium flex items-center gap-1">
+            <div className="flex justify-between items-center pt-2 border-t border-border/50">
+              <span className="text-xs sm:text-sm text-muted-foreground">Your Balance:</span>
+              <span className="font-mono font-medium flex items-center gap-1 text-sm sm:text-base">
                 <Wallet className="h-3 w-3" />
                 ${userBalance.toFixed(2)}
               </span>
             </div>
           </div>
 
-          {/* Buy/Sell Toggle */}
-          <div className="grid grid-cols-2 gap-2">
+          {/* Buy/Sell Toggle - Enhanced mobile touch targets */}
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
             <Button
               variant={side === 'buy' ? 'default' : 'outline'}
               onClick={() => setSide('buy')}
               className={cn(
+                "h-12 sm:h-10 text-sm sm:text-base font-semibold",
                 side === 'buy' && "bg-emerald-600 hover:bg-emerald-700"
               )}
             >
@@ -176,6 +179,7 @@ export function TradingPanel({
               variant={side === 'sell' ? 'default' : 'outline'}
               onClick={() => setSide('sell')}
               className={cn(
+                "h-12 sm:h-10 text-sm sm:text-base font-semibold",
                 side === 'sell' && "bg-red-600 hover:bg-red-700"
               )}
             >
@@ -184,14 +188,15 @@ export function TradingPanel({
             </Button>
           </div>
 
-          {/* Order Type */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Order Type</label>
-            <div className="grid grid-cols-2 gap-2">
+          {/* Order Type - Enhanced mobile layout */}
+          <div className="space-y-2 sm:space-y-3">
+            <label className="text-sm sm:text-base font-medium">Order Type</label>
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <Button
                 variant={orderType === 'limit' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setOrderType('limit')}
+                className="h-10 sm:h-9 text-sm font-medium"
               >
                 Limit
               </Button>
@@ -199,6 +204,7 @@ export function TradingPanel({
                 variant={orderType === 'market' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setOrderType('market')}
+                className="h-10 sm:h-9 text-sm font-medium"
               >
                 Market
               </Button>
@@ -211,10 +217,10 @@ export function TradingPanel({
             )}
           </div>
 
-          {/* Price Input (for limit orders) */}
+          {/* Price Input (for limit orders) - Enhanced mobile layout */}
           {orderType === 'limit' && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Price</label>
+            <div className="space-y-2 sm:space-y-3">
+              <label className="text-sm sm:text-base font-medium">Price</label>
               <div className="relative">
                 <input
                   type="number"
@@ -224,7 +230,7 @@ export function TradingPanel({
                   max="0.99"
                   step={selectedOutcome.tickSize || 0.01}
                   className={cn(
-                    "w-full px-3 py-2 border rounded-md text-right font-mono",
+                    "w-full px-3 py-3 sm:py-2 border rounded-md text-right font-mono text-base sm:text-sm",
                     errors.price && "border-red-500"
                   )}
                 />
@@ -233,14 +239,14 @@ export function TradingPanel({
                 </div>
               </div>
               {errors.price && (
-                <div className="text-xs text-red-600">{errors.price}</div>
+                <div className="text-xs sm:text-sm text-red-600">{errors.price}</div>
               )}
             </div>
           )}
 
-          {/* Size Input */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Amount</label>
+          {/* Size Input - Enhanced mobile layout */}
+          <div className="space-y-2 sm:space-y-3">
+            <label className="text-sm sm:text-base font-medium">Amount</label>
             <div className="relative">
               <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
@@ -251,26 +257,26 @@ export function TradingPanel({
                 max={selectedOutcome.maxOrderSize}
                 step="1"
                 className={cn(
-                  "w-full pl-10 pr-3 py-2 border rounded-md text-right font-mono",
+                  "w-full pl-10 pr-3 py-3 sm:py-2 border rounded-md text-right font-mono text-base sm:text-sm",
                   (errors.size || errors.balance) && "border-red-500"
                 )}
               />
             </div>
             {(errors.size || errors.balance) && (
-              <div className="text-xs text-red-600">{errors.size || errors.balance}</div>
+              <div className="text-xs sm:text-sm text-red-600">{errors.size || errors.balance}</div>
             )}
             
-            {/* Quick Size Buttons */}
-            <div className="space-y-2">
-              <div className="text-xs text-muted-foreground">Quick amounts:</div>
-              <div className="grid grid-cols-4 gap-1">
+            {/* Quick Size Buttons - Enhanced mobile layout */}
+            <div className="space-y-2 sm:space-y-3">
+              <div className="text-xs sm:text-sm text-muted-foreground">Quick amounts:</div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {quickSizes.map((amount) => (
                   <Button
                     key={amount}
                     variant="outline"
                     size="sm"
                     onClick={() => setSize(amount)}
-                    className="text-xs"
+                    className="text-xs sm:text-sm h-9 sm:h-8"
                   >
                     ${amount}
                   </Button>
@@ -404,15 +410,21 @@ export function TradingPanel({
             </div>
           )}
 
-          {/* Action Buttons */}
-          <div className="grid grid-cols-2 gap-3">
-            <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
+          {/* Action Buttons - Enhanced mobile layout */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <Button 
+              variant="outline" 
+              onClick={onClose} 
+              disabled={isSubmitting}
+              className="h-12 sm:h-10 text-sm sm:text-base font-medium order-2 sm:order-1"
+            >
               Cancel
             </Button>
             <Button 
               onClick={handleSubmit}
               disabled={!isValid || !market.tradingEnabled || isSubmitting}
               className={cn(
+                "h-12 sm:h-10 text-sm sm:text-base font-semibold order-1 sm:order-2",
                 side === 'buy' ? "bg-emerald-600 hover:bg-emerald-700" : "bg-red-600 hover:bg-red-700"
               )}
             >
@@ -420,8 +432,8 @@ export function TradingPanel({
             </Button>
           </div>
 
-          {/* Disclaimer */}
-          <div className="text-xs text-muted-foreground p-2 bg-muted/20 rounded border-l-2 border-muted">
+          {/* Disclaimer - Enhanced mobile readability */}
+          <div className="text-xs sm:text-sm text-muted-foreground p-3 sm:p-2 bg-muted/20 rounded border-l-2 border-muted">
             <strong>Risk Warning:</strong> Trading prediction markets involves risk. 
             Only trade with funds you can afford to lose.
           </div>
