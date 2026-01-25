@@ -7,6 +7,7 @@ import { TrendingUp, Vote, AlertTriangle, Brain, Zap, Clock, TrendingDown, Activ
 import { MarketType, ProcessedOutcome } from "@/lib/polymarket-types";
 import { ErrorBoundary, MarketErrorFallback } from "@/components/error-boundary";
 import { MarketImage } from "@/components/market-image";
+import { LazyMarketImage } from "@/components/lazy-market-image";
 import { RealtimePrice } from "@/components/realtime-price";
 import { useRealtimePricesSafe } from "@/lib/realtime-context";
 import { useState, useEffect } from "react";
@@ -135,11 +136,14 @@ export function MarketCard({
                     isHovered && "shadow-xl shadow-primary/20"
                 )}>
                     <div className="relative aspect-[1.91/1] w-full overflow-hidden bg-muted">
-                        <MarketImage
+                        <LazyMarketImage
                             eventImage={image}
                             marketImage={marketImage}
                             title={safeTitle}
                             className="w-full h-full transition-transform duration-300 group-hover:scale-105"
+                            priority={featured} // Prioritize featured markets
+                            placeholder="gradient"
+                            enableProgressiveLoading={true}
                             onImageError={(source) => {
                                 if (process.env.NODE_ENV === 'development') {
                                     console.warn(`Failed to load ${source} image for market ${safeId}`);

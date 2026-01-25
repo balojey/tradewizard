@@ -29,6 +29,11 @@ import {
   polymarketWebSocket,
   useWebSocketConnection,
 } from './polymarket-websocket';
+import { 
+  BatchedUpdateManager, 
+  useBatchedUpdates,
+  useThrottled,
+} from './performance-optimizer';
 
 // ============================================================================
 // State Types
@@ -432,25 +437,80 @@ export function RealtimeProvider({
     getActiveSubscriptions,
   } = useWebSocketConnection();
 
+  // Batched update handlers for performance optimization
+  const handleBatchedPriceUpdates = useCallback((updates: PriceUpdate[]) => {
+    // Process all price updates in a single batch to minimize re-renders
+    updates.forEach(update => {
+      dispatch({
+        type: 'PRICE_UPDATE',
+        payload: update,
+      });
+    });
+  }, []);
+
+  const handleBatchedOrderUpdates = useCallback((updates: OrderUpdate[]) => {
+    // Process all order updates in a single batch
+    updates.forEach(update => {
+      dispatch({
+        type: 'ORDER_UPDATE',
+        payload: update,
+      });
+    });
+  }, []);
+
+  const handleBatchedMarketUpdates = useCallback((updates: MarketUpdate[]) => {
+    // Process all market updates in a single batch
+    updates.forEach(update => {
+      dispatch({
+        type: 'MARKET_UPDATE',
+        payload: update,
+      });
+    });
+  }, []);
+
+  // Batched update managers
+  const { addUpdate: addPriceUpdate } = useBatchedUpdates(handleBatchedPriceUpdates, {
+    maxBatchSize: 20,
+    maxWaitTime: 50, // 50ms batching for price updates
+    minWaitTime: 16, // ~60fps
+  });
+
+  const { addUpdate: addOrderUpdate } = useBatchedUpdates(handleBatchedOrderUpdates, {
+    maxBatchSize: 10,
+    maxWaitTime: 100, // 100ms batching for order updates
+    minWaitTime: 16,
+  });
+
+  const { addUpdate: addMarketUpdate } = useBatchedUpdates(handleBatchedMarketUpdates, {
+    maxBatchSize: 15,
+    maxWaitTime: 200, // 200ms batching for market updates
+    minWaitTime: 16,
+  });
+
+  // Throttled connection status updates to prevent excessive re-renders
+  const throttledConnectionUpdate = useThrottled((status: any) => {
+    dispatch({
+      type: 'CONNECTION_STATUS_CHANGED',
+      payload: status,
+    });
+  }, 100); // Throttle to max 10 updates per second
+
   // ========================================================================
-  // WebSocket Event Handlers
+  // WebSocket Event Handlers with Batched Updates
   // ========================================================================
 
   useEffect(() => {
-    // Set up WebSocket event listeners
+    // Set up WebSocket event listeners with batched processing
     const unsubscribers: (() => void)[] = [];
 
-    // Connection status updates
+    // Connection status updates (throttled)
     const statusUnsubscriber = polymarketWebSocket.onConnectionStatusChange((status) => {
       const fullStatus = polymarketWebSocket.getConnectionStatus();
-      dispatch({
-        type: 'CONNECTION_STATUS_CHANGED',
-        payload: fullStatus,
-      });
+      throttledConnectionUpdate(fullStatus);
     });
     unsubscribers.push(statusUnsubscriber);
 
-    // Error handling
+    // Error handling (immediate, not batched)
     const errorUnsubscriber = polymarketWebSocket.onWebSocketError((wsError) => {
       dispatch({
         type: 'CONNECTION_ERROR',
@@ -459,30 +519,21 @@ export function RealtimeProvider({
     });
     unsubscribers.push(errorUnsubscriber);
 
-    // Price updates
+    // Price updates (batched for performance)
     const priceUnsubscriber = polymarketWebSocket.onPriceUpdate((update) => {
-      dispatch({
-        type: 'PRICE_UPDATE',
-        payload: update,
-      });
+      addPriceUpdate(update);
     });
     unsubscribers.push(priceUnsubscriber);
 
-    // Order updates
+    // Order updates (batched for performance)
     const orderUnsubscriber = polymarketWebSocket.onOrderUpdate((update) => {
-      dispatch({
-        type: 'ORDER_UPDATE',
-        payload: update,
-      });
+      addOrderUpdate(update);
     });
     unsubscribers.push(orderUnsubscriber);
 
-    // Market updates
+    // Market updates (batched for performance)
     const marketUnsubscriber = polymarketWebSocket.onMarketUpdate((update) => {
-      dispatch({
-        type: 'MARKET_UPDATE',
-        payload: update,
-      });
+      addMarketUpdate(update);
     });
     unsubscribers.push(marketUnsubscriber);
 
@@ -494,7 +545,16 @@ export function RealtimeProvider({
     return () => {
       unsubscribers.forEach(unsubscribe => unsubscribe());
     };
-  }, [autoConnect, isConnected, isConnecting, wsConnect]);
+  }, [
+    autoConnect, 
+    isConnected, 
+    isConnecting, 
+    wsConnect, 
+    throttledConnectionUpdate,
+    addPriceUpdate,
+    addOrderUpdate,
+    addMarketUpdate,
+  ]);
 
   // ========================================================================
   // Context Value

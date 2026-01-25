@@ -15,6 +15,7 @@ import {
   ApiError,
   MarketFilters,
 } from '../polymarket-api-types';
+import { marketCacheManager, CacheKeys } from '../cache-manager';
 
 /**
  * Market Discovery Service Interface
@@ -37,7 +38,6 @@ export interface MarketDiscoveryConfig {
   maxEventsPerDiscovery: number;
   maxMarketsPerEvent: number;
   defaultSortBy: string;
-  cacheTimeout: number;
   retryAttempts: number;
   retryDelay: number;
 }
@@ -51,26 +51,16 @@ const DEFAULT_CONFIG: MarketDiscoveryConfig = {
   maxEventsPerDiscovery: 100,
   maxMarketsPerEvent: 50,
   defaultSortBy: 'volume24hr',
-  cacheTimeout: 60000, // 60 seconds
   retryAttempts: 3,
   retryDelay: 1000, // 1 second
 };
 
-/**
- * Cache entry for API responses
- */
-interface CacheEntry<T> {
-  data: T;
-  timestamp: number;
-  expiry: number;
-}
 
 /**
- * Market Discovery Service Implementation
+ * Market Discovery Service Implementation with Enhanced Caching
  */
 export class PolymarketDiscoveryService implements MarketDiscoveryService {
   private config: MarketDiscoveryConfig;
-  private cache = new Map<string, CacheEntry<any>>();
   private lastRequestTime = 0;
 
   constructor(config: Partial<MarketDiscoveryConfig> = {}) {
@@ -78,172 +68,211 @@ export class PolymarketDiscoveryService implements MarketDiscoveryService {
   }
 
   /**
-   * Get events from Gamma API
+   * Get events from Gamma API with enhanced caching
    */
   async getEvents(params: GetEventsParams = {}): Promise<PolymarketEvent[]> {
-    const cacheKey = `events:${JSON.stringify(params)}`;
-    const cached = this.getFromCache<PolymarketEvent[]>(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
-    const url = this.buildEventsUrl(params);
-    const response = await this.makeRequest<PolymarketEvent[]>(url);
+    const cacheKey = CacheKeys.events(params);
     
-    if (response.success && response.data) {
-      this.setCache(cacheKey, response.data);
-      return response.data;
-    }
-    
-    throw new Error(response.error?.message || 'Failed to fetch events');
+    return marketCacheManager.getOrRefresh(
+      cacheKey,
+      async () => {
+        const url = this.buildEventsUrl(params);
+        const response = await this.makeRequest<PolymarketEvent[]>(url);
+        
+        if (response.success && response.data) {
+          return response.data;
+        }
+        
+        throw new Error(response.error?.message || 'Failed to fetch events');
+      }
+    );
   }
 
   /**
-   * Get markets from Gamma API
+   * Get markets from Gamma API with enhanced caching
    */
   async getMarkets(params: GetMarketsParams = {}): Promise<PolymarketMarket[]> {
-    const cacheKey = `markets:${JSON.stringify(params)}`;
-    const cached = this.getFromCache<PolymarketMarket[]>(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
-    const url = this.buildMarketsUrl(params);
-    const response = await this.makeRequest<PolymarketMarket[]>(url);
+    const cacheKey = CacheKeys.markets(params);
     
-    if (response.success && response.data) {
-      this.setCache(cacheKey, response.data);
-      return response.data;
-    }
-    
-    throw new Error(response.error?.message || 'Failed to fetch markets');
+    return marketCacheManager.getOrRefresh(
+      cacheKey,
+      async () => {
+        const url = this.buildMarketsUrl(params);
+        const response = await this.makeRequest<PolymarketMarket[]>(url);
+        
+        if (response.success && response.data) {
+          return response.data;
+        }
+        
+        throw new Error(response.error?.message || 'Failed to fetch markets');
+      }
+    );
   }
 
   /**
-   * Get available categories
+   * Get available categories with enhanced caching
    */
   async getCategories(): Promise<Category[]> {
-    const cacheKey = 'categories';
-    const cached = this.getFromCache<Category[]>(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
-    // Get tags from API and convert to categories
-    const url = `${this.config.gammaApiUrl}/tags`;
-    const response = await this.makeRequest<any[]>(url);
+    const cacheKey = CacheKeys.categories();
     
-    if (response.success && response.data) {
-      const categories = this.convertTagsToCategories(response.data);
-      this.setCache(cacheKey, categories);
-      return categories;
-    }
-    
-    throw new Error(response.error?.message || 'Failed to fetch categories');
+    return marketCacheManager.getOrRefresh(
+      cacheKey,
+      async () => {
+        const url = `${this.config.gammaApiUrl}/tags`;
+        const response = await this.makeRequest<any[]>(url);
+        
+        if (response.success && response.data) {
+          return this.convertTagsToCategories(response.data);
+        }
+        
+        throw new Error(response.error?.message || 'Failed to fetch categories');
+      },
+      300000 // 5 minutes for categories (less frequent changes)
+    );
   }
 
   /**
-   * Search markets
+   * Search markets with enhanced caching
    */
   async searchMarkets(params: SearchParams): Promise<PolymarketMarket[]> {
     const { query, category, limit = 20, offset = 0, filters } = params;
+    const cacheKey = CacheKeys.search(query, { category, limit, offset, filters });
     
-    // Build search parameters
-    const searchParams: GetMarketsParams = {
-      limit,
-      offset,
-      sortBy: filters?.sortBy || 'volume24hr',
-      order: filters?.sortOrder || 'desc',
-    };
+    return marketCacheManager.getOrRefresh(
+      cacheKey,
+      async () => {
+        // Build search parameters
+        const searchParams: GetMarketsParams = {
+          limit,
+          offset,
+          sortBy: filters?.sortBy || 'volume24hr',
+          order: filters?.sortOrder || 'desc',
+        };
 
-    // Get all markets first (in a real implementation, this would be server-side search)
-    const allMarkets = await this.getMarkets(searchParams);
-    
-    // Filter by search query
-    let filteredMarkets = allMarkets.filter(market => 
-      market.question.toLowerCase().includes(query.toLowerCase()) ||
-      market.description?.toLowerCase().includes(query.toLowerCase())
+        // Get all markets first (in a real implementation, this would be server-side search)
+        const allMarkets = await this.getMarkets(searchParams);
+        
+        // Filter by search query
+        let filteredMarkets = allMarkets.filter(market => 
+          market.question.toLowerCase().includes(query.toLowerCase()) ||
+          market.description?.toLowerCase().includes(query.toLowerCase())
+        );
+
+        // Apply category filter if specified
+        if (category) {
+          // This would need to be implemented based on how categories are associated with markets
+          // For now, we'll skip category filtering in search
+        }
+
+        // Apply additional filters
+        if (filters) {
+          filteredMarkets = this.applyFilters(filteredMarkets, filters);
+        }
+
+        return filteredMarkets.slice(0, limit);
+      },
+      30000 // 30 seconds for search results
     );
-
-    // Apply category filter if specified
-    if (category) {
-      // This would need to be implemented based on how categories are associated with markets
-      // For now, we'll skip category filtering in search
-    }
-
-    // Apply additional filters
-    if (filters) {
-      filteredMarkets = this.applyFilters(filteredMarkets, filters);
-    }
-
-    return filteredMarkets.slice(0, limit);
   }
 
   /**
-   * Get market by ID
+   * Get market by ID with enhanced caching
    */
   async getMarketById(marketId: string): Promise<PolymarketMarket | null> {
-    const cacheKey = `market:${marketId}`;
-    const cached = this.getFromCache<PolymarketMarket>(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
-    const url = `${this.config.gammaApiUrl}/markets/${marketId}`;
-    const response = await this.makeRequest<PolymarketMarket>(url);
+    const cacheKey = CacheKeys.market(marketId);
     
-    if (response.success && response.data) {
-      this.setCache(cacheKey, response.data);
-      return response.data;
-    }
-    
-    if (response.error?.type === 'API_ERROR' && response.error.message.includes('404')) {
-      return null;
-    }
-    
-    throw new Error(response.error?.message || 'Failed to fetch market');
+    return marketCacheManager.getOrRefresh(
+      cacheKey,
+      async () => {
+        const url = `${this.config.gammaApiUrl}/markets/${marketId}`;
+        const response = await this.makeRequest<PolymarketMarket>(url);
+        
+        if (response.success && response.data) {
+          return response.data;
+        }
+        
+        if (response.error?.type === 'API_ERROR' && response.error.message.includes('404')) {
+          return null;
+        }
+        
+        throw new Error(response.error?.message || 'Failed to fetch market');
+      }
+    );
   }
 
   /**
-   * Get event by ID
+   * Get event by ID with enhanced caching
    */
   async getEventById(eventId: string): Promise<PolymarketEvent | null> {
-    const cacheKey = `event:${eventId}`;
-    const cached = this.getFromCache<PolymarketEvent>(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
-    const url = `${this.config.gammaApiUrl}/events/${eventId}`;
-    const response = await this.makeRequest<PolymarketEvent>(url);
+    const cacheKey = CacheKeys.event(eventId);
     
-    if (response.success && response.data) {
-      this.setCache(cacheKey, response.data);
-      return response.data;
-    }
-    
-    if (response.error?.type === 'API_ERROR' && response.error.message.includes('404')) {
-      return null;
-    }
-    
-    throw new Error(response.error?.message || 'Failed to fetch event');
+    return marketCacheManager.getOrRefresh(
+      cacheKey,
+      async () => {
+        const url = `${this.config.gammaApiUrl}/events/${eventId}`;
+        const response = await this.makeRequest<PolymarketEvent>(url);
+        
+        if (response.success && response.data) {
+          return response.data;
+        }
+        
+        if (response.error?.type === 'API_ERROR' && response.error.message.includes('404')) {
+          return null;
+        }
+        
+        throw new Error(response.error?.message || 'Failed to fetch event');
+      }
+    );
   }
 
   /**
-   * Clear cache
+   * Clear cache using enhanced cache manager
    */
   clearCache(): void {
-    this.cache.clear();
+    marketCacheManager.clear();
   }
 
   /**
-   * Get cache statistics
+   * Get cache statistics using enhanced cache manager
    */
   getCacheStats(): { size: number; entries: string[] } {
+    const metrics = marketCacheManager.getMetrics();
+    const entries = marketCacheManager.getEntries();
+    
     return {
-      size: this.cache.size,
-      entries: Array.from(this.cache.keys()),
+      size: metrics.entryCount,
+      entries: entries.map(e => e.key),
     };
+  }
+
+  /**
+   * Invalidate specific market data
+   */
+  invalidateMarket(marketId: string): void {
+    marketCacheManager.invalidateMarket(marketId);
+  }
+
+  /**
+   * Preload frequently accessed data
+   */
+  async preloadData(): Promise<void> {
+    const preloadEntries = [
+      {
+        key: CacheKeys.categories(),
+        callback: () => this.getCategories(),
+        ttl: 300000, // 5 minutes
+      },
+      {
+        key: CacheKeys.events({ active: true, limit: 20 }),
+        callback: () => this.getEvents({ active: true, limit: 20 }),
+      },
+      {
+        key: CacheKeys.markets({ active: true, limit: 50 }),
+        callback: () => this.getMarkets({ active: true, limit: 50 }),
+      },
+    ];
+
+    await marketCacheManager.preload(preloadEntries);
   }
 
   // Private methods
@@ -337,28 +366,6 @@ export class PolymarketDiscoveryService implements MarketDiscoveryService {
     }
     
     this.lastRequestTime = Date.now();
-  }
-
-  private getFromCache<T>(key: string): T | null {
-    const entry = this.cache.get(key);
-    if (!entry) return null;
-    
-    if (Date.now() > entry.expiry) {
-      this.cache.delete(key);
-      return null;
-    }
-    
-    return entry.data;
-  }
-
-  private setCache<T>(key: string, data: T): void {
-    const entry: CacheEntry<T> = {
-      data,
-      timestamp: Date.now(),
-      expiry: Date.now() + this.config.cacheTimeout,
-    };
-    
-    this.cache.set(key, entry);
   }
 
   private convertTagsToCategories(tags: any[]): Category[] {
