@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { Button } from './button';
 import { Search, Menu, X } from 'lucide-react';
 import { LoginModal } from '@/components/auth/login-modal';
@@ -11,10 +11,12 @@ import { useMagic } from '@/lib/magic';
 
 export function Navbar() {
     const router = useRouter();
+    const pathname = usePathname();
     const [loginModalOpen, setLoginModalOpen] = useState(false);
     const [loginMode, setLoginMode] = useState<'login' | 'signup'>('login');
     const [searchQuery, setSearchQuery] = useState('');
     const [showMobileSearch, setShowMobileSearch] = useState(false);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const searchInputRef = useRef<HTMLInputElement>(null);
     const mobileSearchInputRef = useRef<HTMLInputElement>(null);
     const { isLoggedIn } = useMagic();
@@ -56,157 +58,189 @@ export function Navbar() {
         }
     };
 
-    // Focus search input when / is pressed
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey) {
-                // Only trigger if not in an input field
-                if (document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
-                    e.preventDefault();
-                    searchInputRef.current?.focus();
-                }
-            }
-        };
-
-        document.addEventListener('keydown', handleKeyDown);
-        return () => document.removeEventListener('keydown', handleKeyDown);
-    }, []);
-
     // Focus mobile search when opened
     useEffect(() => {
         if (showMobileSearch) {
-            setTimeout(() => mobileSearchInputRef.current?.focus(), 100);
+            setTimeout(() => {
+                mobileSearchInputRef.current?.focus();
+            }, 100);
         }
     }, [showMobileSearch]);
 
     return (
         <>
-            <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
-                <div className="container flex h-14 sm:h-16 max-w-screen-2xl items-center mx-auto px-3 sm:px-4 gap-2 sm:gap-4">
-
-                    {/* Left: Logo & Links - Enhanced mobile layout */}
-                    <div className="flex items-center gap-3 sm:gap-6 md:gap-8 flex-1 md:flex-none min-w-0">
-                        <Link href="/" className="flex items-center space-x-2 flex-shrink-0">
-                            <span className="font-bold text-lg sm:text-xl tracking-tight bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
+            <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+                <div className="container flex h-16 items-center">
+                    {/* Logo */}
+                    <div className="mr-4 hidden md:flex">
+                        <Link href="/" className="mr-6 flex items-center space-x-2">
+                            <span className="hidden font-bold sm:inline-block text-xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                                 TradeWizard
                             </span>
                         </Link>
-                        
-                        {/* Navigation Links - Hidden on mobile, shown on md+ */}
-                        <nav className="hidden md:flex items-center gap-6">
-                            <Link 
-                                href="/" 
-                                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    </div>
+
+                    {/* Mobile Logo */}
+                    <div className="mr-2 flex md:hidden">
+                        <Link href="/" className="flex items-center space-x-2">
+                            <span className="font-bold text-lg bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                                TradeWizard
+                            </span>
+                        </Link>
+                    </div>
+
+                    {/* Desktop Navigation */}
+                    <div className="mr-4 hidden md:flex">
+                        <nav className="flex items-center space-x-6 text-sm font-medium">
+                            <Link
+                                href="/"
+                                className={`transition-colors hover:text-foreground/80 ${
+                                    pathname === "/" ? "text-foreground" : "text-foreground/60"
+                                }`}
                             >
                                 Markets
                             </Link>
-                            <Link 
-                                href="/dashboard" 
-                                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                            <Link
+                                href="/dashboard"
+                                className={`transition-colors hover:text-foreground/80 ${
+                                    pathname === "/dashboard" ? "text-foreground" : "text-foreground/60"
+                                }`}
                             >
                                 Dashboard
                             </Link>
                         </nav>
                     </div>
 
-                    {/* Center: Search Bar (Desktop) - Enhanced responsive layout */}
-                    <div className="flex-1 hidden md:flex max-w-sm lg:max-w-xl mx-auto">
-                        <div className="relative w-full">
-                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                            <input
-                                ref={searchInputRef}
-                                type="text"
-                                placeholder="Search markets..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                onKeyDown={handleSearchKeyPress}
-                                className="h-9 sm:h-10 w-full rounded-lg border border-input bg-muted/30 px-10 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                            />
-                            {searchQuery && (
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setSearchQuery('')}
-                                    className="absolute right-8 top-1/2 -translate-y-1/2 h-6 w-6 p-0 hover:bg-muted"
-                                >
-                                    <X className="h-3 w-3" />
-                                </Button>
-                            )}
-                            <div className="absolute right-3 top-1/2 -translate-y-1/2 hidden lg:flex items-center gap-1">
-                                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
-                                    <span className="text-xs">/</span>
-                                </kbd>
+                    {/* Search Bar - Desktop */}
+                    <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
+                        <div className="w-full flex-1 md:w-auto md:flex-none">
+                            <div className="hidden md:block">
+                                <div className="relative">
+                                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                    <input
+                                        ref={searchInputRef}
+                                        type="search"
+                                        placeholder="Search markets..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        onKeyDown={handleSearchKeyPress}
+                                        className="h-9 w-[300px] rounded-md border border-input bg-transparent pl-8 pr-3 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                    />
+                                    <kbd className="pointer-events-none absolute right-1.5 top-1.5 hidden h-6 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100 sm:flex">
+                                        <span className="text-xs">/</span>
+                                    </kbd>
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    {/* Right: Auth & Tools - Enhanced mobile layout */}
-                    <div className="flex items-center gap-1 sm:gap-2 justify-end flex-1 md:flex-none">
-                        {isLoggedIn ? (
-                            <UserMenu />
-                        ) : (
-                            <>
-                                <Button 
-                                    variant="ghost" 
-                                    className="hidden sm:flex text-sm font-medium h-9"
-                                    onClick={handleLoginClick}
-                                >
-                                    Log In
-                                </Button>
-                                <Button 
-                                    className="h-9 px-3 sm:px-4 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700"
-                                    onClick={handleSignupClick}
-                                >
-                                    <span className="hidden xs:inline">Sign Up</span>
-                                    <span className="xs:hidden">Join</span>
-                                </Button>
-                            </>
-                        )}
-                        
-                        {/* Mobile Search Toggle */}
-                        <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="md:hidden h-9 w-9"
-                            onClick={() => setShowMobileSearch(!showMobileSearch)}
-                        >
-                            {showMobileSearch ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
-                        </Button>
-                        
-                        <Button variant="ghost" size="icon" className="h-9 w-9">
-                            <Menu className="h-4 w-4" />
-                        </Button>
+                        {/* Auth Buttons */}
+                        <nav className="flex items-center space-x-2">
+                            {isLoggedIn ? (
+                                <UserMenu />
+                            ) : (
+                                <>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="hidden sm:inline-flex"
+                                        onClick={handleLoginClick}
+                                    >
+                                        Log In
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        onClick={handleSignupClick}
+                                    >
+                                        Sign Up
+                                    </Button>
+                                </>
+                            )}
+
+                            {/* Mobile Search Toggle */}
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="md:hidden"
+                                onClick={() => setShowMobileSearch(!showMobileSearch)}
+                            >
+                                <Search className="h-4 w-4" />
+                                <span className="sr-only">Search</span>
+                            </Button>
+
+                            {/* Mobile Menu Toggle */}
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="md:hidden"
+                                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                            >
+                                <Menu className="h-4 w-4" />
+                                <span className="sr-only">Menu</span>
+                            </Button>
+                        </nav>
                     </div>
                 </div>
 
-                {/* Mobile Search Bar - Enhanced mobile layout */}
+                {/* Mobile Search */}
                 {showMobileSearch && (
-                    <div className="md:hidden border-t border-border/40 bg-background/95 backdrop-blur-md">
-                        <div className="container max-w-screen-2xl mx-auto px-3 sm:px-4 py-3">
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                <input
-                                    ref={mobileSearchInputRef}
-                                    type="text"
-                                    placeholder="Search markets..."
-                                    onKeyDown={handleMobileSearchKeyPress}
-                                    className="h-12 sm:h-10 w-full rounded-lg border border-input bg-background px-10 py-2 text-base sm:text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                                />
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                        const input = mobileSearchInputRef.current;
-                                        if (input?.value.trim()) {
-                                            handleSearch(input.value);
-                                        }
-                                    }}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 sm:h-6 px-3 sm:px-2 text-sm sm:text-xs font-medium"
-                                >
-                                    Search
-                                </Button>
-                            </div>
+                    <div className="border-t px-4 py-4 md:hidden">
+                        <div className="relative">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <input
+                                ref={mobileSearchInputRef}
+                                type="search"
+                                placeholder="Search markets..."
+                                onKeyDown={handleMobileSearchKeyPress}
+                                className="h-9 w-full rounded-md border border-input bg-transparent pl-8 pr-3 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            />
                         </div>
+                    </div>
+                )}
+
+                {/* Mobile Menu */}
+                {mobileMenuOpen && (
+                    <div className="border-t px-4 py-4 md:hidden">
+                        <nav className="grid gap-4">
+                            <Link
+                                href="/"
+                                className={`block px-2 py-1 text-lg font-medium ${
+                                    pathname === "/" ? "text-foreground" : "text-foreground/70"
+                                }`}
+                                onClick={() => setMobileMenuOpen(false)}
+                            >
+                                Markets
+                            </Link>
+                            <Link
+                                href="/dashboard"
+                                className={`block px-2 py-1 text-lg font-medium ${
+                                    pathname === "/dashboard" ? "text-foreground" : "text-foreground/70"
+                                }`}
+                                onClick={() => setMobileMenuOpen(false)}
+                            >
+                                Dashboard
+                            </Link>
+                            {!isLoggedIn && (
+                                <div className="grid gap-2 pt-2">
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => {
+                                            handleLoginClick();
+                                            setMobileMenuOpen(false);
+                                        }}
+                                    >
+                                        Log In
+                                    </Button>
+                                    <Button
+                                        onClick={() => {
+                                            handleSignupClick();
+                                            setMobileMenuOpen(false);
+                                        }}
+                                    >
+                                        Sign Up
+                                    </Button>
+                                </div>
+                            )}
+                        </nav>
                     </div>
                 )}
             </header>

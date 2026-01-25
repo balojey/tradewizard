@@ -4,6 +4,7 @@ import "./globals.css";
 import { Navbar } from "@/components/ui/navbar";
 import MagicProvider from "@/lib/magic";
 import { WalletProvider } from "@/lib/wallet-context";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,14 +31,32 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-background text-foreground`}
       >
-        <MagicProvider>
-          <WalletProvider>
-            <Navbar />
-            <main className="flex-1">
-              {children}
-            </main>
-          </WalletProvider>
-        </MagicProvider>
+        <ErrorBoundary 
+          name="RootLayout"
+          showRecoveryOptions={true}
+          maxRetries={2}
+        >
+          <MagicProvider>
+            <WalletProvider>
+              <ErrorBoundary 
+                name="Navigation"
+                showRecoveryOptions={false}
+                maxRetries={1}
+              >
+                <Navbar />
+              </ErrorBoundary>
+              <main className="flex-1">
+                <ErrorBoundary 
+                  name="MainContent"
+                  showRecoveryOptions={true}
+                  maxRetries={3}
+                >
+                  {children}
+                </ErrorBoundary>
+              </main>
+            </WalletProvider>
+          </MagicProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );

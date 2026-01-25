@@ -10,7 +10,13 @@ import { MarketImage } from "@/components/market-image";
 import { LazyMarketImage } from "@/components/lazy-market-image";
 import { RealtimePrice } from "@/components/realtime-price";
 import { useRealtimePricesSafe } from "@/lib/realtime-context";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { 
+    useScreenReader, 
+    useAccessibilityPreferences, 
+    useFocusManagement,
+    AriaUtils 
+} from "@/lib/accessibility";
 
 interface Outcome {
     name: string;
@@ -51,8 +57,8 @@ interface MarketCardProps {
 }
 
 /**
- * Enhanced MarketCard with comprehensive error handling, real-time updates, and AI insights
- * Implements Requirements 1.2, 1.3, 1.4, 1.5, 1.6
+ * Enhanced MarketCard with comprehensive accessibility features
+ * Implements Requirements 1.2, 1.3, 1.4, 1.5, 1.6, 12.1, 12.2, 12.3, 12.4, 12.5, 12.6
  */
 export function MarketCard({ 
     id, 
@@ -78,6 +84,11 @@ export function MarketCard({
     const safeOutcomes = outcomes && outcomes.length > 0 ? outcomes : getDefaultOutcomes(marketType);
     const safeId = id || `fallback-${Date.now()}`;
 
+    // Accessibility hooks
+    const { announce, announceMarketUpdate } = useScreenReader();
+    const { reduceMotion, screenReader, keyboardNavigation } = useAccessibilityPreferences();
+    const { saveFocus, restoreFocus } = useFocusManagement();
+
     // Real-time price subscription for outcomes with tokenIds
     const tokenIds = safeOutcomes.filter(o => o.tokenId).map(o => o.tokenId!);
     const { prices, isSubscribed } = useRealtimePricesSafe(enableRealTimeUpdates ? tokenIds : []);
@@ -85,26 +96,113 @@ export function MarketCard({
     // Enhanced hover state for trading features
     const [isHovered, setIsHovered] = useState(false);
     const [priceUpdateFlash, setPriceUpdateFlash] = useState<string | null>(null);
+    const [isFocused, setIsFocused] = useState(false);
+    const cardRef = useRef<HTMLAnchorElement>(null);
 
     // Time until market ends
     const timeUntilEnd = endDate ? getTimeUntilEnd(endDate) : null;
 
-    // Track price changes for flash animations
+    // Generate unique IDs for ARIA relationships
+    const cardId = AriaUtils.generateId('market-card');
+    const titleId = AriaUtils.generateId('market-title');
+    const outcomesId = AriaUtils.generateId('market-outcomes');
+    const volumeId = AriaUtils.generateId('market-volume');
+
+    // Track price changes for flash animations and announcements
     useEffect(() => {
         if (enableRealTimeUpdates && Object.keys(prices).length > 0) {
-            // Flash animation for price updates
-            setPriceUpdateFlash('price-flash');
-            const timer = setTimeout(() => setPriceUpdateFlash(null), 1000);
-            return () => clearTimeout(timer);
+            // Flash animation for price updates (respect reduced motion)
+            if (!reduceMotion) {
+                setPriceUpdateFlash('price-flash');
+                const timer = setTimeout(() => setPriceUpdateFlash(null), 1000);
+                
+                // Announce price changes to screen readers
+                if (screenReader) {
+                    const firstOutcome = safeOutcomes[0];
+                    if (firstOutcome?.tokenId && prices[firstOutcome.tokenId]) {
+                        const newPrice = prices[firstOutcome.tokenId].price * 100;
+                        announceMarketUpdate(safeTitle, firstOutcome.probability, newPrice);
+                    }
+                }
+                
+                return () => clearTimeout(timer);
+            }
         }
-    }, [prices, enableRealTimeUpdates]);
+    }, [prices, enableRealTimeUpdates, reduceMotion, screenReader, safeTitle, safeOutcomes, announceMarketUpdate]);
+
+    // Handle keyboard navigation
+    const handleKeyDown = (event: React.KeyboardEvent) => {
+        switch (event.key) {
+            case 'Enter':
+            case ' ':
+                event.preventDefault();
+                if (cardRef.current) {
+                    cardRef.current.click();
+                }
+                break;
+            case 'Escape':
+                if (cardRef.current) {
+                    cardRef.current.blur();
+                }
+                break;
+        }
+    };
+
+    // Handle focus events for accessibility
+    const handleFocus = () => {
+        setIsFocused(true);
+        if (screenReader) {
+            const statusText = [
+                isNew && "New market",
+                featured && "Featured market", 
+                trending && "Trending market"
+            ].filter(Boolean).join(", ");
+            
+            const announcement = `Market: ${safeTitle}. Volume: ${safeVolume}. ${statusText}`;
+            announce(announcement, 'low');
+        }
+    };
+
+    const handleBlur = () => {
+        setIsFocused(false);
+    };
+
+    // Create comprehensive ARIA label
+    const createAriaLabel = () => {
+        const statusParts = [];
+        if (isNew) statusParts.push("New market");
+        if (featured) statusParts.push("Featured market");
+        if (trending) statusParts.push("Trending market");
+        
+        const outcomesText = safeOutcomes.map(outcome => 
+            AriaUtils.createProbabilityLabel(outcome.name, Math.round(outcome.probability))
+        ).join(", ");
+        
+        const volumeText = AriaUtils.createVolumeLabel(safeVolume);
+        const statusText = AriaUtils.createMarketStatusLabel(true, false, endDate);
+        
+        return [
+            `View market: ${safeTitle}`,
+            volumeText,
+            outcomesText,
+            statusText,
+            statusParts.join(", ")
+        ].filter(Boolean).join(". ");
+    };
 
     // If the market has critical errors, show error state
     if (hasError) {
         return (
-            <Card className="h-full border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/20">
+            <Card 
+                className="h-full border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/20"
+                role="alert"
+                aria-live="polite"
+            >
                 <CardContent className="flex flex-col items-center justify-center p-6 text-center h-full min-h-[300px]">
-                    <AlertTriangle className="h-8 w-8 text-red-500 mb-3" />
+                    <AlertTriangle 
+                        className="h-8 w-8 text-red-500 mb-3" 
+                        aria-hidden="true"
+                    />
                     <h4 className="text-sm font-medium text-red-900 dark:text-red-100 mb-2">
                         Market Unavailable
                     </h4>
@@ -117,30 +215,50 @@ export function MarketCard({
     }
 
     return (
-        <ErrorBoundary fallback={MarketErrorFallback}>
+        <ErrorBoundary fallback={MarketErrorFallback} name="MarketCard">
             <Link 
+                ref={cardRef}
                 href={`/market/${safeId}`} 
-                className="group block h-full cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-lg"
-                aria-label={`View market: ${safeTitle}. Volume: ${safeVolume}${isNew ? '. New market' : ''}`}
+                className={cn(
+                    "group block h-full cursor-pointer rounded-lg transition-all duration-200",
+                    "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background",
+                    keyboardNavigation && "focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                    isFocused && "ring-2 ring-primary ring-offset-2 ring-offset-background"
+                )}
+                aria-label={createAriaLabel()}
+                aria-describedby={`${outcomesId} ${volumeId}`}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
+                onFocus={handleFocus}
+                onBlur={handleBlur}
+                onKeyDown={handleKeyDown}
+                role="link"
+                tabIndex={0}
             >
-                <Card className={cn(
-                    "h-full flex flex-col overflow-hidden border-border/40 bg-card transition-all duration-300",
-                    "hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-1 hover:bg-card/95",
-                    "focus-within:border-primary/50 focus-within:shadow-lg",
-                    "group-hover:scale-[1.02] transform-gpu",
-                    featured && "ring-2 ring-primary/20 border-primary/30",
-                    trending && "bg-gradient-to-br from-card to-primary/5",
-                    priceUpdateFlash && "animate-pulse bg-emerald-50/50 dark:bg-emerald-950/20",
-                    isHovered && "shadow-xl shadow-primary/20"
-                )}>
+                <Card 
+                    id={cardId}
+                    className={cn(
+                        "h-full flex flex-col overflow-hidden border-border/40 bg-card",
+                        !reduceMotion && "transition-all duration-300 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-1 hover:bg-card/95 group-hover:scale-[1.02] transform-gpu",
+                        reduceMotion && "transition-colors duration-200 hover:border-primary/50",
+                        "focus-within:border-primary/50 focus-within:shadow-lg",
+                        featured && "ring-2 ring-primary/20 border-primary/30",
+                        trending && "bg-gradient-to-br from-card to-primary/5",
+                        !reduceMotion && priceUpdateFlash && "animate-pulse bg-emerald-50/50 dark:bg-emerald-950/20",
+                        isHovered && !reduceMotion && "shadow-xl shadow-primary/20"
+                    )}
+                    role="article"
+                    aria-labelledby={titleId}
+                >
                     <div className="relative aspect-[1.91/1] w-full overflow-hidden bg-muted">
                         <LazyMarketImage
                             eventImage={image}
                             marketImage={marketImage}
                             title={safeTitle}
-                            className="w-full h-full transition-transform duration-300 group-hover:scale-105"
+                            className={cn(
+                                "w-full h-full",
+                                !reduceMotion && "transition-transform duration-300 group-hover:scale-105"
+                            )}
                             priority={featured} // Prioritize featured markets
                             placeholder="gradient"
                             enableProgressiveLoading={true}
@@ -151,7 +269,7 @@ export function MarketCard({
                             }}
                         />
 
-                        {/* Status badges - Enhanced mobile responsiveness */}
+                        {/* Status badges - Enhanced mobile responsiveness and accessibility */}
                         <div className="absolute left-2 top-2 flex flex-col gap-1 max-w-[calc(100%-4rem)]">
                             {isNew && (
                                 <div 
@@ -159,7 +277,7 @@ export function MarketCard({
                                     aria-label="New market"
                                     role="status"
                                 >
-                                    New
+                                    <span aria-hidden="true">New</span>
                                 </div>
                             )}
                             {featured && (
@@ -168,79 +286,101 @@ export function MarketCard({
                                     aria-label="Featured market"
                                     role="status"
                                 >
-                                    Featured
+                                    <span aria-hidden="true">Featured</span>
                                 </div>
                             )}
                             {trending && (
                                 <div 
                                     className="rounded-full bg-emerald-500/90 px-2 py-1 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-sm flex items-center gap-1"
-                                    aria-label="Trending market"
+                                    aria-label="Trending market with high activity"
                                     role="status"
                                 >
-                                    <Zap className="h-3 w-3" />
-                                    <span className="hidden xs:inline">Trending</span>
-                                    <span className="xs:hidden">Hot</span>
+                                    <Zap className="h-3 w-3" aria-hidden="true" />
+                                    <span className="hidden xs:inline" aria-hidden="true">Trending</span>
+                                    <span className="xs:hidden" aria-hidden="true">Hot</span>
                                 </div>
                             )}
                         </div>
 
-                        {/* Real-time update indicator - Enhanced mobile positioning */}
+                        {/* Real-time update indicator - Enhanced accessibility */}
                         {enableRealTimeUpdates && isSubscribed && Object.keys(prices).length > 0 && (
                             <div className="absolute top-2 right-2">
-                                <div className="rounded-full bg-emerald-500/90 p-1.5 backdrop-blur-sm animate-pulse shadow-sm">
-                                    <Activity className="h-3 w-3 text-white" />
+                                <div 
+                                    className={cn(
+                                        "rounded-full bg-emerald-500/90 p-1.5 backdrop-blur-sm shadow-sm",
+                                        !reduceMotion && "animate-pulse"
+                                    )}
+                                    aria-label="Live price updates active"
+                                    role="status"
+                                >
+                                    <Activity className="h-3 w-3 text-white" aria-hidden="true" />
                                 </div>
                             </div>
                         )}
 
-                        {/* Volume and time info - Enhanced mobile layout */}
+                        {/* Volume and time info - Enhanced accessibility */}
                         <div className="absolute bottom-2 right-2 flex flex-col gap-1 items-end max-w-[calc(100%-4rem)]">
                             <div 
+                                id={volumeId}
                                 className="rounded-md bg-black/70 px-2 py-1 text-[10px] sm:text-xs font-medium text-white backdrop-blur-sm flex items-center gap-1"
-                                aria-label={`Trading volume: ${safeVolume}`}
+                                aria-label={AriaUtils.createVolumeLabel(safeVolume)}
+                                role="status"
                             >
                                 <TrendingUp className="h-3 w-3" aria-hidden="true" />
-                                <span className="truncate">{safeVolume}</span>
+                                <span className="truncate" aria-hidden="true">{safeVolume}</span>
                             </div>
                             {timeUntilEnd && (
                                 <div 
                                     className="rounded-md bg-black/70 px-2 py-1 text-[10px] sm:text-xs font-medium text-white backdrop-blur-sm flex items-center gap-1"
-                                    aria-label={`Time until market ends: ${timeUntilEnd}`}
+                                    aria-label={`Market ends in ${timeUntilEnd}`}
+                                    role="status"
                                 >
                                     <Clock className="h-3 w-3" aria-hidden="true" />
-                                    <span>{timeUntilEnd}</span>
+                                    <span aria-hidden="true">{timeUntilEnd}</span>
                                 </div>
                             )}
                         </div>
 
-                        {/* AI Insights indicator - Enhanced mobile positioning */}
+                        {/* AI Insights indicator - Enhanced accessibility */}
                         {showAIInsights && aiInsights && (
                             <div className="absolute top-2 right-2 z-10">
-                                <AIInsightsIndicator insights={aiInsights} isHovered={isHovered} />
+                                <AIInsightsIndicator 
+                                    insights={aiInsights} 
+                                    isHovered={isHovered}
+                                    reduceMotion={reduceMotion}
+                                />
                             </div>
                         )}
                     </div>
 
                     <CardContent className="flex-1 p-3 sm:p-4 lg:p-5 space-y-3 sm:space-y-4">
-                        <h3 className="line-clamp-2 text-sm sm:text-base lg:text-lg font-semibold leading-snug tracking-tight text-foreground group-hover:text-primary transition-colors">
+                        <h3 
+                            id={titleId}
+                            className="line-clamp-2 text-sm sm:text-base lg:text-lg font-semibold leading-snug tracking-tight text-foreground group-hover:text-primary transition-colors"
+                        >
                             {safeTitle}
                         </h3>
 
                         <div 
+                            id={outcomesId}
                             role="region" 
                             aria-label="Market outcomes and probabilities"
+                            aria-live="polite"
+                            aria-atomic="false"
                         >
                             {marketType === 'simple' ? (
                                 <SimpleMarketOutcomes 
                                     outcomes={safeOutcomes} 
                                     prices={prices}
                                     enableRealTimeUpdates={enableRealTimeUpdates}
+                                    reduceMotion={reduceMotion}
                                 />
                             ) : (
                                 <ComplexMarketOutcomes 
                                     outcomes={safeOutcomes}
                                     prices={prices}
                                     enableRealTimeUpdates={enableRealTimeUpdates}
+                                    reduceMotion={reduceMotion}
                                 />
                             )}
                         </div>
@@ -299,9 +439,18 @@ function getTimeUntilEnd(endDate: string): string | null {
 }
 
 /**
- * AI Insights Indicator Component - Enhanced for trading features
+ * AI Insights Indicator Component - Enhanced for accessibility and trading features
+ * Implements Requirements 12.1, 12.2, 12.3, 12.4
  */
-function AIInsightsIndicator({ insights, isHovered }: { insights: AIInsights; isHovered: boolean }) {
+function AIInsightsIndicator({ 
+    insights, 
+    isHovered, 
+    reduceMotion = false 
+}: { 
+    insights: AIInsights; 
+    isHovered: boolean;
+    reduceMotion?: boolean;
+}) {
     const getConfidenceColor = (confidence: number) => {
         if (confidence >= 80) return 'text-emerald-500';
         if (confidence >= 60) return 'text-yellow-500';
@@ -319,27 +468,70 @@ function AIInsightsIndicator({ insights, isHovered }: { insights: AIInsights; is
 
     const getRecommendationIcon = (rec?: string) => {
         switch (rec) {
-            case 'buy': return <TrendingUp className="h-2.5 w-2.5 text-emerald-500" />;
-            case 'sell': return <TrendingDown className="h-2.5 w-2.5 text-red-500" />;
-            case 'hold': return <Minus className="h-2.5 w-2.5 text-yellow-500" />;
+            case 'buy': return <TrendingUp className="h-2.5 w-2.5 text-emerald-500" aria-hidden="true" />;
+            case 'sell': return <TrendingDown className="h-2.5 w-2.5 text-red-500" aria-hidden="true" />;
+            case 'hold': return <Minus className="h-2.5 w-2.5 text-yellow-500" aria-hidden="true" />;
             default: return null;
         }
     };
 
+    const getConfidenceLevel = (confidence: number) => {
+        if (confidence >= 80) return 'High';
+        if (confidence >= 60) return 'Medium';
+        return 'Low';
+    };
+
+    const createAriaLabel = () => {
+        const confidenceLevel = getConfidenceLevel(insights.confidence);
+        const parts = [
+            `AI analysis available`,
+            `Confidence: ${confidenceLevel} at ${insights.confidence}%`,
+            `Risk level: ${insights.riskLevel}`
+        ];
+        
+        if (insights.recommendation) {
+            parts.push(`Recommendation: ${insights.recommendation}`);
+        }
+        
+        return parts.join(", ");
+    };
+
     return (
-        <div className={cn(
-            "rounded-full bg-black/60 backdrop-blur-sm transition-all duration-300 border border-white/10",
-            isHovered ? "px-3 py-1.5 shadow-lg" : "p-1.5"
-        )}>
+        <div 
+            className={cn(
+                "rounded-full bg-black/60 backdrop-blur-sm border border-white/10",
+                !reduceMotion && "transition-all duration-300",
+                isHovered ? "px-3 py-1.5 shadow-lg" : "p-1.5"
+            )}
+            role="status"
+            aria-label={createAriaLabel()}
+            tabIndex={0}
+        >
             <div className="flex items-center gap-1.5">
-                <Brain className={cn("h-3 w-3 transition-colors", getConfidenceColor(insights.confidence))} />
+                <Brain 
+                    className={cn(
+                        "h-3 w-3",
+                        !reduceMotion && "transition-colors",
+                        getConfidenceColor(insights.confidence)
+                    )} 
+                    aria-hidden="true"
+                />
                 {isHovered && (
                     <div className="flex items-center gap-2 text-[10px] text-white">
-                        <span className="font-medium">{insights.confidence}%</span>
-                        <span className={cn("font-bold", getRiskColor(insights.riskLevel))}>
+                        <span className="font-medium" aria-label={`${insights.confidence}% confidence`}>
+                            {insights.confidence}%
+                        </span>
+                        <span 
+                            className={cn("font-bold", getRiskColor(insights.riskLevel))}
+                            aria-label={`${insights.riskLevel} risk level`}
+                        >
                             {insights.riskLevel.toUpperCase()}
                         </span>
-                        {insights.recommendation && getRecommendationIcon(insights.recommendation)}
+                        {insights.recommendation && (
+                            <span aria-label={`Recommendation: ${insights.recommendation}`}>
+                                {getRecommendationIcon(insights.recommendation)}
+                            </span>
+                        )}
                     </div>
                 )}
             </div>
@@ -449,18 +641,20 @@ function formatTimeAgo(timestamp: number): string {
 }
 
 /**
- * Renders outcomes for simple markets (Yes/No format)
+ * Renders outcomes for simple markets (Yes/No format) with comprehensive accessibility
  * Enhanced with error handling for malformed outcome data and real-time updates
- * Implements Requirements 1.2, 1.3, 1.4, 1.6
+ * Implements Requirements 1.2, 1.3, 1.4, 1.6, 12.1, 12.2, 12.3, 12.4, 12.5, 12.6
  */
 function SimpleMarketOutcomes({ 
     outcomes, 
     prices = {}, 
-    enableRealTimeUpdates = true 
+    enableRealTimeUpdates = true,
+    reduceMotion = false
 }: { 
     outcomes: Outcome[];
     prices?: Record<string, any>;
     enableRealTimeUpdates?: boolean;
+    reduceMotion?: boolean;
 }) {
     // Ensure we have valid outcomes
     const safeOutcomes = outcomes && outcomes.length > 0 ? outcomes : [
@@ -469,7 +663,11 @@ function SimpleMarketOutcomes({
     ];
 
     return (
-        <div className="space-y-2 sm:space-y-2.5" role="list" aria-label="Market outcomes">
+        <div 
+            className="space-y-2 sm:space-y-2.5" 
+            role="list" 
+            aria-label="Market outcomes with probabilities"
+        >
             {safeOutcomes.map((outcome, idx) => {
                 // Validate individual outcome data
                 const safeName = outcome.name || `Option ${idx + 1}`;
@@ -486,47 +684,73 @@ function SimpleMarketOutcomes({
                                       currentProbability <= 100 
                                       ? currentProbability : 50;
 
+                const probabilityId = AriaUtils.generateId('probability');
+                const progressId = AriaUtils.generateId('progress');
+
                 return (
                     <div key={idx} className="space-y-1 sm:space-y-1.5" role="listitem">
                         <div className="flex justify-between text-xs sm:text-sm">
-                            <span className="font-medium text-muted-foreground">{safeName}</span>
+                            <span className="font-medium text-muted-foreground">
+                                {safeName}
+                            </span>
                             <div className="flex items-center gap-1.5">
                                 <span 
+                                    id={probabilityId}
                                     className={cn(
-                                        "font-bold font-mono transition-all duration-300",
+                                        "font-bold font-mono",
+                                        !reduceMotion && "transition-all duration-300",
                                         safeColor === 'yes' ? "text-emerald-600 dark:text-emerald-400" :
                                             safeColor === 'no' ? "text-red-600 dark:text-red-400" : "text-foreground",
-                                        realtimePrice && "animate-pulse"
+                                        !reduceMotion && realtimePrice && "animate-pulse"
                                     )}
-                                    aria-label={`${safeName} probability: ${Math.round(safeProbability)} percent`}
+                                    aria-label={AriaUtils.createProbabilityLabel(safeName, Math.round(safeProbability))}
+                                    role="status"
+                                    aria-live="polite"
                                 >
                                     {Math.round(safeProbability)}%
                                 </span>
                                 {priceChange !== undefined && (
-                                    <PriceChangeIndicator change={priceChange} />
+                                    <PriceChangeIndicator 
+                                        change={priceChange} 
+                                        reduceMotion={reduceMotion}
+                                    />
                                 )}
                                 {realtimePrice && (
-                                    <div className="h-2 w-2 bg-emerald-500 rounded-full animate-pulse" 
-                                         title="Live price" />
+                                    <div 
+                                        className={cn(
+                                            "h-2 w-2 bg-emerald-500 rounded-full",
+                                            !reduceMotion && "animate-pulse"
+                                        )}
+                                        title="Live price updates"
+                                        aria-label="Real-time price data available"
+                                        role="status"
+                                    />
                                 )}
                             </div>
                         </div>
                         <div 
-                            className="h-1.5 sm:h-2 w-full overflow-hidden rounded-full bg-secondary/60 group-hover:bg-secondary transition-colors duration-200"
+                            id={progressId}
+                            className={cn(
+                                "h-1.5 sm:h-2 w-full overflow-hidden rounded-full bg-secondary/60",
+                                !reduceMotion && "group-hover:bg-secondary transition-colors duration-200"
+                            )}
                             role="progressbar"
                             aria-valuenow={safeProbability}
                             aria-valuemin={0}
                             aria-valuemax={100}
-                            aria-label={`${safeName} probability bar`}
+                            aria-labelledby={probabilityId}
+                            aria-describedby={probabilityId}
                         >
                             <div
                                 className={cn(
-                                    "h-full rounded-full transition-all duration-700 ease-out group-hover:shadow-sm",
+                                    "h-full rounded-full",
+                                    !reduceMotion && "transition-all duration-700 ease-out group-hover:shadow-sm",
                                     safeColor === 'yes' ? "bg-emerald-500 dark:bg-emerald-500 group-hover:bg-emerald-600 dark:group-hover:bg-emerald-400" :
                                         safeColor === 'no' ? "bg-red-500 dark:bg-red-500 group-hover:bg-red-600 dark:group-hover:bg-red-400" : "bg-primary group-hover:bg-primary/90",
-                                    realtimePrice && "shadow-lg shadow-current/20"
+                                    !reduceMotion && realtimePrice && "shadow-lg shadow-current/20"
                                 )}
                                 style={{ width: `${Math.min(Math.max(safeProbability, 0), 100)}%` }}
+                                aria-hidden="true"
                             />
                         </div>
                     </div>
@@ -537,18 +761,20 @@ function SimpleMarketOutcomes({
 }
 
 /**
- * Renders outcomes for complex markets (Category + Yes/No format)
+ * Renders outcomes for complex markets (Category + Yes/No format) with comprehensive accessibility
  * Enhanced with error handling for malformed outcome data and real-time updates
- * Implements Requirements 1.2, 1.3, 1.4, 1.6
+ * Implements Requirements 1.2, 1.3, 1.4, 1.6, 12.1, 12.2, 12.3, 12.4, 12.5, 12.6
  */
 function ComplexMarketOutcomes({ 
     outcomes, 
     prices = {}, 
-    enableRealTimeUpdates = true 
+    enableRealTimeUpdates = true,
+    reduceMotion = false
 }: { 
     outcomes: Outcome[];
     prices?: Record<string, any>;
     enableRealTimeUpdates?: boolean;
+    reduceMotion?: boolean;
 }) {
     // Ensure we have valid outcomes
     const safeOutcomes = outcomes && outcomes.length > 0 ? outcomes : [
@@ -557,7 +783,11 @@ function ComplexMarketOutcomes({
     ];
 
     return (
-        <div className="space-y-2.5 sm:space-y-3" role="list" aria-label="Market outcome categories">
+        <div 
+            className="space-y-2.5 sm:space-y-3" 
+            role="list" 
+            aria-label="Market outcome categories with probabilities"
+        >
             {safeOutcomes.map((outcome, idx) => {
                 // Validate individual outcome data
                 const safeName = outcome.name || 'Yes';
@@ -575,33 +805,56 @@ function ComplexMarketOutcomes({
                                       currentProbability <= 100 
                                       ? currentProbability : 50;
 
+                const categoryId = AriaUtils.generateId('category');
+                const probabilityId = AriaUtils.generateId('probability');
+                const progressId = AriaUtils.generateId('progress');
+
                 return (
                     <div key={idx} className="space-y-1 sm:space-y-1.5" role="listitem">
                         {/* Category title */}
                         <div className="flex items-center justify-between">
-                            <span className="text-xs sm:text-sm font-medium text-foreground truncate">
+                            <span 
+                                id={categoryId}
+                                className="text-xs sm:text-sm font-medium text-foreground truncate"
+                            >
                                 {safeCategory}
                             </span>
                             <div className="flex items-center gap-1.5 sm:gap-2">
-                                <span className="text-[10px] sm:text-xs text-muted-foreground">{safeName}</span>
+                                <span className="text-[10px] sm:text-xs text-muted-foreground">
+                                    {safeName}
+                                </span>
                                 <div className="flex items-center gap-1.5">
                                     <span 
+                                        id={probabilityId}
                                         className={cn(
-                                            "text-xs sm:text-sm font-bold font-mono transition-all duration-300",
+                                            "text-xs sm:text-sm font-bold font-mono",
+                                            !reduceMotion && "transition-all duration-300",
                                             safeColor === 'yes' ? "text-emerald-600 dark:text-emerald-400" :
                                                 safeColor === 'no' ? "text-red-600 dark:text-red-400" : "text-foreground",
-                                            realtimePrice && "animate-pulse"
+                                            !reduceMotion && realtimePrice && "animate-pulse"
                                         )}
-                                        aria-label={`${safeCategory} ${safeName} probability: ${Math.round(safeProbability)} percent`}
+                                        aria-label={AriaUtils.createProbabilityLabel(`${safeCategory} ${safeName}`, Math.round(safeProbability))}
+                                        role="status"
+                                        aria-live="polite"
                                     >
                                         {Math.round(safeProbability)}%
                                     </span>
                                     {priceChange !== undefined && (
-                                        <PriceChangeIndicator change={priceChange} />
+                                        <PriceChangeIndicator 
+                                            change={priceChange} 
+                                            reduceMotion={reduceMotion}
+                                        />
                                     )}
                                     {realtimePrice && (
-                                        <div className="h-2 w-2 bg-emerald-500 rounded-full animate-pulse" 
-                                             title="Live price" />
+                                        <div 
+                                            className={cn(
+                                                "h-2 w-2 bg-emerald-500 rounded-full",
+                                                !reduceMotion && "animate-pulse"
+                                            )}
+                                            title="Live price updates"
+                                            aria-label="Real-time price data available"
+                                            role="status"
+                                        />
                                     )}
                                 </div>
                             </div>
@@ -609,21 +862,28 @@ function ComplexMarketOutcomes({
                         
                         {/* Probability bar */}
                         <div 
-                            className="h-1.5 sm:h-2 w-full overflow-hidden rounded-full bg-secondary/60 group-hover:bg-secondary transition-colors duration-200"
+                            id={progressId}
+                            className={cn(
+                                "h-1.5 sm:h-2 w-full overflow-hidden rounded-full bg-secondary/60",
+                                !reduceMotion && "group-hover:bg-secondary transition-colors duration-200"
+                            )}
                             role="progressbar"
                             aria-valuenow={safeProbability}
                             aria-valuemin={0}
                             aria-valuemax={100}
-                            aria-label={`${safeCategory} ${safeName} probability bar`}
+                            aria-labelledby={`${categoryId} ${probabilityId}`}
+                            aria-describedby={probabilityId}
                         >
                             <div
                                 className={cn(
-                                    "h-full rounded-full transition-all duration-700 ease-out group-hover:shadow-sm",
+                                    "h-full rounded-full",
+                                    !reduceMotion && "transition-all duration-700 ease-out group-hover:shadow-sm",
                                     safeColor === 'yes' ? "bg-emerald-500 dark:bg-emerald-500 group-hover:bg-emerald-600 dark:group-hover:bg-emerald-400" :
                                         safeColor === 'no' ? "bg-red-500 dark:bg-red-500 group-hover:bg-red-600 dark:group-hover:bg-red-400" : "bg-primary group-hover:bg-primary/90",
-                                    realtimePrice && "shadow-lg shadow-current/20"
+                                    !reduceMotion && realtimePrice && "shadow-lg shadow-current/20"
                                 )}
                                 style={{ width: `${Math.min(Math.max(safeProbability, 0), 100)}%` }}
+                                aria-hidden="true"
                             />
                         </div>
                     </div>
@@ -634,9 +894,16 @@ function ComplexMarketOutcomes({
 }
 
 /**
- * Price Change Indicator Component - Enhanced for trading features
+ * Price Change Indicator Component - Enhanced for accessibility and trading features
+ * Implements Requirements 12.1, 12.2, 12.3, 12.4, 12.5
  */
-function PriceChangeIndicator({ change }: { change: number }) {
+function PriceChangeIndicator({ 
+    change, 
+    reduceMotion = false 
+}: { 
+    change: number;
+    reduceMotion?: boolean;
+}) {
     const isPositive = change > 0;
     const isNegative = change < 0;
     
@@ -645,19 +912,27 @@ function PriceChangeIndicator({ change }: { change: number }) {
     const magnitude = Math.abs(change);
     const isSignificant = magnitude >= 5; // 5% or more is significant
     
+    const ariaLabel = AriaUtils.createPriceChangeLabel(change);
+    
     return (
-        <span className={cn(
-            "text-[10px] font-bold flex items-center gap-0.5 px-1 py-0.5 rounded-md transition-all duration-200",
-            isPositive ? "text-emerald-700 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-950/30" : 
-                        "text-red-700 bg-red-100 dark:text-red-300 dark:bg-red-950/30",
-            isSignificant && "animate-pulse shadow-sm"
-        )}>
-            {isPositive ? (
-                <TrendingUp className="h-2.5 w-2.5" />
-            ) : (
-                <TrendingDown className="h-2.5 w-2.5" />
+        <span 
+            className={cn(
+                "text-[10px] font-bold flex items-center gap-0.5 px-1 py-0.5 rounded-md",
+                !reduceMotion && "transition-all duration-200",
+                isPositive ? "text-emerald-700 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-950/30" : 
+                            "text-red-700 bg-red-100 dark:text-red-300 dark:bg-red-950/30",
+                !reduceMotion && isSignificant && "animate-pulse shadow-sm"
             )}
-            {magnitude.toFixed(1)}%
+            aria-label={ariaLabel}
+            role="status"
+            title={ariaLabel}
+        >
+            {isPositive ? (
+                <TrendingUp className="h-2.5 w-2.5" aria-hidden="true" />
+            ) : (
+                <TrendingDown className="h-2.5 w-2.5" aria-hidden="true" />
+            )}
+            <span aria-hidden="true">{magnitude.toFixed(1)}%</span>
         </span>
     );
 }
