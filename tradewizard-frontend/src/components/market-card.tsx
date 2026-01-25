@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { TrendingUp, Vote, AlertTriangle, Brain, Zap, Clock, TrendingDown } from "lucide-react";
+import { TrendingUp, Vote, AlertTriangle, Brain, Zap, Clock, TrendingDown, Activity, Minus } from "lucide-react";
 import { MarketType, ProcessedOutcome } from "@/lib/polymarket-types";
 import { ErrorBoundary, MarketErrorFallback } from "@/components/error-boundary";
 import { MarketImage } from "@/components/market-image";
@@ -79,13 +79,24 @@ export function MarketCard({
 
     // Real-time price subscription for outcomes with tokenIds
     const tokenIds = safeOutcomes.filter(o => o.tokenId).map(o => o.tokenId!);
-    const { prices } = useRealtimePricesSafe(enableRealTimeUpdates ? tokenIds : []);
+    const { prices, isSubscribed } = useRealtimePricesSafe(enableRealTimeUpdates ? tokenIds : []);
 
-    // Hover state for enhanced interactions
+    // Enhanced hover state for trading features
     const [isHovered, setIsHovered] = useState(false);
+    const [priceUpdateFlash, setPriceUpdateFlash] = useState<string | null>(null);
 
     // Time until market ends
     const timeUntilEnd = endDate ? getTimeUntilEnd(endDate) : null;
+
+    // Track price changes for flash animations
+    useEffect(() => {
+        if (enableRealTimeUpdates && Object.keys(prices).length > 0) {
+            // Flash animation for price updates
+            setPriceUpdateFlash('price-flash');
+            const timer = setTimeout(() => setPriceUpdateFlash(null), 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [prices, enableRealTimeUpdates]);
 
     // If the market has critical errors, show error state
     if (hasError) {
@@ -117,8 +128,11 @@ export function MarketCard({
                     "h-full flex flex-col overflow-hidden border-border/40 bg-card transition-all duration-300",
                     "hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-1 hover:bg-card/95",
                     "focus-within:border-primary/50 focus-within:shadow-lg",
+                    "group-hover:scale-[1.02] transform-gpu",
                     featured && "ring-2 ring-primary/20 border-primary/30",
-                    trending && "bg-gradient-to-br from-card to-primary/5"
+                    trending && "bg-gradient-to-br from-card to-primary/5",
+                    priceUpdateFlash && "animate-pulse bg-emerald-50/50 dark:bg-emerald-950/20",
+                    isHovered && "shadow-xl shadow-primary/20"
                 )}>
                     <div className="relative aspect-[1.91/1] w-full overflow-hidden bg-muted">
                         <MarketImage
@@ -164,6 +178,15 @@ export function MarketCard({
                                 </div>
                             )}
                         </div>
+
+                        {/* Real-time update indicator */}
+                        {enableRealTimeUpdates && isSubscribed && Object.keys(prices).length > 0 && (
+                            <div className="absolute top-1.5 sm:top-2 left-1.5 sm:left-2">
+                                <div className="rounded-full bg-emerald-500/90 p-1 backdrop-blur-sm animate-pulse">
+                                    <Activity className="h-2 w-2 text-white" />
+                                </div>
+                            </div>
+                        )}
 
                         {/* Volume and time info */}
                         <div className="absolute bottom-1.5 sm:bottom-2 right-1.5 sm:right-2 flex flex-col gap-1 items-end">
@@ -271,7 +294,7 @@ function getTimeUntilEnd(endDate: string): string | null {
 }
 
 /**
- * AI Insights Indicator Component
+ * AI Insights Indicator Component - Enhanced for trading features
  */
 function AIInsightsIndicator({ insights, isHovered }: { insights: AIInsights; isHovered: boolean }) {
     const getConfidenceColor = (confidence: number) => {
@@ -289,19 +312,29 @@ function AIInsightsIndicator({ insights, isHovered }: { insights: AIInsights; is
         }
     };
 
+    const getRecommendationIcon = (rec?: string) => {
+        switch (rec) {
+            case 'buy': return <TrendingUp className="h-2.5 w-2.5 text-emerald-500" />;
+            case 'sell': return <TrendingDown className="h-2.5 w-2.5 text-red-500" />;
+            case 'hold': return <Minus className="h-2.5 w-2.5 text-yellow-500" />;
+            default: return null;
+        }
+    };
+
     return (
         <div className={cn(
-            "rounded-full bg-black/60 backdrop-blur-sm transition-all duration-300",
-            isHovered ? "px-2 py-1" : "p-1.5"
+            "rounded-full bg-black/60 backdrop-blur-sm transition-all duration-300 border border-white/10",
+            isHovered ? "px-3 py-1.5 shadow-lg" : "p-1.5"
         )}>
-            <div className="flex items-center gap-1">
-                <Brain className={cn("h-3 w-3", getConfidenceColor(insights.confidence))} />
+            <div className="flex items-center gap-1.5">
+                <Brain className={cn("h-3 w-3 transition-colors", getConfidenceColor(insights.confidence))} />
                 {isHovered && (
-                    <div className="flex items-center gap-1 text-[10px] text-white">
-                        <span>{insights.confidence}%</span>
-                        <span className={getRiskColor(insights.riskLevel)}>
+                    <div className="flex items-center gap-2 text-[10px] text-white">
+                        <span className="font-medium">{insights.confidence}%</span>
+                        <span className={cn("font-bold", getRiskColor(insights.riskLevel))}>
                             {insights.riskLevel.toUpperCase()}
                         </span>
+                        {insights.recommendation && getRecommendationIcon(insights.recommendation)}
                     </div>
                 )}
             </div>
@@ -310,47 +343,104 @@ function AIInsightsIndicator({ insights, isHovered }: { insights: AIInsights; is
 }
 
 /**
- * AI Insights Summary Component
+ * AI Insights Summary Component - Enhanced for trading features
  */
 function AIInsightsSummary({ insights }: { insights: AIInsights }) {
     const getRecommendationColor = (rec?: string) => {
         switch (rec) {
-            case 'buy': return 'text-emerald-600 bg-emerald-50';
-            case 'sell': return 'text-red-600 bg-red-50';
-            case 'hold': return 'text-yellow-600 bg-yellow-50';
-            default: return 'text-gray-600 bg-gray-50';
+            case 'buy': return 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-950/30 dark:border-emerald-800';
+            case 'sell': return 'text-red-600 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-950/30 dark:border-red-800';
+            case 'hold': return 'text-yellow-600 bg-yellow-50 border-yellow-200 dark:text-yellow-400 dark:bg-yellow-950/30 dark:border-yellow-800';
+            default: return 'text-gray-600 bg-gray-50 border-gray-200 dark:text-gray-400 dark:bg-gray-950/30 dark:border-gray-800';
         }
     };
 
+    const getConfidenceLevel = (confidence: number) => {
+        if (confidence >= 80) return { label: 'High', color: 'text-emerald-600 dark:text-emerald-400' };
+        if (confidence >= 60) return { label: 'Medium', color: 'text-yellow-600 dark:text-yellow-400' };
+        return { label: 'Low', color: 'text-red-600 dark:text-red-400' };
+    };
+
+    const confidenceLevel = getConfidenceLevel(insights.confidence);
+    const timeSinceUpdate = Date.now() - insights.lastUpdated;
+    const isRecent = timeSinceUpdate < 300000; // 5 minutes
+
     return (
-        <div className="p-2 bg-muted/50 rounded-md border border-border/30 space-y-2">
+        <div className="p-3 bg-muted/50 rounded-lg border border-border/30 space-y-3 backdrop-blur-sm">
             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1">
-                    <Brain className="h-3 w-3 text-primary" />
-                    <span className="text-xs font-medium">AI Analysis</span>
+                <div className="flex items-center gap-2">
+                    <Brain className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-semibold">AI Analysis</span>
+                    {isRecent && (
+                        <div className="h-2 w-2 bg-emerald-500 rounded-full animate-pulse" />
+                    )}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                    {insights.confidence}% confidence
+                    <span className={confidenceLevel.color}>{confidenceLevel.label}</span>
+                    <span className="ml-1">({insights.confidence}%)</span>
                 </div>
             </div>
             
-            {insights.recommendation && (
-                <div className={cn(
-                    "px-2 py-1 rounded text-xs font-medium text-center",
-                    getRecommendationColor(insights.recommendation)
-                )}>
-                    {insights.recommendation.toUpperCase()}
+            <div className="flex items-center justify-between">
+                <div className="text-xs text-muted-foreground">
+                    Risk Level: <span className={cn(
+                        "font-medium",
+                        insights.riskLevel === 'low' ? 'text-emerald-600 dark:text-emerald-400' :
+                        insights.riskLevel === 'medium' ? 'text-yellow-600 dark:text-yellow-400' :
+                        'text-red-600 dark:text-red-400'
+                    )}>
+                        {insights.riskLevel.toUpperCase()}
+                    </span>
+                </div>
+                
+                {insights.recommendation && (
+                    <div className={cn(
+                        "px-2 py-1 rounded-md text-xs font-bold text-center border",
+                        getRecommendationColor(insights.recommendation)
+                    )}>
+                        {insights.recommendation.toUpperCase()}
+                    </div>
+                )}
+            </div>
+            
+            {insights.keyFactors.length > 0 && (
+                <div className="space-y-1">
+                    <div className="text-xs font-medium text-foreground">Key Factors:</div>
+                    <div className="text-xs text-muted-foreground leading-relaxed">
+                        {insights.keyFactors.slice(0, 3).map((factor, idx) => (
+                            <div key={idx} className="flex items-start gap-1">
+                                <span className="text-primary">•</span>
+                                <span>{factor}</span>
+                            </div>
+                        ))}
+                        {insights.keyFactors.length > 3 && (
+                            <div className="text-xs text-muted-foreground/70 mt-1">
+                                +{insights.keyFactors.length - 3} more factors
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
             
-            {insights.keyFactors.length > 0 && (
-                <div className="text-xs text-muted-foreground">
-                    Key: {insights.keyFactors.slice(0, 2).join(', ')}
-                    {insights.keyFactors.length > 2 && '...'}
-                </div>
-            )}
+            <div className="text-[10px] text-muted-foreground/70 flex items-center gap-1">
+                <Clock className="h-2.5 w-2.5" />
+                Updated {formatTimeAgo(insights.lastUpdated)}
+            </div>
         </div>
     );
+}
+
+/**
+ * Format time ago helper
+ */
+function formatTimeAgo(timestamp: number): string {
+    const now = Date.now();
+    const diff = now - timestamp;
+    
+    if (diff < 60000) return 'just now';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    return `${Math.floor(diff / 86400000)}d ago`;
 }
 
 /**
@@ -395,12 +485,13 @@ function SimpleMarketOutcomes({
                     <div key={idx} className="space-y-1 sm:space-y-1.5" role="listitem">
                         <div className="flex justify-between text-xs sm:text-sm">
                             <span className="font-medium text-muted-foreground">{safeName}</span>
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1.5">
                                 <span 
                                     className={cn(
-                                        "font-bold font-mono transition-colors duration-200",
+                                        "font-bold font-mono transition-all duration-300",
                                         safeColor === 'yes' ? "text-emerald-600 dark:text-emerald-400" :
-                                            safeColor === 'no' ? "text-red-600 dark:text-red-400" : "text-foreground"
+                                            safeColor === 'no' ? "text-red-600 dark:text-red-400" : "text-foreground",
+                                        realtimePrice && "animate-pulse"
                                     )}
                                     aria-label={`${safeName} probability: ${Math.round(safeProbability)} percent`}
                                 >
@@ -408,6 +499,10 @@ function SimpleMarketOutcomes({
                                 </span>
                                 {priceChange !== undefined && (
                                     <PriceChangeIndicator change={priceChange} />
+                                )}
+                                {realtimePrice && (
+                                    <div className="h-2 w-2 bg-emerald-500 rounded-full animate-pulse" 
+                                         title="Live price" />
                                 )}
                             </div>
                         </div>
@@ -424,7 +519,7 @@ function SimpleMarketOutcomes({
                                     "h-full rounded-full transition-all duration-700 ease-out group-hover:shadow-sm",
                                     safeColor === 'yes' ? "bg-emerald-500 dark:bg-emerald-500 group-hover:bg-emerald-600 dark:group-hover:bg-emerald-400" :
                                         safeColor === 'no' ? "bg-red-500 dark:bg-red-500 group-hover:bg-red-600 dark:group-hover:bg-red-400" : "bg-primary group-hover:bg-primary/90",
-                                    realtimePrice && "animate-pulse"
+                                    realtimePrice && "shadow-lg shadow-current/20"
                                 )}
                                 style={{ width: `${Math.min(Math.max(safeProbability, 0), 100)}%` }}
                             />
@@ -484,12 +579,13 @@ function ComplexMarketOutcomes({
                             </span>
                             <div className="flex items-center gap-1.5 sm:gap-2">
                                 <span className="text-[10px] sm:text-xs text-muted-foreground">{safeName}</span>
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-1.5">
                                     <span 
                                         className={cn(
-                                            "text-xs sm:text-sm font-bold font-mono transition-colors duration-200",
+                                            "text-xs sm:text-sm font-bold font-mono transition-all duration-300",
                                             safeColor === 'yes' ? "text-emerald-600 dark:text-emerald-400" :
-                                                safeColor === 'no' ? "text-red-600 dark:text-red-400" : "text-foreground"
+                                                safeColor === 'no' ? "text-red-600 dark:text-red-400" : "text-foreground",
+                                            realtimePrice && "animate-pulse"
                                         )}
                                         aria-label={`${safeCategory} ${safeName} probability: ${Math.round(safeProbability)} percent`}
                                     >
@@ -497,6 +593,10 @@ function ComplexMarketOutcomes({
                                     </span>
                                     {priceChange !== undefined && (
                                         <PriceChangeIndicator change={priceChange} />
+                                    )}
+                                    {realtimePrice && (
+                                        <div className="h-2 w-2 bg-emerald-500 rounded-full animate-pulse" 
+                                             title="Live price" />
                                     )}
                                 </div>
                             </div>
@@ -516,7 +616,7 @@ function ComplexMarketOutcomes({
                                     "h-full rounded-full transition-all duration-700 ease-out group-hover:shadow-sm",
                                     safeColor === 'yes' ? "bg-emerald-500 dark:bg-emerald-500 group-hover:bg-emerald-600 dark:group-hover:bg-emerald-400" :
                                         safeColor === 'no' ? "bg-red-500 dark:bg-red-500 group-hover:bg-red-600 dark:group-hover:bg-red-400" : "bg-primary group-hover:bg-primary/90",
-                                    realtimePrice && "animate-pulse"
+                                    realtimePrice && "shadow-lg shadow-current/20"
                                 )}
                                 style={{ width: `${Math.min(Math.max(safeProbability, 0), 100)}%` }}
                             />
@@ -529,7 +629,7 @@ function ComplexMarketOutcomes({
 }
 
 /**
- * Price Change Indicator Component
+ * Price Change Indicator Component - Enhanced for trading features
  */
 function PriceChangeIndicator({ change }: { change: number }) {
     const isPositive = change > 0;
@@ -537,17 +637,22 @@ function PriceChangeIndicator({ change }: { change: number }) {
     
     if (change === 0) return null;
     
+    const magnitude = Math.abs(change);
+    const isSignificant = magnitude >= 5; // 5% or more is significant
+    
     return (
         <span className={cn(
-            "text-[10px] font-medium flex items-center gap-0.5",
-            isPositive ? "text-emerald-600" : "text-red-600"
+            "text-[10px] font-bold flex items-center gap-0.5 px-1 py-0.5 rounded-md transition-all duration-200",
+            isPositive ? "text-emerald-700 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-950/30" : 
+                        "text-red-700 bg-red-100 dark:text-red-300 dark:bg-red-950/30",
+            isSignificant && "animate-pulse shadow-sm"
         )}>
             {isPositive ? (
                 <TrendingUp className="h-2.5 w-2.5" />
             ) : (
                 <TrendingDown className="h-2.5 w-2.5" />
             )}
-            {Math.abs(change).toFixed(1)}%
+            {magnitude.toFixed(1)}%
         </span>
     );
 }

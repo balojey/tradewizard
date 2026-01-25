@@ -3,7 +3,8 @@
  */
 
 import { PolymarketEvent } from './polymarket-types';
-import { defaultProcessor } from './polymarket-data-processor';
+import { processMarket } from './polymarket-data-processor';
+import type { PolymarketMarket as ApiPolymarketMarket } from './polymarket-api-types';
 
 // Example: Simple market (single Yes/No market)
 export const simpleMarketExample: PolymarketEvent = {
@@ -266,49 +267,47 @@ export const complexMarketExample: PolymarketEvent = {
  * Example usage: Processing and rendering simple market
  */
 export async function getSimpleMarketCardProps() {
-  const result = await defaultProcessor.processEvent(simpleMarketExample);
+  // Use type assertion for compatibility - in a real app, you'd have proper type conversion
+  const market = simpleMarketExample.markets[0] as any as ApiPolymarketMarket;
+  const event = simpleMarketExample as any;
+  const processedMarket = processMarket(market, event);
   
-  if (result.success && result.data) {
-    return {
-      id: result.data.id,
-      title: result.data.title,
-      image: result.data.image,
-      volume: result.data.volumeFormatted,
-      isNew: result.data.isNew,
-      outcomes: result.data.outcomes.map(outcome => ({
-        name: outcome.name,
-        probability: Math.round(outcome.probability * 100),
-        color: outcome.color
-      }))
-    };
-  }
-  
-  throw new Error('Failed to process simple market example');
+  return {
+    id: processedMarket.id,
+    title: processedMarket.title,
+    image: processedMarket.image,
+    volume: processedMarket.volumeFormatted,
+    isNew: processedMarket.isNew,
+    outcomes: processedMarket.outcomes.map(outcome => ({
+      name: outcome.name,
+      probability: Math.round(outcome.probability),
+      color: outcome.color
+    }))
+  };
 }
 
 /**
  * Example usage: Processing and rendering complex market
  */
 export async function getComplexMarketCardProps() {
-  const result = await defaultProcessor.processEvent(complexMarketExample);
+  // Use type assertion for compatibility - in a real app, you'd have proper type conversion
+  const market = complexMarketExample.markets[0] as any as ApiPolymarketMarket;
+  const event = complexMarketExample as any;
+  const processedMarket = processMarket(market, event);
   
-  if (result.success && result.data) {
-    return {
-      id: result.data.id,
-      title: result.data.title,
-      image: result.data.image,
-      volume: result.data.volumeFormatted,
-      isNew: result.data.isNew,
-      outcomes: result.data.outcomes.map(outcome => ({
-        name: outcome.name,
-        probability: Math.round(outcome.probability * 100),
-        color: outcome.color,
-        category: outcome.category
-      }))
-    };
-  }
-  
-  throw new Error('Failed to process complex market example');
+  return {
+    id: processedMarket.id,
+    title: processedMarket.title,
+    image: processedMarket.image,
+    volume: processedMarket.volumeFormatted,
+    isNew: processedMarket.isNew,
+    outcomes: processedMarket.outcomes.map(outcome => ({
+      name: outcome.name,
+      probability: Math.round(outcome.probability),
+      color: outcome.color,
+      category: (outcome as any).category
+    }))
+  };
 }
 
 /**

@@ -53,8 +53,8 @@ Transform the TradeWizard frontend to display prediction markets exactly like Po
 - [ ] 4. Checkpoint - Ensure data layer tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [-] 5. Enhance market discovery and display components
-  - [ ] 5.1 Upgrade MarketCard component for trading features
+- [x] 5. Enhance market discovery and display components
+  - [x] 5.1 Upgrade MarketCard component for trading features
     - Add real-time price updates and change indicators
     - Implement hover effects and visual feedback
     - Add AI insights display integration
@@ -74,8 +74,8 @@ Transform the TradeWizard frontend to display prediction markets exactly like Po
     - **Property 2: Category Filtering Behavior**
     - **Validates: Requirements 2.2, 2.3**
 
-- [ ] 6. Implement market detail view and trading interface
-  - [ ] 6.1 Create detailed market view page
+- [x] 6. Implement market detail view and trading interface
+  - [x] 6.1 Create detailed market view page
     - Build market detail layout with comprehensive information display
     - Add price chart integration with historical data
     - Implement market resolution status and payout display
@@ -85,7 +85,7 @@ Transform the TradeWizard frontend to display prediction markets exactly like Po
     - **Property 6: Market Detail Information Completeness**
     - **Validates: Requirements 4.2, 4.4, 4.5, 4.6**
 
-  - [ ] 6.3 Implement trading panel and order form
+  - [x] 6.3 Implement trading panel and order form
     - Create TradingPanel component with buy/sell options
     - Build OrderForm with price/quantity inputs and validation
     - Add order book display with bid/ask spreads

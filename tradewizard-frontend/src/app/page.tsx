@@ -114,7 +114,9 @@ export default async function Home({
                 outcomes = names.map((name: string, i: number) => ({
                   name,
                   probability: Math.round(Number(prices[i]) * 100),
-                  color: i === 0 ? 'yes' : 'no' // Simple heuristic for now
+                  color: i === 0 ? 'yes' : 'no', // Simple heuristic for now
+                  tokenId: (market as any).clobTokenIds ? JSON.parse((market as any).clobTokenIds)[i] : undefined, // Add tokenId for real-time updates
+                  priceChange24h: i === 0 ? (market as any).oneDayPriceChange : undefined // Add price change data
                 })).slice(0, 2); // Show top 2 for card
                 
               } catch (e) {
@@ -132,9 +134,15 @@ export default async function Home({
                     id={event.id}
                     title={event.title}
                     image={event.image || (market.group === "nba" ? "bg-orange-500" : "")} // Use event image
+                    marketImage={market.image} // Add market-specific image as fallback
                     volume={`${(event.volume || 0).toLocaleString(undefined, { maximumFractionDigits: 0, notation: "compact" })}`}
                     isNew={event.new}
+                    featured={event.featured}
+                    trending={event.volume > 100000} // Markets with >100k volume are trending
                     outcomes={outcomes}
+                    endDate={event.endDate}
+                    enableRealTimeUpdates={true}
+                    showAIInsights={false} // Can be enabled when AI insights are available
                   />
                 </div>
               );
