@@ -1,7 +1,6 @@
 import { MarketCard } from "@/components/market-card";
 import { SeriesCard } from "@/components/series-card";
 import { HomeHero } from "@/components/home-hero";
-import { PoliticsTagBar } from "@/components/politics-tag-bar";
 import { CategoriesBar } from "@/components/categories-bar";
 import { getPoliticalEvents, getPoliticalTagDisplayName, isValidPoliticalTag } from "@/lib/politics-data";
 import { processMarket, processSeriesForDetail } from "@/lib/polymarket-data-processor";
@@ -291,14 +290,11 @@ export default async function Home({
     <div className="min-h-screen bg-background">
       <HomeHero />
       
-      {/* Enhanced Category Navigation with both Politics and General Categories */}
+      {/* Enhanced Category Navigation */}
       <div className="border-b border-border/40 bg-background/95 backdrop-blur-md">
         <div className="container max-w-screen-2xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8">
-          {/* Politics Tag Bar for political markets */}
-          <PoliticsTagBar currentTag={validatedTag} />
-          
-          {/* General Categories Bar for broader market categories */}
-          <div className="py-2">
+          {/* Categories Bar with filter functionality */}
+          <div className="py-3">
             <CategoriesBar />
           </div>
         </div>

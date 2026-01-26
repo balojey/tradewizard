@@ -144,12 +144,12 @@ export function CategoryFilter({
     }
 
     return (
-        <div className="border-b border-border/40 bg-background/95 backdrop-blur-sm sticky top-14 sm:top-16 z-40">
-            <div className="container max-w-screen-2xl mx-auto px-2 sm:px-4">
-                <div className="flex h-12 sm:h-14 items-center gap-1 overflow-x-auto scrollbar-hide">
+        <div className="border-b border-border/20 bg-background/95 backdrop-blur-sm">
+            <div className="container max-w-screen-2xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8">
+                <div className="flex h-14 sm:h-16 items-center gap-2 overflow-x-auto scrollbar-hide">
 
-                    {/* Main Politics Categories Section - Enhanced mobile layout */}
-                    <div className="flex bg-transparent pr-2 sm:pr-4 border-r border-border/30 h-8 sm:h-10 items-center gap-1 shrink-0">
+                    {/* Main Politics Categories Section - Enhanced styling */}
+                    <div className="flex bg-transparent pr-3 sm:pr-4 border-r border-border/20 h-10 sm:h-11 items-center gap-2 shrink-0">
                         {/* All Markets Button */}
                         <Button
                             variant="ghost"
@@ -157,24 +157,24 @@ export function CategoryFilter({
                             onClick={() => handleTagSelection(null)}
                             disabled={loading}
                             className={cn(
-                                "h-8 sm:h-9 px-2 sm:px-3 text-xs sm:text-sm font-semibold transition-all duration-200 whitespace-nowrap",
+                                "h-9 sm:h-10 px-3 sm:px-4 text-sm font-medium transition-all duration-200 whitespace-nowrap rounded-full",
                                 !activePoliticsTag 
-                                    ? "text-foreground bg-muted/60 shadow-sm" 
-                                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+                                    ? "text-primary-foreground bg-primary shadow-sm hover:bg-primary/90" 
+                                    : "text-muted-foreground hover:text-foreground hover:bg-muted/80 border border-border/40",
                                 loading && "opacity-50"
                             )}
                         >
-                            <TrendingUp className="mr-1 sm:mr-1.5 h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                            <TrendingUp className="mr-2 h-4 w-4" />
                             <span className="hidden xs:inline">All Markets</span>
                             <span className="xs:hidden">All</span>
                             {showCounts && marketCounts['all'] && (
-                                <span className="ml-1 sm:ml-1.5 px-1 sm:px-1.5 py-0.5 text-[9px] sm:text-[10px] bg-primary/10 text-primary rounded-full">
+                                <span className="ml-2 px-2 py-0.5 text-xs bg-background/20 text-current rounded-full">
                                     {marketCounts['all']}
                                 </span>
                             )}
                         </Button>
 
-                        {/* Politics Tag Buttons - Enhanced mobile layout (Requirements 2.3, 2.4) */}
+                        {/* Politics Tag Buttons - Enhanced styling */}
                         {visibleTags.map((tag) => {
                             const isActive = activePoliticsTag === tag.slug;
                             const count = marketCounts[tag.slug] || tag.marketCount || 0;
@@ -187,25 +187,25 @@ export function CategoryFilter({
                                     onClick={() => handleTagSelection(tag.slug)}
                                     disabled={loading || count === 0}
                                     className={cn(
-                                        "h-8 sm:h-9 px-2 sm:px-3 text-xs sm:text-sm font-semibold transition-all duration-200 relative whitespace-nowrap",
+                                        "h-9 sm:h-10 px-3 sm:px-4 text-sm font-medium transition-all duration-200 relative whitespace-nowrap rounded-full",
                                         isActive 
-                                            ? "text-foreground bg-muted/60 shadow-sm" 
-                                            : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+                                            ? "text-primary-foreground bg-primary shadow-sm hover:bg-primary/90" 
+                                            : "text-muted-foreground hover:text-foreground hover:bg-muted/80 border border-border/40",
                                         count === 0 && "opacity-50",
                                         loading && "opacity-50",
-                                        tag.trending && "bg-gradient-to-r from-primary/10 to-transparent"
+                                        tag.trending && "ring-2 ring-emerald-500/20"
                                     )}
                                     title={`${tag.label} - ${count} markets`}
                                 >
-                                    <Vote className="mr-1 sm:mr-1.5 h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                                    <Vote className="mr-2 h-4 w-4" />
                                     <span className="hidden xs:inline">{tag.label}</span>
                                     <span className="xs:hidden">{tag.label.slice(0, 4)}</span>
                                     {showCounts && count > 0 && (
                                         <span className={cn(
-                                            "ml-1 sm:ml-1.5 px-1 sm:px-1.5 py-0.5 text-[9px] sm:text-[10px] rounded-full",
+                                            "ml-2 px-2 py-0.5 text-xs rounded-full",
                                             isActive 
-                                                ? "bg-primary/20 text-primary" 
-                                                : "bg-muted-foreground/10 text-muted-foreground"
+                                                ? "bg-background/20 text-current" 
+                                                : "bg-muted text-muted-foreground"
                                         )}>
                                             {count}
                                         </span>
@@ -224,34 +224,34 @@ export function CategoryFilter({
                                 size="sm"
                                 onClick={() => setShowAllTags(!showAllTags)}
                                 disabled={loading}
-                                className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                                className="h-9 px-3 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-full border border-border/40"
                             >
                                 {showAllTags ? (
                                     <>
-                                        <ChevronLeft className="h-3.5 w-3.5" />
+                                        <ChevronLeft className="mr-1 h-4 w-4" />
                                         Less
                                     </>
                                 ) : (
                                     <>
                                         More
-                                        <ChevronRight className="h-3.5 w-3.5" />
+                                        <ChevronRight className="ml-1 h-4 w-4" />
                                     </>
                                 )}
                             </Button>
                         )}
                     </div>
 
-                    {/* Additional Tags Scrollable Section */}
-                    <div className="flex-1 flex items-center gap-2 overflow-hidden px-2 relative group">
+                    {/* Additional Tags Scrollable Section - Enhanced styling */}
+                    <div className="flex-1 flex items-center gap-3 overflow-hidden px-3 relative group">
                         <button
                             onClick={() => scroll("left")}
-                            className="absolute left-0 z-10 hidden group-hover:flex bg-gradient-to-r from-background to-transparent w-8 h-full items-center justify-start"
+                            className="absolute left-0 z-10 hidden group-hover:flex bg-gradient-to-r from-background via-background/80 to-transparent w-12 h-full items-center justify-start pl-2"
                             disabled={loading}
                         >
-                            <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+                            <ChevronLeft className="h-4 w-4 text-muted-foreground hover:text-foreground" />
                         </button>
 
-                        <div ref={scrollContainerRef} className="flex gap-2 overflow-x-auto scrollbar-hide py-1 px-1">
+                        <div ref={scrollContainerRef} className="flex gap-2 overflow-x-auto scrollbar-hide py-2 px-2">
                             {/* Additional politics-related tags */}
                             {RELATED_POLITICAL_TAGS.map((tagSlug) => {
                                 const tag = politicsTags.find(t => t.slug === tagSlug);
@@ -265,15 +265,22 @@ export function CategoryFilter({
                                         <button
                                             disabled={loading || count === 0}
                                             className={cn(
-                                                "whitespace-nowrap rounded-md px-3 py-1 text-xs font-medium transition-colors hover:bg-muted/60 hover:text-foreground",
-                                                isActive ? "bg-muted text-foreground" : "text-muted-foreground",
+                                                "whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 border",
+                                                isActive 
+                                                    ? "bg-primary text-primary-foreground border-primary shadow-sm" 
+                                                    : "bg-background text-muted-foreground border-border/40 hover:bg-muted/80 hover:text-foreground",
                                                 count === 0 && "opacity-50 cursor-not-allowed",
                                                 loading && "opacity-50"
                                             )}
                                         >
                                             {tag.label}
                                             {showCounts && count > 0 && (
-                                                <span className="ml-1 text-[10px] opacity-70">
+                                                <span className={cn(
+                                                    "ml-2 px-1.5 py-0.5 text-xs rounded-full",
+                                                    isActive 
+                                                        ? "bg-background/20 text-current"
+                                                        : "bg-muted text-muted-foreground"
+                                                )}>
                                                     {count}
                                                 </span>
                                             )}
@@ -286,20 +293,20 @@ export function CategoryFilter({
                         <button
                             onClick={() => scroll("right")}
                             disabled={loading}
-                            className="absolute right-0 z-10 hidden group-hover:flex bg-gradient-to-l from-background to-transparent w-8 h-full items-center justify-end"
+                            className="absolute right-0 z-10 hidden group-hover:flex bg-gradient-to-l from-background via-background/80 to-transparent w-12 h-full items-center justify-end pr-2"
                         >
-                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                            <ChevronRight className="h-4 w-4 text-muted-foreground hover:text-foreground" />
                         </button>
                     </div>
 
-                    {/* Filter Button (Requirements 2.8) */}
-                    <div className="flex items-center gap-1 pl-2 border-l border-border/30 h-8 shrink-0">
+                    {/* Filter Button - Enhanced styling */}
+                    <div className="flex items-center gap-2 pl-3 border-l border-border/20 h-10 shrink-0">
                         {enableSearch && (
                             <div className="relative">
                                 <Button 
                                     variant="ghost" 
                                     size="icon" 
-                                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                    className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-full border border-border/40"
                                     onClick={() => setSearchQuery(searchQuery ? "" : "search")}
                                     disabled={loading}
                                 >
@@ -311,7 +318,7 @@ export function CategoryFilter({
                                         placeholder="Search politics tags..."
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="absolute right-0 top-0 h-8 w-48 px-3 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                        className="absolute right-0 top-0 h-9 w-48 px-3 text-sm bg-background border border-border rounded-full focus:outline-none focus:ring-2 focus:ring-primary/50 shadow-sm"
                                         autoFocus
                                     />
                                 )}
@@ -322,8 +329,8 @@ export function CategoryFilter({
                                 variant="ghost" 
                                 size="icon" 
                                 className={cn(
-                                    "h-8 w-8 text-muted-foreground hover:text-foreground",
-                                    filterPanelOpen && "bg-muted text-foreground"
+                                    "h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-full border border-border/40 transition-all duration-200",
+                                    filterPanelOpen && "bg-primary text-primary-foreground border-primary shadow-sm"
                                 )}
                                 onClick={() => setFilterPanelOpen(!filterPanelOpen)}
                                 disabled={loading}
@@ -335,43 +342,44 @@ export function CategoryFilter({
                     </div>
                 </div>
 
-                {/* Filter Panel */}
+                {/* Filter Panel - Enhanced styling */}
                 {filterPanelOpen && (
-                    <div className="border-t border-border/30 bg-muted/30 p-4">
-                        <div className="flex items-center justify-between mb-3">
-                            <h3 className="text-sm font-semibold">Filter Options</h3>
+                    <div className="border-t border-border/20 bg-muted/20 backdrop-blur-sm p-4 rounded-b-lg">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-sm font-semibold text-foreground">Filter Options</h3>
                             <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => setFilterPanelOpen(false)}
+                                className="h-8 w-8 p-0 hover:bg-muted/80 rounded-full"
                             >
                                 <X className="h-4 w-4" />
                             </Button>
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                            <label className="flex items-center space-x-2 text-sm">
-                                <input type="checkbox" defaultChecked={showCounts} className="rounded" />
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <label className="flex items-center space-x-2 text-sm cursor-pointer hover:text-foreground transition-colors">
+                                <input type="checkbox" defaultChecked={showCounts} className="rounded border-border" />
                                 <span>Show counts</span>
                             </label>
-                            <label className="flex items-center space-x-2 text-sm">
-                                <input type="checkbox" className="rounded" />
+                            <label className="flex items-center space-x-2 text-sm cursor-pointer hover:text-foreground transition-colors">
+                                <input type="checkbox" className="rounded border-border" />
                                 <span>Trending only</span>
                             </label>
-                            <label className="flex items-center space-x-2 text-sm">
-                                <input type="checkbox" className="rounded" />
+                            <label className="flex items-center space-x-2 text-sm cursor-pointer hover:text-foreground transition-colors">
+                                <input type="checkbox" className="rounded border-border" />
                                 <span>Active markets</span>
                             </label>
-                            <label className="flex items-center space-x-2 text-sm">
-                                <input type="checkbox" className="rounded" />
+                            <label className="flex items-center space-x-2 text-sm cursor-pointer hover:text-foreground transition-colors">
+                                <input type="checkbox" className="rounded border-border" />
                                 <span>High volume</span>
                             </label>
                         </div>
                     </div>
                 )}
 
-                {/* Empty State for Tags (Requirements 2.6) */}
+                {/* Empty State for Tags */}
                 {activePoliticsTag && marketCounts[activePoliticsTag] === 0 && (
-                    <div className="absolute top-full left-0 right-0 bg-background border-b border-border/40 py-8">
+                    <div className="absolute top-full left-0 right-0 bg-background/95 backdrop-blur-sm border-b border-border/20 py-8 shadow-lg">
                         <EmptyStateMessage 
                             tagSlug={activePoliticsTag} 
                             politicsTags={politicsTags}
@@ -399,21 +407,31 @@ function EmptyStateMessage({
     return (
         <div className="container max-w-screen-2xl mx-auto px-4">
             <div className="max-w-md mx-auto text-center">
-                <div className="text-muted-foreground mb-2">
-                    <Vote className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <div className="text-muted-foreground mb-4">
+                    <Vote className="h-12 w-12 mx-auto mb-3 opacity-40" />
                 </div>
-                <h3 className="text-lg font-semibold text-foreground mb-2">
+                <h3 className="text-xl font-semibold text-foreground mb-3">
                     No {tagInfo?.label || tagSlug} Markets
                 </h3>
-                <p className="text-sm text-muted-foreground mb-4">
+                <p className="text-muted-foreground mb-6 leading-relaxed">
                     There are currently no active prediction markets for {tagInfo?.label || tagSlug}. 
                     New markets will appear here when they become available.
                 </p>
-                <div className="flex gap-2 justify-center">
-                    <Button variant="outline" size="sm" onClick={() => window.location.href = '/'}>
+                <div className="flex gap-3 justify-center">
+                    <Button 
+                        variant="default" 
+                        size="sm" 
+                        onClick={() => window.location.href = '/'}
+                        className="rounded-full px-6"
+                    >
                         Browse All Markets
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => window.location.reload()}>
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => window.location.reload()}
+                        className="rounded-full px-6"
+                    >
                         Refresh
                     </Button>
                 </div>
