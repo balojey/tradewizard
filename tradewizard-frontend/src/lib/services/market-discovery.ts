@@ -306,54 +306,134 @@ export class PolymarketDiscoveryService implements MarketDiscoveryService {
   }
 
   private async makeRequest<T>(url: string): Promise<ApiResponse<T>> {
-    try {
-      // Rate limiting
-      await this.enforceRateLimit();
+    return this.withRetry(async () => {
+      try {
+        // Rate limiting
+        await this.enforceRateLimit();
 
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-      });
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const error: ApiError = {
-          type: response.status === 429 ? 'RATE_LIMIT_ERROR' : 'API_ERROR',
-          message: errorData.message || `HTTP ${response.status}: ${response.statusText}`,
-          code: response.status.toString(),
-          details: errorData,
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          const error: ApiError = {
+            type: response.status === 429 ? 'RATE_LIMIT_ERROR' : 'API_ERROR',
+            message: errorData.message || `HTTP ${response.status}: ${response.statusText}`,
+            code: response.status.toString(),
+            details: errorData,
+          };
+          
+          return {
+            success: false,
+            error,
+            timestamp: Date.now(),
+          };
+        }
+
+        const data = await response.json();
+        
+        return {
+          success: true,
+          data,
+          timestamp: Date.now(),
+        };
+      } catch (error) {
+        const apiError: ApiError = {
+          type: 'NETWORK_ERROR',
+          message: error instanceof Error ? error.message : 'Network request failed',
+          details: { originalError: error },
         };
         
         return {
           success: false,
-          error,
+          error: apiError,
           timestamp: Date.now(),
         };
       }
+    });
+  }
 
-      const data = await response.json();
-      
-      return {
-        success: true,
-        data,
-        timestamp: Date.now(),
-      };
-    } catch (error) {
-      const apiError: ApiError = {
-        type: 'NETWORK_ERROR',
-        message: error instanceof Error ? error.message : 'Network request failed',
-        details: { originalError: error },
-      };
-      
-      return {
-        success: false,
-        error: apiError,
-        timestamp: Date.now(),
-      };
+  /**
+   * Retry mechanism with exponential backoff
+   * Implements Requirements 3.3, 11.1, 11.4
+   */
+  private async withRetry<T>(
+    operation: () => Promise<ApiResponse<T>>
+  ): Promise<ApiResponse<T>> {
+    let lastError: ApiError | undefined;
+    
+    for (let attempt = 0; attempt <= this.config.retryAttempts; attempt++) {
+      try {
+        const result = await operation();
+        
+        // If successful or non-retryable error, return immediately
+        if (result.success || !this.isRetryableError(result.error)) {
+          return result;
+        }
+        
+        lastError = result.error;
+        
+        // Don't delay after the last attempt
+        if (attempt < this.config.retryAttempts) {
+          const delay = this.calculateBackoffDelay(attempt);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      } catch (error) {
+        lastError = {
+          type: 'NETWORK_ERROR',
+          message: error instanceof Error ? error.message : 'Network request failed',
+          details: { originalError: error },
+        };
+        
+        // Don't delay after the last attempt
+        if (attempt < this.config.retryAttempts) {
+          const delay = this.calculateBackoffDelay(attempt);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
     }
+    
+    return {
+      success: false,
+      error: lastError || {
+        type: 'API_ERROR',
+        message: 'Max retries exceeded',
+      },
+      timestamp: Date.now(),
+    };
+  }
+
+  /**
+   * Calculate exponential backoff delay with jitter
+   */
+  private calculateBackoffDelay(attempt: number): number {
+    const baseDelay = this.config.retryDelay;
+    const exponentialDelay = baseDelay * Math.pow(2, attempt);
+    const jitter = Math.random() * 1000; // Add up to 1 second of jitter
+    const maxDelay = 30000; // Cap at 30 seconds
+    
+    return Math.min(exponentialDelay + jitter, maxDelay);
+  }
+
+  /**
+   * Check if an error is retryable
+   */
+  private isRetryableError(error?: ApiError): boolean {
+    if (!error) return false;
+    
+    return (
+      error.type === 'NETWORK_ERROR' ||
+      error.type === 'RATE_LIMIT_ERROR' ||
+      (error.type === 'API_ERROR' && error.code === '500') ||
+      (error.type === 'API_ERROR' && error.code === '502') ||
+      (error.type === 'API_ERROR' && error.code === '503') ||
+      (error.type === 'API_ERROR' && error.code === '504')
+    );
   }
 
   private async enforceRateLimit(): Promise<void> {

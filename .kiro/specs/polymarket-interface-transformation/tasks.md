@@ -12,8 +12,8 @@ Transform the TradeWizard frontend to display prediction markets exactly like Po
   - Set up TypeScript interfaces for Polymarket API responses
   - _Requirements: 3.2, 5.4_
 
-- [ ] 2. Implement core data models and API services
-  - [ ] 2.1 Create enhanced Polymarket data models and interfaces
+- [-] 2. Implement core data models and API services
+  - [x] 2.1 Create enhanced Polymarket data models and interfaces
     - Extend existing ProcessedMarket interface with trading fields and series support
     - Create ProcessedSeries model for series-based market grouping
     - Create OrderBook, UserPosition, and Trading models
@@ -35,7 +35,7 @@ Transform the TradeWizard frontend to display prediction markets exactly like Po
     - **Property 3: WebSocket Reconnection Resilience**
     - **Validates: Requirements 3.3, 11.4**
 
-- [ ] 3. Implement WebSocket real-time data management
+- [x] 3. Implement WebSocket real-time data management
   - [x] 3.1 Create WebSocket service for real-time updates
     - Implement connection management with automatic reconnection
     - Create subscription management for market and user channels

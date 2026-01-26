@@ -501,6 +501,7 @@ export type WebSocketMessage = PriceUpdate | OrderUpdate | MarketUpdate | {
 
 /**
  * Processed Market for Frontend Display (Enhanced for Trading)
+ * @deprecated Use ProcessedMarket from enhanced-polymarket-types.ts instead
  */
 export interface ProcessedMarket {
   id: string;
@@ -1201,3 +1202,35 @@ export interface WebSocketServiceConfig {
   heartbeatInterval: number;
   subscriptionTimeout: number;
 }
+
+// ============================================================================
+// Enhanced Types Re-exports
+// ============================================================================
+
+// Re-export enhanced types for backward compatibility and centralized access
+export type {
+  ProcessedMarket as EnhancedProcessedMarket,
+  ProcessedSeries,
+  MarketTag,
+  PoliticsTag,
+  SeriesInfo,
+  AIMarketInsights as EnhancedAIMarketInsights,
+  SeriesAIInsights,
+  AppState as EnhancedAppState,
+  MarketState as EnhancedMarketState,
+  SeriesState,
+  TagState,
+  TradingState as EnhancedTradingState,
+  UserState as EnhancedUserState,
+  RealtimeState as EnhancedRealtimeState,
+  UIState as EnhancedUIState,
+  RoutingState,
+  MarketFilters as EnhancedMarketFilters,
+  UserPreferences as EnhancedUserPreferences,
+  PriceUpdate as EnhancedPriceUpdate,
+  OrderUpdate as EnhancedOrderUpdate,
+  SeriesUpdate,
+  RecentTrade as EnhancedRecentTrade,
+  CompletedOrder as EnhancedCompletedOrder,
+  Notification as EnhancedNotification,
+} from './enhanced-polymarket-types';

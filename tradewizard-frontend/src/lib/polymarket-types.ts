@@ -249,3 +249,30 @@ export const RELATED_POLITICAL_TAGS = [
 ] as const;
 
 export type PoliticalTag = typeof POLITICAL_TAGS[keyof typeof POLITICAL_TAGS];
+
+// ============================================================================
+// Enhanced Types Integration
+// ============================================================================
+
+/**
+ * @deprecated Use enhanced types from enhanced-polymarket-types.ts
+ * This file is maintained for backward compatibility only.
+ * 
+ * For new development, import from:
+ * - ProcessedMarket from './enhanced-polymarket-types'
+ * - ProcessedSeries from './enhanced-polymarket-types'
+ * - MarketTag, PoliticsTag from './enhanced-polymarket-types'
+ * - AIMarketInsights, SeriesAIInsights from './enhanced-polymarket-types'
+ */
+
+// Re-export enhanced types for easy migration
+export type {
+  ProcessedMarket as EnhancedProcessedMarket,
+  ProcessedSeries,
+  MarketTag as EnhancedMarketTag,
+  PoliticsTag,
+  AIMarketInsights as EnhancedAIMarketInsights,
+  SeriesAIInsights,
+  MarketEvent as EnhancedMarketEvent,
+  SeriesInfo,
+} from './enhanced-polymarket-types';
