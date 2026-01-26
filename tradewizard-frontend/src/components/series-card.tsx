@@ -1,22 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { 
     TrendingUp, 
-    Vote, 
-    AlertTriangle, 
     Brain, 
     Zap, 
     Clock, 
-    TrendingDown, 
     Activity, 
-    Minus,
-    ChevronRight,
     BarChart3,
-    Users,
-    Calendar
+    Bookmark,
+    RefreshCw
 } from "lucide-react";
 import { 
     ProcessedSeries, 
@@ -43,8 +38,6 @@ interface SeriesCardProps {
     showAIInsights?: boolean;
     enableRealTimeUpdates?: boolean;
     compact?: boolean;
-    showMarketPreviews?: boolean;
-    maxMarketPreviews?: number;
     
     // Visual enhancements
     featured?: boolean;
@@ -57,6 +50,7 @@ interface SeriesCardProps {
 
 /**
  * SeriesCard Component for Series-Based Markets
+ * Professional implementation matching the exact Fed decision structure
  * Implements Requirements 13.1, 13.2, 13.3, 13.6, 13.7
  */
 export function SeriesCard({
@@ -64,8 +58,6 @@ export function SeriesCard({
     showAIInsights = false,
     enableRealTimeUpdates = true,
     compact = false,
-    showMarketPreviews = true,
-    maxMarketPreviews = 3,
     featured = false,
     trending = false,
     onClick,
@@ -79,10 +71,14 @@ export function SeriesCard({
     // Enhanced hover state for trading features
     const [isHovered, setIsHovered] = useState(false);
     const [isFocused, setIsFocused] = useState(false);
+    const [isBookmarked, setIsBookmarked] = useState(false);
     const cardRef = useRef<HTMLAnchorElement>(null);
 
-    // Real-time price subscription for all markets in series
-    const allTokenIds = series.markets
+    // Filter to only show active markets
+    const activeMarkets = series.markets.filter(market => market.active && !market.closed);
+
+    // Real-time price subscription for active markets only
+    const allTokenIds = activeMarkets
         .flatMap(market => market.outcomes?.filter(o => o.tokenId).map(o => o.tokenId!) || []);
     const { prices, isSubscribed } = useRealtimePricesSafe(enableRealTimeUpdates ? allTokenIds : []);
 
@@ -92,7 +88,6 @@ export function SeriesCard({
     // Generate unique IDs for ARIA relationships
     const cardId = AriaUtils.generateId('series-card');
     const titleId = AriaUtils.generateId('series-title');
-    const statsId = AriaUtils.generateId('series-stats');
     const marketsId = AriaUtils.generateId('series-markets');
 
     // Handle keyboard navigation
@@ -122,7 +117,7 @@ export function SeriesCard({
             const statusText = [
                 featured && "Featured series",
                 trending && "Trending series",
-                `${series.activeMarkets} active markets`
+                `${activeMarkets.length} active markets`
             ].filter(Boolean).join(", ");
             
             const announcement = `Series: ${series.title}. Total volume: ${series.totalVolumeFormatted}. ${statusText}`;
@@ -142,6 +137,13 @@ export function SeriesCard({
         }
     };
 
+    // Handle bookmark toggle
+    const handleBookmarkClick = (event: React.MouseEvent) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setIsBookmarked(!isBookmarked);
+    };
+
     // Create comprehensive ARIA label
     const createAriaLabel = () => {
         const statusParts = [];
@@ -154,17 +156,11 @@ export function SeriesCard({
         return [
             `View series: ${series.title}`,
             volumeText,
-            `${series.marketCount} markets in series`,
-            `${series.activeMarkets} active markets`,
+            `${activeMarkets.length} active markets`,
             statusText,
             statusParts.join(", ")
         ].filter(Boolean).join(". ");
     };
-
-    // Get preview markets for display
-    const previewMarkets = showMarketPreviews 
-        ? series.markets.slice(0, maxMarketPreviews)
-        : [];
 
     return (
         <ErrorBoundary fallback={MarketErrorFallback} name="SeriesCard">
@@ -172,13 +168,13 @@ export function SeriesCard({
                 ref={cardRef}
                 href={`/series/${series.slug}`}
                 className={cn(
-                    "group block h-full cursor-pointer rounded-lg transition-all duration-200",
+                    "group block h-full cursor-pointer transition-all duration-200",
                     "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background",
                     keyboardNavigation && "focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
                     isFocused && "ring-2 ring-primary ring-offset-2 ring-offset-background"
                 )}
                 aria-label={createAriaLabel()}
-                aria-describedby={`${statsId} ${marketsId}`}
+                aria-describedby={marketsId}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
                 onFocus={handleFocus}
@@ -197,38 +193,42 @@ export function SeriesCard({
                         "focus-within:border-primary/50 focus-within:shadow-lg",
                         featured && "ring-2 ring-primary/20 border-primary/30",
                         trending && "bg-gradient-to-br from-card to-primary/5",
-                        isHovered && !reduceMotion && "shadow-xl shadow-primary/20",
-                        compact && "min-h-[200px]"
+                        isHovered && !reduceMotion && "shadow-xl shadow-primary/20"
                     )}
                     role="article"
                     aria-labelledby={titleId}
                 >
-                    {/* Series Header with Image */}
-                    <div className="relative aspect-[2/1] w-full overflow-hidden bg-muted">
-                        <LazyMarketImage
-                            eventImage={series.image}
-                            title={series.title}
-                            className={cn(
-                                "w-full h-full",
-                                !reduceMotion && "transition-transform duration-300 group-hover:scale-105"
-                            )}
-                            priority={featured}
-                            placeholder="gradient"
-                            enableProgressiveLoading={true}
-                        />
+                    {/* Series Header with Image and Title */}
+                    <div className="relative">
+                        <div className="flex items-center gap-3 p-4 pb-3">
+                            {/* Series Image */}
+                            <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                                <LazyMarketImage
+                                    eventImage={series.image}
+                                    title={series.title}
+                                    className="w-full h-full object-cover"
+                                    priority={featured}
+                                    placeholder="gradient"
+                                    enableProgressiveLoading={true}
+                                />
+                            </div>
+
+                            {/* Series Title and Info */}
+                            <div className="flex-1 min-w-0">
+                                <h3 
+                                    id={titleId}
+                                    className="text-lg font-semibold leading-tight text-foreground group-hover:text-primary transition-colors line-clamp-2"
+                                >
+                                    {series.title}
+                                </h3>
+                            </div>
+                        </div>
 
                         {/* Status badges */}
-                        <div className="absolute left-2 top-2 flex flex-col gap-1 max-w-[calc(100%-4rem)]">
-                            <div 
-                                className="rounded-full bg-blue-600/90 px-2 py-1 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-sm"
-                                aria-label="Series of markets"
-                                role="status"
-                            >
-                                <span aria-hidden="true">Series</span>
-                            </div>
+                        <div className="absolute top-2 right-2 flex flex-col gap-1">
                             {featured && (
                                 <div 
-                                    className="rounded-full bg-amber-500/90 px-2 py-1 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-sm"
+                                    className="rounded-full bg-amber-500/90 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-sm"
                                     aria-label="Featured series"
                                     role="status"
                                 >
@@ -237,20 +237,19 @@ export function SeriesCard({
                             )}
                             {trending && (
                                 <div 
-                                    className="rounded-full bg-emerald-500/90 px-2 py-1 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-sm flex items-center gap-1"
+                                    className="rounded-full bg-emerald-500/90 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-sm flex items-center gap-1"
                                     aria-label="Trending series with high activity"
                                     role="status"
                                 >
                                     <Zap className="h-3 w-3" aria-hidden="true" />
-                                    <span className="hidden xs:inline" aria-hidden="true">Trending</span>
-                                    <span className="xs:hidden" aria-hidden="true">Hot</span>
+                                    <span aria-hidden="true">Hot</span>
                                 </div>
                             )}
                         </div>
 
                         {/* Real-time update indicator */}
                         {enableRealTimeUpdates && isSubscribed && Object.keys(prices).length > 0 && (
-                            <div className="absolute top-2 right-2">
+                            <div className="absolute top-2 left-2">
                                 <div 
                                     className={cn(
                                         "rounded-full bg-emerald-500/90 p-1.5 backdrop-blur-sm shadow-sm",
@@ -264,39 +263,9 @@ export function SeriesCard({
                             </div>
                         )}
 
-                        {/* Series stats overlay */}
-                        <div className="absolute bottom-2 right-2 flex flex-col gap-1 items-end max-w-[calc(100%-4rem)]">
-                            <div 
-                                className="rounded-md bg-black/70 px-2 py-1 text-[10px] sm:text-xs font-medium text-white backdrop-blur-sm flex items-center gap-1"
-                                aria-label={AriaUtils.createVolumeLabel(series.totalVolumeFormatted)}
-                                role="status"
-                            >
-                                <TrendingUp className="h-3 w-3" aria-hidden="true" />
-                                <span className="truncate" aria-hidden="true">{series.totalVolumeFormatted}</span>
-                            </div>
-                            <div 
-                                className="rounded-md bg-black/70 px-2 py-1 text-[10px] sm:text-xs font-medium text-white backdrop-blur-sm flex items-center gap-1"
-                                aria-label={`${series.marketCount} markets in series`}
-                                role="status"
-                            >
-                                <BarChart3 className="h-3 w-3" aria-hidden="true" />
-                                <span aria-hidden="true">{series.marketCount} markets</span>
-                            </div>
-                            {timeUntilEnd && (
-                                <div 
-                                    className="rounded-md bg-black/70 px-2 py-1 text-[10px] sm:text-xs font-medium text-white backdrop-blur-sm flex items-center gap-1"
-                                    aria-label={`Series ends in ${timeUntilEnd}`}
-                                    role="status"
-                                >
-                                    <Clock className="h-3 w-3" aria-hidden="true" />
-                                    <span aria-hidden="true">{timeUntilEnd}</span>
-                                </div>
-                            )}
-                        </div>
-
                         {/* AI Insights indicator */}
                         {showAIInsights && series.seriesInsights && (
-                            <div className="absolute top-2 right-2 z-10">
+                            <div className="absolute top-12 right-2">
                                 <SeriesAIInsightsIndicator 
                                     insights={series.seriesInsights} 
                                     isHovered={isHovered}
@@ -306,85 +275,76 @@ export function SeriesCard({
                         )}
                     </div>
 
-                    <CardContent className="flex-1 p-3 sm:p-4 lg:p-5 space-y-3 sm:space-y-4">
-                        {/* Series Title and Type */}
-                        <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                                <div className="h-1 w-1 bg-primary rounded-full" aria-hidden="true" />
-                                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                                    {series.seriesType} • {series.recurrence}
-                                </span>
-                            </div>
-                            <h3 
-                                id={titleId}
-                                className="line-clamp-2 text-sm sm:text-base lg:text-lg font-semibold leading-snug tracking-tight text-foreground group-hover:text-primary transition-colors"
-                            >
-                                {series.title}
-                            </h3>
-                            {series.description && (
-                                <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 leading-relaxed">
-                                    {series.description}
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Series Statistics */}
-                        <div 
-                            id={statsId}
-                            className="grid grid-cols-3 gap-3 py-2 border-y border-border/30"
-                            role="region"
-                            aria-label="Series statistics"
-                        >
-                            <div className="text-center">
-                                <div className="text-lg sm:text-xl font-bold text-foreground">
-                                    {series.activeMarkets}
-                                </div>
-                                <div className="text-xs text-muted-foreground">Active</div>
-                            </div>
-                            <div className="text-center">
-                                <div className="text-lg sm:text-xl font-bold text-foreground">
-                                    {series.completedMarkets}
-                                </div>
-                                <div className="text-xs text-muted-foreground">Completed</div>
-                            </div>
-                            <div className="text-center">
-                                <div className="text-lg sm:text-xl font-bold text-foreground">
-                                    {series.upcomingMarkets}
-                                </div>
-                                <div className="text-xs text-muted-foreground">Upcoming</div>
-                            </div>
-                        </div>
-
-                        {/* Market Previews */}
-                        {showMarketPreviews && previewMarkets.length > 0 && (
+                    <CardContent className="flex-1 p-4 pt-0 space-y-3">
+                        {/* Active Markets List */}
+                        {activeMarkets.length > 0 && (
                             <div 
                                 id={marketsId}
                                 className="space-y-2"
                                 role="region"
-                                aria-label="Market previews"
+                                aria-label="Active markets in series"
                             >
-                                <div className="flex items-center justify-between">
-                                    <h4 className="text-sm font-medium text-foreground">Markets</h4>
-                                    <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                                </div>
-                                <div className="space-y-2">
-                                    {previewMarkets.map((market, idx) => (
-                                        <MarketPreview 
-                                            key={market.id}
-                                            market={market}
-                                            prices={prices}
-                                            onClick={onMarketClick}
-                                            compact={compact}
-                                        />
-                                    ))}
-                                    {series.marketCount > maxMarketPreviews && (
-                                        <div className="text-xs text-muted-foreground text-center py-1">
-                                            +{series.marketCount - maxMarketPreviews} more markets
-                                        </div>
-                                    )}
-                                </div>
+                                {activeMarkets.slice(0, 4).map((market, idx) => (
+                                    <SeriesMarketRow 
+                                        key={market.id}
+                                        market={market}
+                                        prices={prices}
+                                        onClick={onMarketClick}
+                                        isLast={idx === Math.min(activeMarkets.length - 1, 3)}
+                                    />
+                                ))}
+                                {activeMarkets.length > 4 && (
+                                    <div className="text-xs text-muted-foreground text-center py-2 border-t border-border/30">
+                                        +{activeMarkets.length - 4} more markets
+                                    </div>
+                                )}
                             </div>
                         )}
+
+                        {/* No Active Markets State */}
+                        {activeMarkets.length === 0 && (
+                            <div className="text-center py-6 text-muted-foreground">
+                                <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                <p className="text-sm">No active markets</p>
+                                <p className="text-xs mt-1">{series.completedMarkets} completed</p>
+                            </div>
+                        )}
+
+                        {/* Series Footer */}
+                        <div className="flex items-center justify-between pt-3 border-t border-border/30">
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                <div 
+                                    className="flex items-center gap-1"
+                                    aria-label={AriaUtils.createVolumeLabel(series.totalVolumeFormatted)}
+                                >
+                                    <TrendingUp className="h-4 w-4" aria-hidden="true" />
+                                    <span className="font-medium" aria-hidden="true">{series.totalVolumeFormatted} Vol</span>
+                                </div>
+                                <div 
+                                    className="flex items-center gap-1"
+                                    aria-label={`Series recurrence: ${series.recurrence}`}
+                                >
+                                    <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                                    <span aria-hidden="true">{series.recurrence}</span>
+                                </div>
+                            </div>
+                            
+                            <button
+                                onClick={handleBookmarkClick}
+                                className={cn(
+                                    "p-2 rounded-md transition-colors hover:bg-muted",
+                                    isBookmarked ? "text-primary" : "text-muted-foreground"
+                                )}
+                                aria-label={isBookmarked ? "Remove from bookmarks" : "Add to bookmarks"}
+                            >
+                                <Bookmark 
+                                    className={cn(
+                                        "h-4 w-4",
+                                        isBookmarked && "fill-current"
+                                    )} 
+                                />
+                            </button>
+                        </div>
 
                         {/* AI Insights summary */}
                         {showAIInsights && series.seriesInsights && isHovered && (
@@ -398,18 +358,19 @@ export function SeriesCard({
 }
 
 /**
- * Market Preview Component for Series Cards
+ * Series Market Row Component - Matches Fed Decision Structure
+ * Displays individual markets within a series in the exact format shown in the image
  */
-function MarketPreview({ 
+function SeriesMarketRow({ 
     market, 
     prices, 
     onClick, 
-    compact = false 
+    isLast = false 
 }: { 
     market: ProcessedMarket;
     prices: Record<string, any>;
     onClick?: (marketSlug: string) => void;
-    compact?: boolean;
+    isLast?: boolean;
 }) {
     const handleClick = (event: React.MouseEvent) => {
         event.preventDefault();
@@ -419,51 +380,72 @@ function MarketPreview({
         }
     };
 
-    // Get primary outcome for display
-    const primaryOutcome = market.outcomes?.[0];
+    // Get the primary outcome (usually "Yes") and secondary outcome (usually "No")
+    const yesOutcome = market.outcomes?.find(o => o.color === 'yes' || o.name.toLowerCase().includes('yes'));
+    const noOutcome = market.outcomes?.find(o => o.color === 'no' || o.name.toLowerCase().includes('no'));
+    
+    // Use the first outcome if we can't find yes/no specifically
+    const primaryOutcome = yesOutcome || market.outcomes?.[0];
+    const secondaryOutcome = noOutcome || market.outcomes?.[1];
+
+    // Get real-time price if available
     const realtimePrice = primaryOutcome?.tokenId && prices[primaryOutcome.tokenId];
     const currentProbability = realtimePrice?.price ? realtimePrice.price * 100 : primaryOutcome?.probability || 50;
+
+    // Format probability display
+    const formatProbability = (prob: number) => {
+        if (prob < 1) return '<1%';
+        if (prob > 99) return '>99%';
+        return `${Math.round(prob)}%`;
+    };
 
     return (
         <div 
             className={cn(
-                "flex items-center justify-between p-2 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer",
-                compact && "p-1.5"
+                "flex items-center justify-between py-3 cursor-pointer hover:bg-muted/30 transition-colors rounded-md px-2",
+                !isLast && "border-b border-border/20"
             )}
             onClick={handleClick}
             role="button"
             tabIndex={0}
         >
+            {/* Market Title and Probability */}
             <div className="flex-1 min-w-0">
-                <div className={cn(
-                    "font-medium text-foreground line-clamp-1",
-                    compact ? "text-xs" : "text-sm"
-                )}>
-                    {market.groupItemTitle || market.title}
+                <div className="flex items-center justify-between">
+                    <div className="font-medium text-foreground text-sm line-clamp-1 flex-1 mr-4">
+                        {market.groupItemTitle || market.title}
+                    </div>
+                    <div className="text-sm font-medium text-muted-foreground">
+                        {formatProbability(currentProbability)}
+                    </div>
                 </div>
-                {market.groupItemTitle && (
-                    <div className="text-xs text-muted-foreground line-clamp-1">
-                        {market.title}
-                    </div>
-                )}
             </div>
-            <div className="flex items-center gap-2 ml-2">
-                {primaryOutcome && (
-                    <div className="text-right">
-                        <div className={cn(
-                            "font-bold font-mono",
-                            primaryOutcome.color === 'yes' ? "text-emerald-600 dark:text-emerald-400" :
-                            primaryOutcome.color === 'no' ? "text-red-600 dark:text-red-400" : "text-foreground",
-                            compact ? "text-xs" : "text-sm"
-                        )}>
-                            {Math.round(currentProbability)}%
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                            {primaryOutcome.name}
-                        </div>
-                    </div>
-                )}
-                <ChevronRight className="h-3 w-3 text-muted-foreground" />
+
+            {/* Yes/No Buttons */}
+            <div className="flex items-center gap-2 ml-4">
+                {/* Yes Button */}
+                <button
+                    className="px-3 py-1.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-md text-sm font-medium hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition-colors"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        // Handle Yes button click
+                    }}
+                    aria-label={`Buy Yes for ${market.groupItemTitle || market.title}`}
+                >
+                    Yes
+                </button>
+
+                {/* No Button */}
+                <button
+                    className="px-3 py-1.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-md text-sm font-medium hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        // Handle No button click
+                    }}
+                    aria-label={`Buy No for ${market.groupItemTitle || market.title}`}
+                >
+                    No
+                </button>
             </div>
         </div>
     );
