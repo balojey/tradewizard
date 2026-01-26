@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { TrendingUp, Vote, AlertTriangle, Brain, Zap, Clock, TrendingDown, Activity, Minus } from "lucide-react";
+import { TrendingUp, Bookmark, AlertTriangle, Brain, Zap, Clock, TrendingDown, Activity, Minus } from "lucide-react";
 import { MarketType, ProcessedOutcome } from "@/lib/polymarket-types";
 import { 
     ProcessedMarket, 
@@ -275,13 +275,18 @@ export function MarketCard(props: MarketCardProps) {
         );
     }
 
+    // Only show active markets as requested
+    if (market && !market.active) {
+        return null;
+    }
+
     return (
         <ErrorBoundary fallback={MarketErrorFallback} name="MarketCard">
             <Link 
                 ref={cardRef}
                 href={isSeriesMarketCard && market?.slug ? `/series/${market.slug}` : `/market/${safeId}`}
                 className={cn(
-                    "group block h-full cursor-pointer rounded-lg transition-all duration-200",
+                    "group block h-full cursor-pointer transition-all duration-200",
                     "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background",
                     keyboardNavigation && "focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
                     isFocused && "ring-2 ring-primary ring-offset-2 ring-offset-background"
@@ -300,9 +305,9 @@ export function MarketCard(props: MarketCardProps) {
                 <Card 
                     id={cardId}
                     className={cn(
-                        "h-full flex flex-col overflow-hidden border-border/40 bg-card",
-                        !reduceMotion && "transition-all duration-300 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-1 hover:bg-card/95 group-hover:scale-[1.02] transform-gpu",
-                        reduceMotion && "transition-colors duration-200 hover:border-primary/50",
+                        "h-full flex flex-col overflow-hidden bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm",
+                        !reduceMotion && "transition-all duration-300 hover:shadow-lg hover:-translate-y-1 transform-gpu",
+                        reduceMotion && "transition-colors duration-200",
                         "focus-within:border-primary/50 focus-within:shadow-lg",
                         featured && "ring-2 ring-primary/20 border-primary/30",
                         trending && "bg-gradient-to-br from-card to-primary/5",
@@ -312,16 +317,17 @@ export function MarketCard(props: MarketCardProps) {
                     role="article"
                     aria-labelledby={titleId}
                 >
-                    <div className="relative aspect-[1.91/1] w-full overflow-hidden bg-muted">
+                    {/* Market Image with Profile Picture Overlay */}
+                    <div className="relative w-full h-32 bg-gray-100 dark:bg-gray-800 overflow-hidden">
                         <LazyMarketImage
                             eventImage={image}
                             marketImage={marketImage}
                             title={safeTitle}
                             className={cn(
-                                "w-full h-full",
+                                "w-full h-full object-cover",
                                 !reduceMotion && "transition-transform duration-300 group-hover:scale-105"
                             )}
-                            priority={featured} // Prioritize featured markets
+                            priority={featured}
                             placeholder="gradient"
                             enableProgressiveLoading={true}
                             onImageError={(source) => {
@@ -330,156 +336,125 @@ export function MarketCard(props: MarketCardProps) {
                                 }
                             }}
                         />
-
-                        {/* Status badges - Enhanced mobile responsiveness and accessibility */}
-                        <div className="absolute left-2 top-2 flex flex-col gap-1 max-w-[calc(100%-4rem)]">
-                            {isNew && (
-                                <div 
-                                    className="rounded-full bg-blue-600/90 px-2 py-1 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-sm"
-                                    aria-label="New market"
-                                    role="status"
-                                >
-                                    <span aria-hidden="true">New</span>
-                                </div>
-                            )}
-                            {featured && (
-                                <div 
-                                    className="rounded-full bg-amber-500/90 px-2 py-1 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-sm"
-                                    aria-label="Featured market"
-                                    role="status"
-                                >
-                                    <span aria-hidden="true">Featured</span>
-                                </div>
-                            )}
-                            {trending && (
-                                <div 
-                                    className="rounded-full bg-emerald-500/90 px-2 py-1 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-sm flex items-center gap-1"
-                                    aria-label="Trending market with high activity"
-                                    role="status"
-                                >
-                                    <Zap className="h-3 w-3" aria-hidden="true" />
-                                    <span className="hidden xs:inline" aria-hidden="true">Trending</span>
-                                    <span className="xs:hidden" aria-hidden="true">Hot</span>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Real-time update indicator - Enhanced accessibility */}
-                        {enableRealTimeUpdates && isSubscribed && Object.keys(prices).length > 0 && (
-                            <div className="absolute top-2 right-2">
-                                <div 
-                                    className={cn(
-                                        "rounded-full bg-emerald-500/90 p-1.5 backdrop-blur-sm shadow-sm",
-                                        !reduceMotion && "animate-pulse"
-                                    )}
-                                    aria-label="Live price updates active"
-                                    role="status"
-                                >
-                                    <Activity className="h-3 w-3 text-white" aria-hidden="true" />
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Volume and time info - Enhanced accessibility */}
-                        <div className="absolute bottom-2 right-2 flex flex-col gap-1 items-end max-w-[calc(100%-4rem)]">
-                            <div 
-                                id={volumeId}
-                                className="rounded-md bg-black/70 px-2 py-1 text-[10px] sm:text-xs font-medium text-white backdrop-blur-sm flex items-center gap-1"
-                                aria-label={AriaUtils.createVolumeLabel(safeVolume)}
-                                role="status"
-                            >
-                                <TrendingUp className="h-3 w-3" aria-hidden="true" />
-                                <span className="truncate" aria-hidden="true">{safeVolume}</span>
-                            </div>
-                            {timeUntilEnd && (
-                                <div 
-                                    className="rounded-md bg-black/70 px-2 py-1 text-[10px] sm:text-xs font-medium text-white backdrop-blur-sm flex items-center gap-1"
-                                    aria-label={`Market ends in ${timeUntilEnd}`}
-                                    role="status"
-                                >
-                                    <Clock className="h-3 w-3" aria-hidden="true" />
-                                    <span aria-hidden="true">{timeUntilEnd}</span>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* AI Insights indicator - Enhanced accessibility */}
-                        {showAIInsights && aiInsights && (
-                            <div className="absolute top-2 right-2 z-10">
-                                <AIInsightsIndicator 
-                                    insights={aiInsights} 
-                                    isHovered={isHovered}
-                                    reduceMotion={reduceMotion}
+                        
+                        {/* Profile Picture Overlay - Small circular image in top left */}
+                        <div className="absolute top-3 left-3">
+                            <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-white dark:border-gray-800 shadow-sm bg-white dark:bg-gray-800">
+                                <LazyMarketImage
+                                    eventImage={image}
+                                    marketImage={marketImage}
+                                    title={safeTitle}
+                                    className="w-full h-full object-cover"
+                                    placeholder="gradient"
                                 />
+                            </div>
+                        </div>
+
+                        {/* Probability Indicator - Top Right */}
+                        <div className="absolute top-3 right-3">
+                            <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm rounded-full px-3 py-1 shadow-sm">
+                                <div className="text-center">
+                                    <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                                        {Math.round(safeOutcomes[0]?.probability || 50)}%
+                                    </div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 -mt-1">
+                                        chance
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Status badges */}
+                        {(isNew || featured || trending) && (
+                            <div className="absolute bottom-3 left-3 flex gap-1">
+                                {isNew && (
+                                    <div className="rounded-full bg-blue-600/90 px-2 py-1 text-xs font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-sm">
+                                        New
+                                    </div>
+                                )}
+                                {featured && (
+                                    <div className="rounded-full bg-amber-500/90 px-2 py-1 text-xs font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-sm">
+                                        Featured
+                                    </div>
+                                )}
+                                {trending && (
+                                    <div className="rounded-full bg-emerald-500/90 px-2 py-1 text-xs font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-sm flex items-center gap-1">
+                                        <Zap className="h-3 w-3" />
+                                        Hot
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
 
-                    <CardContent className="flex-1 p-3 sm:p-4 lg:p-5 space-y-3 sm:space-y-4">
-                        {/* Series Information Display (Requirements 13.3, 13.4) */}
-                        {isSeriesMarketCard && showSeriesInfo && (seriesTitle || groupItemTitle) && (
-                            <div 
-                                id={seriesId}
-                                className="space-y-1 pb-2 border-b border-border/30"
-                                role="region"
-                                aria-label="Series information"
-                            >
-                                {seriesTitle && (
-                                    <div className="flex items-center gap-2">
-                                        <div className="h-1 w-1 bg-primary rounded-full" aria-hidden="true" />
-                                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                                            Series
-                                        </span>
-                                    </div>
-                                )}
-                                {seriesTitle && (
-                                    <h4 className="text-sm font-semibold text-foreground line-clamp-1">
-                                        {seriesTitle}
-                                    </h4>
-                                )}
-                                {groupItemTitle && (
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-xs text-muted-foreground">Option:</span>
-                                        <span className="text-xs font-medium text-foreground bg-muted/50 px-2 py-0.5 rounded-md">
-                                            {groupItemTitle}
-                                        </span>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
+                    {/* Market Content */}
+                    <CardContent className="flex-1 p-4 space-y-4">
+                        {/* Market Title */}
                         <h3 
                             id={titleId}
-                            className="line-clamp-2 text-sm sm:text-base lg:text-lg font-semibold leading-snug tracking-tight text-foreground group-hover:text-primary transition-colors"
+                            className="text-base font-semibold leading-tight text-gray-900 dark:text-gray-100 line-clamp-2 group-hover:text-primary transition-colors"
                         >
                             {safeTitle}
                         </h3>
 
+                        {/* Outcome Buttons */}
                         <div 
                             id={outcomesId}
+                            className="grid grid-cols-2 gap-3"
                             role="region" 
-                            aria-label="Market outcomes and probabilities"
-                            aria-live="polite"
-                            aria-atomic="false"
+                            aria-label="Market outcomes"
                         >
-                            {marketType === 'simple' ? (
-                                <SimpleMarketOutcomes 
-                                    outcomes={safeOutcomes} 
-                                    prices={prices}
-                                    enableRealTimeUpdates={enableRealTimeUpdates}
-                                    reduceMotion={reduceMotion}
-                                />
-                            ) : (
-                                <ComplexMarketOutcomes 
-                                    outcomes={safeOutcomes}
-                                    prices={prices}
-                                    enableRealTimeUpdates={enableRealTimeUpdates}
-                                    reduceMotion={reduceMotion}
-                                />
-                            )}
+                            {safeOutcomes.slice(0, 2).map((outcome, idx) => {
+                                const isYes = outcome.name.toLowerCase() === 'yes' || outcome.color === 'yes';
+                                const probability = Math.round(outcome.probability || 50);
+                                
+                                return (
+                                    <button
+                                        key={idx}
+                                        className={cn(
+                                            "flex-1 py-3 px-4 rounded-xl font-medium text-sm transition-all duration-200 cursor-pointer",
+                                            isYes 
+                                                ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 hover:bg-green-200 dark:hover:bg-green-900/50" 
+                                                : "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 hover:bg-red-200 dark:hover:bg-red-900/50"
+                                        )}
+                                        aria-label={`${outcome.name} - ${probability}% probability`}
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            // Handle outcome click if needed
+                                        }}
+                                    >
+                                        {outcome.name}
+                                    </button>
+                                );
+                            })}
                         </div>
 
-                        {/* AI Insights summary */}
+                        {/* Bottom Row - Volume and Bookmark */}
+                        <div className="flex items-center justify-between pt-2">
+                            <div 
+                                id={volumeId}
+                                className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400"
+                                aria-label={`Volume: ${safeVolume}`}
+                            >
+                                <TrendingUp className="h-4 w-4" />
+                                <span>{safeVolume} Vol</span>
+                            </div>
+                            
+                            <button
+                                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                                aria-label="Bookmark market"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    // Handle bookmark click
+                                }}
+                            >
+                                <Bookmark className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        {/* AI Insights (if enabled and hovered) */}
                         {showAIInsights && aiInsights && isHovered && (
                             <AIInsightsSummary insights={aiInsights} />
                         )}
