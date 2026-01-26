@@ -26,28 +26,35 @@ Transform the TradeWizard frontend to display prediction markets exactly as they
 
 ### Requirement 1: Market Discovery and Display
 
-**User Story:** As a trader, I want to browse and discover prediction markets exactly as shown on Polymarket, so that I can find trading opportunities that match my interests.
+**User Story:** As a trader, I want to browse and discover prediction markets with proper series grouping and individual market display, so that I can find trading opportunities that match my interests.
 
 #### Acceptance Criteria
 
-1. WHEN a user visits the main page, THE System SHALL display a grid of market cards showing active markets
-2. WHEN displaying market cards, THE System SHALL show market title, current outcome probabilities, 24-hour volume, and status indicators
-3. WHEN a market is newly created, THE System SHALL display a "New" badge on the market card
-4. WHEN displaying outcome probabilities, THE System SHALL use green color for "Yes" outcomes and red color for "No" outcomes
-5. WHEN a user hovers over a market card, THE System SHALL provide visual feedback with subtle animations and elevation
-6. WHEN markets have high trading volume, THE System SHALL display volume with appropriate formatting (e.g., "$1.2M", "$500K")
+1. WHEN a user visits the main page, THE System SHALL display markets based on whether they have series or not
+2. WHEN a market's event has a series object, THE System SHALL display the series title as the main heading and group related markets underneath using the `groupItemTitle` property
+3. WHEN a market's event does not have a series, THE System SHALL display the market normally as an individual card
+4. WHEN displaying market cards, THE System SHALL show market title, current outcome probabilities, 24-hour volume, and status indicators
+5. WHEN a market is newly created, THE System SHALL display a "New" badge on the market card
+6. WHEN displaying outcome probabilities, THE System SHALL use green color for "Yes" outcomes and red color for "No" outcomes
+7. WHEN a user hovers over a market card, THE System SHALL provide visual feedback with subtle animations and elevation
+8. WHEN markets have high trading volume, THE System SHALL display volume with appropriate formatting (e.g., "$1.2M", "$500K")
+9. WHEN displaying series-grouped markets, THE System SHALL show the series image and description at the top level
+10. WHEN displaying individual markets, THE System SHALL show the market's own image and description
 
 ### Requirement 2: Category Filtering and Navigation
 
-**User Story:** As a trader, I want to filter markets by category (Politics, Sports, Crypto, etc.), so that I can focus on markets in my areas of expertise.
+**User Story:** As a trader, I want to filter markets by politics-related tags in a single category bar, so that I can focus on specific political prediction markets.
 
 #### Acceptance Criteria
 
-1. WHEN a user visits the platform, THE System SHALL display a category filter bar with options like Politics, Sports, Crypto, Finance
-2. WHEN a user selects a category filter, THE System SHALL display only markets belonging to that category
-3. WHEN displaying category filters, THE System SHALL highlight the currently active category
-4. WHEN no category is selected, THE System SHALL display markets from all categories
-5. WHEN a category has no active markets, THE System SHALL display an appropriate empty state message
+1. WHEN a user visits the platform, THE System SHALL display a single category filter bar showing only politics-related tags
+2. WHEN displaying category filters, THE System SHALL dynamically load all tags from the market data that are related to politics
+3. WHEN a user selects a tag filter, THE System SHALL display only markets that have that specific tag
+4. WHEN displaying tag filters, THE System SHALL highlight the currently active tag
+5. WHEN no tag is selected, THE System SHALL display markets from all politics-related categories
+6. WHEN a tag has no active markets, THE System SHALL display an appropriate empty state message
+7. WHEN navigating with tag filters, THE System SHALL use the route format `/[tag_slug]` instead of query parameters
+8. WHEN displaying the category bar, THE System SHALL NOT include search and save buttons, but SHALL include a filter button
 
 ### Requirement 3: Real-Time Market Data Integration
 
@@ -62,18 +69,21 @@ Transform the TradeWizard frontend to display prediction markets exactly as they
 5. WHEN volume changes significantly, THE System SHALL update volume displays in real-time
 6. WHEN network connectivity is lost, THE System SHALL display a connection status indicator
 
-### Requirement 4: Market Detail View
+### Requirement 4: Market Detail View and Routing
 
-**User Story:** As a trader, I want to view detailed information about a specific market, so that I can analyze the market before making trading decisions.
+**User Story:** As a trader, I want to view detailed information about a specific market using slug-based routing, so that I can analyze the market before making trading decisions.
 
 #### Acceptance Criteria
 
-1. WHEN a user clicks on a market card, THE System SHALL navigate to a detailed market view
-2. WHEN displaying market details, THE System SHALL show full market description, resolution criteria, and end date
-3. WHEN in market detail view, THE System SHALL display a price chart showing historical price movements
-4. WHEN showing market outcomes, THE System SHALL display current bid/ask spreads for each outcome
-5. WHEN displaying market information, THE System SHALL show total volume, liquidity, and number of traders
-6. WHEN a market has resolved, THE System SHALL display the resolution result and payout information
+1. WHEN a user clicks on a market card, THE System SHALL navigate to a detailed market view using the market's slug instead of ID
+2. WHEN a user clicks on a series-grouped market, THE System SHALL navigate to the series detail view using the series slug
+3. WHEN displaying market details, THE System SHALL show full market description, resolution criteria, and end date
+4. WHEN in market detail view, THE System SHALL display a price chart showing historical price movements
+5. WHEN showing market outcomes, THE System SHALL display current bid/ask spreads for each outcome
+6. WHEN displaying market information, THE System SHALL show total volume, liquidity, and number of traders
+7. WHEN a market has resolved, THE System SHALL display the resolution result and payout information
+8. WHEN routing to market details, THE System SHALL use the format `/market/[slug]` for individual markets
+9. WHEN routing to series details, THE System SHALL use the format `/series/[slug]` for series-grouped markets
 
 ### Requirement 5: Trading Interface Implementation
 
@@ -165,6 +175,21 @@ Transform the TradeWizard frontend to display prediction markets exactly as they
 4. WHEN WebSocket connections are interrupted, THE System SHALL attempt automatic reconnection
 5. WHEN displaying error states, THE System SHALL maintain the overall page layout and navigation
 6. WHEN errors occur repeatedly, THE System SHALL log error details for debugging while showing user-friendly messages
+
+### Requirement 13: Series-Based Market Grouping
+
+**User Story:** As a trader, I want to see related markets grouped under their series when applicable, so that I can understand the relationship between different market outcomes.
+
+#### Acceptance Criteria
+
+1. WHEN a market's event contains a series object, THE System SHALL group all related markets under the series title
+2. WHEN displaying a series group, THE System SHALL show the series title as the main heading
+3. WHEN displaying markets within a series, THE System SHALL use the `groupItemTitle` property to label each market option
+4. WHEN a series has multiple markets, THE System SHALL display them in a grouped layout showing all options
+5. WHEN displaying series information, THE System SHALL show the series image and description
+6. WHEN a user clicks on a series group, THE System SHALL navigate to a series detail page showing all related markets
+7. WHEN displaying series on the main page, THE System SHALL show aggregate volume and activity across all markets in the series
+8. WHEN a series contains markets with different end dates, THE System SHALL display the earliest end date as the series end date
 
 ### Requirement 12: Accessibility and Usability
 

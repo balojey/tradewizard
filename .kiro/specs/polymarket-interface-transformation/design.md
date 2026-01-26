@@ -88,9 +88,11 @@ sequenceDiagram
 ```typescript
 interface MarketGridProps {
   markets: ProcessedMarket[];
+  series: ProcessedSeries[];
   loading: boolean;
   error?: string;
-  onMarketClick: (marketId: string) => void;
+  onMarketClick: (marketSlug: string) => void;
+  onSeriesClick: (seriesSlug: string) => void;
   viewMode: 'grid' | 'list';
 }
 ```
@@ -101,17 +103,28 @@ interface MarketCardProps {
   market: ProcessedMarket;
   showAIInsights?: boolean;
   compact?: boolean;
-  onClick: (marketId: string) => void;
+  onClick: (marketSlug: string) => void;
+}
+```
+
+**SeriesCard Component** (New)
+```typescript
+interface SeriesCardProps {
+  series: ProcessedSeries;
+  markets: ProcessedMarket[];
+  showAIInsights?: boolean;
+  onClick: (seriesSlug: string) => void;
 }
 ```
 
 **CategoryFilter Component**
 ```typescript
 interface CategoryFilterProps {
-  categories: Category[];
-  activeCategory: string | null;
-  onCategoryChange: (category: string | null) => void;
+  politicsTags: PoliticsTag[];
+  activeTag: string | null;
+  onTagChange: (tagSlug: string | null) => void;
   marketCounts: Record<string, number>;
+  showFilterButton?: boolean;
 }
 ```
 
@@ -258,11 +271,74 @@ interface ProcessedMarket {
   isNew: boolean;
   featured: boolean;
   slug: string;
-  tags: string[];
+  tags: MarketTag[];
+  groupItemTitle?: string; // For series grouping
+  groupItemThreshold?: string;
+  events: MarketEvent[];
   // AI Enhancement fields
   aiInsights?: AIMarketInsights;
   riskLevel?: 'low' | 'medium' | 'high';
   confidence?: number;
+}
+```
+
+**ProcessedSeries Model** (New)
+```typescript
+interface ProcessedSeries {
+  id: string;
+  title: string;
+  description: string;
+  image: string;
+  slug: string;
+  seriesType: string;
+  recurrence: string;
+  markets: ProcessedMarket[];
+  totalVolume: number;
+  totalLiquidity: number;
+  endDate: string; // Earliest end date from markets
+  active: boolean;
+  tags: MarketTag[];
+}
+```
+
+**MarketEvent Model** (Enhanced)
+```typescript
+interface MarketEvent {
+  id: string;
+  title: string;
+  description: string;
+  slug: string;
+  image: string;
+  series?: SeriesInfo; // Optional series information
+  startDate: string;
+  endDate: string;
+  active: boolean;
+}
+
+interface SeriesInfo {
+  id: string;
+  title: string;
+  slug: string;
+  seriesType: string;
+  recurrence: string;
+  image: string;
+}
+```
+
+**MarketTag Model** (Enhanced)
+```typescript
+interface MarketTag {
+  id: string;
+  label: string;
+  slug: string;
+  forceShow: boolean;
+  forceHide?: boolean;
+  isPolitics: boolean; // New field to identify politics-related tags
+}
+
+interface PoliticsTag extends MarketTag {
+  isPolitics: true;
+  marketCount: number;
 }
 ```
 
@@ -340,13 +416,20 @@ interface UserPosition {
 interface AppState {
   markets: {
     items: ProcessedMarket[];
+    series: ProcessedSeries[];
     loading: boolean;
     error?: string;
     filters: MarketFilters;
     pagination: PaginationState;
   };
+  tags: {
+    politicsTags: PoliticsTag[];
+    activeTag: string | null;
+    loading: boolean;
+  };
   trading: {
     activeMarket?: DetailedMarket;
+    activeSeries?: ProcessedSeries;
     orderBook?: OrderBook;
     userOrders: UserOrder[];
     pendingOrders: string[];
@@ -369,6 +452,12 @@ interface AppState {
     viewMode: 'grid' | 'list';
     sidebarOpen: boolean;
     activeModal?: string;
+  };
+  routing: {
+    currentRoute: string;
+    marketSlug?: string;
+    seriesSlug?: string;
+    tagSlug?: string;
   };
 }
 ```
@@ -456,6 +545,10 @@ Based on this analysis, the following properties provide unique validation value
 **Property 14: Accessibility Compliance**
 *For any* interactive element or information display, the system should provide screen reader labels, keyboard navigation, focus indicators, and alternative indicators beyond color
 **Validates: Requirements 12.1, 12.2, 12.3, 12.4, 12.5, 12.6**
+
+**Property 15: Series Market Grouping**
+*For any* market with series information, the system should group related markets under the series title and display them using groupItemTitle properties
+**Validates: Requirements 13.1, 13.2, 13.3, 13.4**
 
 ## Error Handling
 

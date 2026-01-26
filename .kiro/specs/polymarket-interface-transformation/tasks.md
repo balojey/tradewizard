@@ -12,12 +12,14 @@ Transform the TradeWizard frontend to display prediction markets exactly like Po
   - Set up TypeScript interfaces for Polymarket API responses
   - _Requirements: 3.2, 5.4_
 
-- [x] 2. Implement core data models and API services
-  - [x] 2.1 Create enhanced Polymarket data models and interfaces
-    - Extend existing ProcessedMarket interface with trading fields
+- [ ] 2. Implement core data models and API services
+  - [ ] 2.1 Create enhanced Polymarket data models and interfaces
+    - Extend existing ProcessedMarket interface with trading fields and series support
+    - Create ProcessedSeries model for series-based market grouping
     - Create OrderBook, UserPosition, and Trading models
+    - Add MarketTag and PoliticsTag models for enhanced tag filtering
     - Add AI insights integration fields to market models
-    - _Requirements: 4.2, 4.4, 4.5_
+    - _Requirements: 4.2, 4.4, 4.5, 13.1, 13.2_
 
   - [ ]* 2.2 Write property test for data model validation
     - **Property 1: Market Card Information Display**
@@ -53,45 +55,66 @@ Transform the TradeWizard frontend to display prediction markets exactly like Po
 - [ ] 4. Checkpoint - Ensure data layer tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [x] 5. Enhance market discovery and display components
-  - [x] 5.1 Upgrade MarketCard component for trading features
+- [ ] 5. Enhance market discovery and display components
+  - [ ] 5.1 Upgrade MarketCard component for trading features
     - Add real-time price updates and change indicators
     - Implement hover effects and visual feedback
     - Add AI insights display integration
-    - _Requirements: 1.2, 1.3, 1.4, 1.5, 1.6_
+    - Add support for series-based market grouping display
+    - _Requirements: 1.2, 1.3, 1.4, 1.5, 1.6, 1.9, 1.10, 13.3, 13.4_
 
   - [ ]* 5.2 Write property test for market navigation
     - **Property 5: Market Navigation Consistency**
-    - **Validates: Requirements 4.1**
+    - **Validates: Requirements 4.1, 4.8, 4.9**
 
-  - [x] 5.3 Implement enhanced category filtering system
-    - Create CategoryFilter component with active state highlighting
-    - Add market count indicators per category
-    - Implement empty state handling for categories
-    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
+  - [ ] 5.3 Implement enhanced category filtering system
+    - Create CategoryFilter component with politics-focused tag filtering
+    - Add dynamic tag loading from market data
+    - Implement active tag highlighting and market count indicators
+    - Add slug-based routing for tag navigation
+    - Implement empty state handling for tags with no markets
+    - Remove search/save buttons and add filter button
+    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8_
 
   - [ ]* 5.4 Write property test for category filtering
     - **Property 2: Category Filtering Behavior**
-    - **Validates: Requirements 2.2, 2.3**
+    - **Validates: Requirements 2.3, 2.4, 2.7**
 
-- [x] 6. Implement market detail view and trading interface
-  - [x] 6.1 Create detailed market view page
+  - [ ] 5.5 Create SeriesCard component for series-based markets
+    - Build SeriesCard component to display series information
+    - Implement series market grouping with groupItemTitle display
+    - Add series navigation and aggregate volume display
+    - _Requirements: 13.1, 13.2, 13.3, 13.6, 13.7_
+
+  - [ ]* 5.6 Write property test for series grouping
+    - **Property 15: Series Market Grouping**
+    - **Validates: Requirements 13.1, 13.2, 13.3, 13.4**
+
+- [ ] 6. Implement market detail view and trading interface
+  - [ ] 6.1 Create detailed market view page
     - Build market detail layout with comprehensive information display
     - Add price chart integration with historical data
     - Implement market resolution status and payout display
-    - _Requirements: 4.1, 4.2, 4.3, 4.6_
+    - Add slug-based routing for market and series detail pages
+    - _Requirements: 4.1, 4.2, 4.3, 4.6, 4.8, 4.9_
 
   - [ ]* 6.2 Write property test for market detail information
     - **Property 6: Market Detail Information Completeness**
     - **Validates: Requirements 4.2, 4.4, 4.5, 4.6**
 
-  - [x] 6.3 Implement trading panel and order form
+  - [ ] 6.3 Create series detail view page
+    - Build series detail layout showing all related markets
+    - Display series information and aggregate statistics
+    - Implement navigation between series and individual markets
+    - _Requirements: 13.5, 13.6, 13.7, 13.8_
+
+  - [x] 6.4 Implement trading panel and order form
     - Create TradingPanel component with buy/sell options
     - Build OrderForm with price/quantity inputs and validation
     - Add order book display with bid/ask spreads
     - _Requirements: 5.1, 5.2, 5.6_
 
-  - [ ]* 6.4 Write property test for order validation
+  - [ ]* 6.5 Write property test for order validation
     - **Property 7: Order Validation and Processing**
     - **Validates: Requirements 5.2, 5.3, 6.4**
 
@@ -178,12 +201,13 @@ Transform the TradeWizard frontend to display prediction markets exactly like Po
     - **Property 14: Accessibility Compliance**
     - **Validates: Requirements 12.1, 12.2, 12.3, 12.4, 12.5, 12.6**
 
-- [x] 13. Integration and final wiring
-  - [x] 13.1 Wire all components together in main application
+- [ ] 13. Integration and final wiring
+  - [ ] 13.1 Wire all components together in main application
     - Integrate all components into the main app layout
     - Connect real-time data flows throughout the application
-    - Add navigation routing for all market and trading pages
-    - _Requirements: 1.1, 2.1, 4.1_
+    - Add slug-based navigation routing for markets, series, and tag pages
+    - Implement series detection and appropriate display logic
+    - _Requirements: 1.1, 2.1, 4.1, 4.8, 4.9, 13.1, 13.6_
 
   - [ ]* 13.2 Write integration tests for complete user workflows
     - Test complete user journey from market discovery to order placement
