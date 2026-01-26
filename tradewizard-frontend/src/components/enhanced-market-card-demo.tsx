@@ -25,15 +25,22 @@ export function EnhancedMarketCardDemo() {
 
   // Mock AI insights data
   const mockAIInsights = {
-    confidence: 85,
-    riskLevel: 'medium' as const,
+    summary: 'AI analysis suggests high confidence in current market pricing with moderate risk factors.',
     keyFactors: [
       'Recent polling data shows momentum shift',
       'Economic indicators favor current outcome',
       'Historical patterns suggest volatility ahead'
     ],
-    recommendation: 'buy' as const,
-    lastUpdated: Date.now() - 120000 // 2 minutes ago
+    riskFactors: [
+      'Market volatility may increase near resolution',
+      'Low liquidity could affect large orders'
+    ],
+    confidence: 85,
+    lastUpdated: Date.now() - 120000, // 2 minutes ago
+    sentiment: 'bullish' as const,
+    volatilityPrediction: 'medium' as const,
+    liquidityAssessment: 'good' as const,
+    positionSizing: 'medium' as const
   };
 
   // Mock market outcomes with real-time data

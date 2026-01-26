@@ -9,7 +9,7 @@
  * - Performance monitoring and metrics
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 export interface BatchConfig {
   maxBatchSize: number;
@@ -413,6 +413,7 @@ export function useRenderPerformance(componentName?: string): {
     slowRenderCount: 0,
   });
 
+  // Initialize monitor only once
   useEffect(() => {
     if (!monitorRef.current) {
       monitorRef.current = new RenderPerformanceMonitor(
@@ -425,17 +426,29 @@ export function useRenderPerformance(componentName?: string): {
         }
       );
     }
+  }, [componentName]);
 
-    const endRender = monitorRef.current.startRender();
+  // Update metrics periodically instead of on every render
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (monitorRef.current) {
+        setMetrics({
+          averageRenderTime: monitorRef.current.getAverageRenderTime(),
+          maxRenderTime: monitorRef.current.getMaxRenderTime(),
+          slowRenderCount: monitorRef.current.getSlowRenderCount(),
+        });
+      }
+    }, 1000); // Update every second
 
-    return () => {
-      endRender();
-      setMetrics({
-        averageRenderTime: monitorRef.current!.getAverageRenderTime(),
-        maxRenderTime: monitorRef.current!.getMaxRenderTime(),
-        slowRenderCount: monitorRef.current!.getSlowRenderCount(),
-      });
-    };
+    return () => clearInterval(interval);
+  }, []);
+
+  // Track render on each render without causing infinite loop
+  useLayoutEffect(() => {
+    if (monitorRef.current) {
+      const endRender = monitorRef.current.startRender();
+      return endRender;
+    }
   });
 
   return metrics;

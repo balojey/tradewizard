@@ -29,6 +29,12 @@ export interface Market {
     active: boolean;
     closed: boolean;
     group?: string; // Ticker or Group ID if available
+    
+    // Series support fields (Requirements 13.1, 13.2)
+    groupItemTitle?: string; // Key field for complex markets (e.g., "250-500k", "Fed 50+ bps decrease")
+    groupItemThreshold?: string;
+    seriesId?: string; // Reference to parent series
+    seriesTitle?: string; // Series title for display
 }
 
 export interface Event {

@@ -3,8 +3,7 @@ import { isValidPoliticalTag } from "@/lib/politics-data";
 
 /**
  * Dynamic route handler for tag-based navigation
- * Redirects to homepage with proper search parameters for better SEO and state management
- * Requirements: 8.4, 8.5
+ * Implements Requirements 2.7, 4.8, 4.9 - slug-based routing for tag pages
  */
 export default async function TagPage({
     params,
@@ -16,12 +15,12 @@ export default async function TagPage({
     // Validate the tag and redirect to homepage with search params
     const validatedTag = isValidPoliticalTag(tag) ? tag : "all";
     
-    // Redirect to homepage with tag parameter
+    // Redirect to homepage with tag parameter for proper state management
     if (validatedTag === "all") {
         // For "all" tag, redirect to clean homepage URL
         redirect("/");
     } else {
-        // For specific tags, redirect with search parameter
+        // For specific tags, redirect with search parameter to maintain URL structure
         redirect(`/?tag=${validatedTag}`);
     }
 }
