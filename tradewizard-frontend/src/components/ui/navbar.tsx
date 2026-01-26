@@ -7,6 +7,7 @@ import { Button } from './button';
 import { Search, Menu, X } from 'lucide-react';
 import { LoginModal } from '@/components/auth/login-modal';
 import { UserMenu } from '@/components/auth/user-menu';
+import { MobileNav } from '@/components/mobile-nav';
 import { useMagic } from '@/lib/magic';
 
 export function Navbar() {
@@ -15,6 +16,7 @@ export function Navbar() {
     const [loginMode, setLoginMode] = useState<'login' | 'signup'>('login');
     const [searchQuery, setSearchQuery] = useState('');
     const [showMobileSearch, setShowMobileSearch] = useState(false);
+    const [mobileNavOpen, setMobileNavOpen] = useState(false);
     const searchInputRef = useRef<HTMLInputElement>(null);
     const mobileSearchInputRef = useRef<HTMLInputElement>(null);
     const { isLoggedIn } = useMagic();
@@ -106,6 +108,12 @@ export function Navbar() {
                             >
                                 Dashboard
                             </Link>
+                            <Link 
+                                href="/search" 
+                                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                                Search
+                            </Link>
                         </nav>
                     </div>
 
@@ -173,7 +181,13 @@ export function Navbar() {
                             {showMobileSearch ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
                         </Button>
                         
-                        <Button variant="ghost" size="icon" className="h-9 w-9">
+                        {/* Mobile Menu Toggle */}
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-9 w-9"
+                            onClick={() => setMobileNavOpen(!mobileNavOpen)}
+                        >
                             <Menu className="h-4 w-4" />
                         </Button>
                     </div>
@@ -215,6 +229,12 @@ export function Navbar() {
                 isOpen={loginModalOpen}
                 onClose={() => setLoginModalOpen(false)}
                 mode={loginMode}
+            />
+
+            {/* Mobile Navigation */}
+            <MobileNav 
+                isOpen={mobileNavOpen}
+                onToggle={() => setMobileNavOpen(!mobileNavOpen)}
             />
         </>
     );

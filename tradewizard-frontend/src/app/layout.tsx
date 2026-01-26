@@ -4,7 +4,10 @@ import "./globals.css";
 import { Navbar } from "@/components/ui/navbar";
 import MagicProvider from "@/lib/magic";
 import { WalletProvider } from "@/lib/wallet-context";
+import { RealtimeProvider } from "@/lib/realtime-context";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { ConnectionBanner } from "@/components/connection-status";
+import { PerformanceMonitor } from "@/components/performance-monitor";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,22 +41,40 @@ export default function RootLayout({
         >
           <MagicProvider>
             <WalletProvider>
-              <ErrorBoundary 
-                name="Navigation"
-                showRecoveryOptions={false}
-                maxRetries={1}
+              <RealtimeProvider 
+                autoConnect={true}
+                enableNotifications={true}
+                enableSound={false}
               >
-                <Navbar />
-              </ErrorBoundary>
-              <main className="flex-1">
                 <ErrorBoundary 
-                  name="MainContent"
-                  showRecoveryOptions={true}
-                  maxRetries={3}
+                  name="Navigation"
+                  showRecoveryOptions={false}
+                  maxRetries={1}
                 >
-                  {children}
+                  <Navbar />
                 </ErrorBoundary>
-              </main>
+                
+                {/* Connection Status Indicator */}
+                <ConnectionBanner 
+                  className="fixed top-16 left-4 right-4 z-40 max-w-md mx-auto"
+                  dismissible={true}
+                />
+                
+                <main className="flex-1">
+                  <ErrorBoundary 
+                    name="MainContent"
+                    showRecoveryOptions={true}
+                    maxRetries={3}
+                  >
+                    {children}
+                  </ErrorBoundary>
+                </main>
+                
+                {/* Performance Monitor (development only) */}
+                {process.env.NODE_ENV === 'development' && (
+                  <PerformanceMonitor />
+                )}
+              </RealtimeProvider>
             </WalletProvider>
           </MagicProvider>
         </ErrorBoundary>

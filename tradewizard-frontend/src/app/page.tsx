@@ -1,12 +1,13 @@
 import { MarketCard } from "@/components/market-card";
 import { HomeHero } from "@/components/home-hero";
 import { PoliticsTagBar } from "@/components/politics-tag-bar";
+import { CategoriesBar } from "@/components/categories-bar";
 import { getPoliticalEvents, getPoliticalTagDisplayName, isValidPoliticalTag } from "@/lib/politics-data";
 import { Suspense } from "react";
 import { preloadImages } from "@/lib/image-utils";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Search } from "lucide-react";
+import { Search, TrendingUp, Activity } from "lucide-react";
 
 // Loading component for server-side rendering with enhanced skeleton - Enhanced responsive grid
 function MarketGridSkeleton() {
@@ -83,14 +84,43 @@ export default async function Home({
     <div className="min-h-screen bg-background">
       <HomeHero />
       
-      {/* Politics Tag Bar with current tag state (Requirements 1.4, 1.5) */}
-      <PoliticsTagBar currentTag={validatedTag} />
+      {/* Enhanced Category Navigation with both Politics and General Categories */}
+      <div className="border-b border-border/40 bg-background/95 backdrop-blur-md">
+        <div className="container max-w-screen-2xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8">
+          {/* Politics Tag Bar for political markets */}
+          <PoliticsTagBar currentTag={validatedTag} />
+          
+          {/* General Categories Bar for broader market categories */}
+          <div className="py-2">
+            <CategoriesBar />
+          </div>
+        </div>
+      </div>
       
       <section id="markets" className="container max-w-screen-2xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8 py-4 sm:py-6 lg:py-8 xl:py-12">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6 lg:mb-8">
-          <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">
-            {getPoliticalTagDisplayName(validatedTag)}
-          </h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">
+              {getPoliticalTagDisplayName(validatedTag)}
+            </h2>
+            
+            {/* Market Stats */}
+            <div className="hidden sm:flex items-center gap-4 text-sm text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <Activity className="h-4 w-4" />
+                <span>{events.length} markets</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <TrendingUp className="h-4 w-4" />
+                <span>
+                  ${events.reduce((sum, event) => sum + (event.volume || 0), 0).toLocaleString(undefined, { 
+                    maximumFractionDigits: 0, 
+                    notation: "compact" 
+                  })} volume
+                </span>
+              </div>
+            </div>
+          </div>
           
           {/* Search Button - Enhanced mobile layout */}
           <Link href="/search">
@@ -156,7 +186,7 @@ export default async function Home({
                     outcomes={outcomes}
                     endDate={event.endDate}
                     enableRealTimeUpdates={true}
-                    showAIInsights={false} // Can be enabled when AI insights are available
+                    showAIInsights={true} // Enable AI insights for enhanced market intelligence
                   />
                 </div>
               );

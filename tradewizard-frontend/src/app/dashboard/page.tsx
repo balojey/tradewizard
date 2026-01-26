@@ -5,6 +5,7 @@ import { WalletConnection, UserBalance } from '@/components/auth';
 import { PositionsPanel } from '@/components/positions-panel';
 import { OrderManagement } from '@/components/order-management';
 import { useWallet } from '@/lib/wallet-context';
+import { useRealtime } from '@/lib/realtime-context';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, TrendingUp, Wallet, Activity } from 'lucide-react';
 
@@ -44,12 +45,21 @@ interface UserOrder {
 
 export default function DashboardPage() {
   const { isConnected, address } = useWallet();
+  const { state: realtimeState, subscribeToUser, unsubscribeFromUser } = useRealtime();
   const [loading, setLoading] = useState(false);
   const [positions, setPositions] = useState<UserPosition[]>([]);
   const [activeOrders, setActiveOrders] = useState<UserOrder[]>([]);
   const [orderHistory, setOrderHistory] = useState<UserOrder[]>([]);
   const [totalValue, setTotalValue] = useState(0);
   const [totalPnL, setTotalPnL] = useState(0);
+
+  // Subscribe to real-time updates for the connected user
+  useEffect(() => {
+    if (isConnected && address) {
+      subscribeToUser(address);
+      return () => unsubscribeFromUser(address);
+    }
+  }, [isConnected, address, subscribeToUser, unsubscribeFromUser]);
 
   // Mock data for demonstration
   useEffect(() => {
