@@ -5,6 +5,12 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { cn } from "@/lib/utils";
 import { TrendingUp, Vote, AlertTriangle, Brain, Zap, Clock, TrendingDown, Activity, Minus } from "lucide-react";
 import { MarketType, ProcessedOutcome } from "@/lib/polymarket-types";
+import { 
+    ProcessedMarket, 
+    AIMarketInsights, 
+    MarketOutcome as EnhancedMarketOutcome,
+    isSeriesMarket 
+} from "@/lib/enhanced-polymarket-types";
 import { ErrorBoundary, MarketErrorFallback } from "@/components/error-boundary";
 import { MarketImage } from "@/components/market-image";
 import { LazyMarketImage } from "@/components/lazy-market-image";
@@ -36,48 +42,75 @@ interface AIInsights {
 }
 
 interface MarketCardProps {
-    id: string;
-    title: string;
-    image: string;
+    // Core market data - can accept either legacy or enhanced format
+    market?: ProcessedMarket; // Enhanced format (preferred)
+    
+    // Legacy format support (for backward compatibility)
+    id?: string;
+    title?: string;
+    image?: string;
     marketImage?: string; // Additional fallback image from market data
-    volume: string;
-    outcomes: Outcome[];
+    volume?: string;
+    outcomes?: Outcome[];
     isNew?: boolean;
     marketType?: MarketType;
     hasError?: boolean;
     errorMessage?: string;
+    
     // Trading features
     showAIInsights?: boolean;
-    aiInsights?: AIInsights;
+    aiInsights?: AIInsights | AIMarketInsights;
     enableRealTimeUpdates?: boolean;
+    
     // Visual enhancements
     featured?: boolean;
     trending?: boolean;
     endDate?: string;
+    
+    // Series support (Requirements 13.3, 13.4)
+    showSeriesInfo?: boolean;
+    seriesTitle?: string;
+    groupItemTitle?: string;
+    
+    // Event handlers
+    onClick?: (marketSlug: string) => void;
+    onSeriesClick?: (seriesSlug: string) => void;
 }
 
 /**
- * Enhanced MarketCard with comprehensive accessibility features
- * Implements Requirements 1.2, 1.3, 1.4, 1.5, 1.6, 12.1, 12.2, 12.3, 12.4, 12.5, 12.6
+ * Enhanced MarketCard with comprehensive accessibility features and series support
+ * Implements Requirements 1.2, 1.3, 1.4, 1.5, 1.6, 1.9, 1.10, 13.3, 13.4, 12.1, 12.2, 12.3, 12.4, 12.5, 12.6
  */
-export function MarketCard({ 
-    id, 
-    title, 
-    image, 
-    marketImage,
-    volume, 
-    outcomes, 
-    isNew, 
-    marketType = 'simple',
-    hasError = false,
-    errorMessage,
-    showAIInsights = false,
-    aiInsights,
-    enableRealTimeUpdates = true,
-    featured = false,
-    trending = false,
-    endDate
-}: MarketCardProps) {
+export function MarketCard(props: MarketCardProps) {
+    // Extract data from either enhanced market object or legacy props
+    const market = props.market;
+    const id = market?.id || props.id || `fallback-${Date.now()}`;
+    const title = market?.title || props.title || "Market data unavailable";
+    const image = market?.image || props.image || "";
+    const marketImage = props.marketImage;
+    const volume = market?.volumeFormatted || props.volume || "0";
+    const outcomes = market?.outcomes || props.outcomes || getDefaultOutcomes(props.marketType);
+    const isNew = market?.isNew || props.isNew || false;
+    const marketType = props.marketType || 'simple';
+    const hasError = props.hasError || false;
+    const errorMessage = props.errorMessage;
+    const showAIInsights = props.showAIInsights || false;
+    const aiInsights = market?.aiInsights || props.aiInsights;
+    const enableRealTimeUpdates = props.enableRealTimeUpdates ?? true;
+    const featured = market?.featured || props.featured || false;
+    const trending = props.trending || false;
+    const endDate = market?.endDate || props.endDate;
+    
+    // Series support (Requirements 13.3, 13.4)
+    const showSeriesInfo = props.showSeriesInfo || false;
+    const seriesTitle = market?.seriesTitle || props.seriesTitle;
+    const groupItemTitle = market?.groupItemTitle || props.groupItemTitle;
+    const isSeriesMarketCard = market ? isSeriesMarket(market) : !!(seriesTitle || groupItemTitle);
+    
+    // Event handlers
+    const onClick = props.onClick;
+    const onSeriesClick = props.onSeriesClick;
+
     // Handle malformed or missing data with fallbacks
     const safeTitle = title || "Market data unavailable";
     const safeVolume = volume || "0";
@@ -107,6 +140,7 @@ export function MarketCard({
     const titleId = AriaUtils.generateId('market-title');
     const outcomesId = AriaUtils.generateId('market-outcomes');
     const volumeId = AriaUtils.generateId('market-volume');
+    const seriesId = AriaUtils.generateId('series-info');
 
     // Track price changes for flash animations and announcements
     useEffect(() => {
@@ -137,7 +171,14 @@ export function MarketCard({
             case ' ':
                 event.preventDefault();
                 if (cardRef.current) {
-                    cardRef.current.click();
+                    // Determine navigation target based on series info
+                    if (isSeriesMarketCard && onSeriesClick && market?.slug) {
+                        onSeriesClick(market.slug);
+                    } else if (onClick) {
+                        onClick(safeId);
+                    } else {
+                        cardRef.current.click();
+                    }
                 }
                 break;
             case 'Escape':
@@ -155,10 +196,14 @@ export function MarketCard({
             const statusText = [
                 isNew && "New market",
                 featured && "Featured market", 
-                trending && "Trending market"
+                trending && "Trending market",
+                isSeriesMarketCard && "Part of series"
             ].filter(Boolean).join(", ");
             
-            const announcement = `Market: ${safeTitle}. Volume: ${safeVolume}. ${statusText}`;
+            const seriesText = isSeriesMarketCard && seriesTitle ? `Series: ${seriesTitle}. ` : "";
+            const groupText = groupItemTitle ? `Option: ${groupItemTitle}. ` : "";
+            
+            const announcement = `${seriesText}${groupText}Market: ${safeTitle}. Volume: ${safeVolume}. ${statusText}`;
             announce(announcement, 'low');
         }
     };
@@ -167,12 +212,25 @@ export function MarketCard({
         setIsFocused(false);
     };
 
+    // Handle click events
+    const handleClick = (event: React.MouseEvent) => {
+        event.preventDefault();
+        
+        if (isSeriesMarketCard && onSeriesClick && market?.slug) {
+            onSeriesClick(market.slug);
+        } else if (onClick) {
+            onClick(safeId);
+        }
+        // If no custom handlers, let the Link handle navigation
+    };
+
     // Create comprehensive ARIA label
     const createAriaLabel = () => {
         const statusParts = [];
         if (isNew) statusParts.push("New market");
         if (featured) statusParts.push("Featured market");
         if (trending) statusParts.push("Trending market");
+        if (isSeriesMarketCard) statusParts.push("Part of series");
         
         const outcomesText = safeOutcomes.map(outcome => 
             AriaUtils.createProbabilityLabel(outcome.name, Math.round(outcome.probability))
@@ -181,8 +239,11 @@ export function MarketCard({
         const volumeText = AriaUtils.createVolumeLabel(safeVolume);
         const statusText = AriaUtils.createMarketStatusLabel(true, false, endDate);
         
+        const seriesText = isSeriesMarketCard && seriesTitle ? `Series: ${seriesTitle}. ` : "";
+        const groupText = groupItemTitle ? `Option: ${groupItemTitle}. ` : "";
+        
         return [
-            `View market: ${safeTitle}`,
+            `${seriesText}${groupText}View market: ${safeTitle}`,
             volumeText,
             outcomesText,
             statusText,
@@ -218,7 +279,7 @@ export function MarketCard({
         <ErrorBoundary fallback={MarketErrorFallback} name="MarketCard">
             <Link 
                 ref={cardRef}
-                href={`/market/${safeId}`} 
+                href={isSeriesMarketCard && market?.slug ? `/series/${market.slug}` : `/market/${safeId}`}
                 className={cn(
                     "group block h-full cursor-pointer rounded-lg transition-all duration-200",
                     "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background",
@@ -226,12 +287,13 @@ export function MarketCard({
                     isFocused && "ring-2 ring-primary ring-offset-2 ring-offset-background"
                 )}
                 aria-label={createAriaLabel()}
-                aria-describedby={`${outcomesId} ${volumeId}`}
+                aria-describedby={`${outcomesId} ${volumeId} ${isSeriesMarketCard ? seriesId : ''}`}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
                 onFocus={handleFocus}
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
+                onClick={handleClick}
                 role="link"
                 tabIndex={0}
             >
@@ -354,6 +416,38 @@ export function MarketCard({
                     </div>
 
                     <CardContent className="flex-1 p-3 sm:p-4 lg:p-5 space-y-3 sm:space-y-4">
+                        {/* Series Information Display (Requirements 13.3, 13.4) */}
+                        {isSeriesMarketCard && showSeriesInfo && (seriesTitle || groupItemTitle) && (
+                            <div 
+                                id={seriesId}
+                                className="space-y-1 pb-2 border-b border-border/30"
+                                role="region"
+                                aria-label="Series information"
+                            >
+                                {seriesTitle && (
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-1 w-1 bg-primary rounded-full" aria-hidden="true" />
+                                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                            Series
+                                        </span>
+                                    </div>
+                                )}
+                                {seriesTitle && (
+                                    <h4 className="text-sm font-semibold text-foreground line-clamp-1">
+                                        {seriesTitle}
+                                    </h4>
+                                )}
+                                {groupItemTitle && (
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs text-muted-foreground">Option:</span>
+                                        <span className="text-xs font-medium text-foreground bg-muted/50 px-2 py-0.5 rounded-md">
+                                            {groupItemTitle}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         <h3 
                             id={titleId}
                             className="line-clamp-2 text-sm sm:text-base lg:text-lg font-semibold leading-snug tracking-tight text-foreground group-hover:text-primary transition-colors"
@@ -447,10 +541,15 @@ function AIInsightsIndicator({
     isHovered, 
     reduceMotion = false 
 }: { 
-    insights: AIInsights; 
+    insights: AIInsights | AIMarketInsights; 
     isHovered: boolean;
     reduceMotion?: boolean;
 }) {
+    // Handle both legacy and enhanced AI insights formats
+    const confidence = insights.confidence;
+    const riskLevel = insights.riskLevel;
+    const recommendation = insights.recommendation;
+    
     const getConfidenceColor = (confidence: number) => {
         if (confidence >= 80) return 'text-emerald-500';
         if (confidence >= 60) return 'text-yellow-500';
@@ -482,15 +581,15 @@ function AIInsightsIndicator({
     };
 
     const createAriaLabel = () => {
-        const confidenceLevel = getConfidenceLevel(insights.confidence);
+        const confidenceLevel = getConfidenceLevel(confidence);
         const parts = [
             `AI analysis available`,
-            `Confidence: ${confidenceLevel} at ${insights.confidence}%`,
-            `Risk level: ${insights.riskLevel}`
+            `Confidence: ${confidenceLevel} at ${confidence}%`,
+            `Risk level: ${riskLevel}`
         ];
         
-        if (insights.recommendation) {
-            parts.push(`Recommendation: ${insights.recommendation}`);
+        if (recommendation) {
+            parts.push(`Recommendation: ${recommendation}`);
         }
         
         return parts.join(", ");
@@ -512,24 +611,24 @@ function AIInsightsIndicator({
                     className={cn(
                         "h-3 w-3",
                         !reduceMotion && "transition-colors",
-                        getConfidenceColor(insights.confidence)
+                        getConfidenceColor(confidence)
                     )} 
                     aria-hidden="true"
                 />
                 {isHovered && (
                     <div className="flex items-center gap-2 text-[10px] text-white">
-                        <span className="font-medium" aria-label={`${insights.confidence}% confidence`}>
-                            {insights.confidence}%
+                        <span className="font-medium" aria-label={`${confidence}% confidence`}>
+                            {confidence}%
                         </span>
                         <span 
-                            className={cn("font-bold", getRiskColor(insights.riskLevel))}
-                            aria-label={`${insights.riskLevel} risk level`}
+                            className={cn("font-bold", getRiskColor(riskLevel))}
+                            aria-label={`${riskLevel} risk level`}
                         >
-                            {insights.riskLevel.toUpperCase()}
+                            {riskLevel.toUpperCase()}
                         </span>
-                        {insights.recommendation && (
-                            <span aria-label={`Recommendation: ${insights.recommendation}`}>
-                                {getRecommendationIcon(insights.recommendation)}
+                        {recommendation && (
+                            <span aria-label={`Recommendation: ${recommendation}`}>
+                                {getRecommendationIcon(recommendation)}
                             </span>
                         )}
                     </div>
@@ -542,7 +641,14 @@ function AIInsightsIndicator({
 /**
  * AI Insights Summary Component - Enhanced for trading features
  */
-function AIInsightsSummary({ insights }: { insights: AIInsights }) {
+function AIInsightsSummary({ insights }: { insights: AIInsights | AIMarketInsights }) {
+    // Handle both legacy and enhanced AI insights formats
+    const confidence = insights.confidence;
+    const riskLevel = insights.riskLevel;
+    const recommendation = insights.recommendation;
+    const keyFactors = insights.keyFactors;
+    const lastUpdated = insights.lastUpdated;
+    
     const getRecommendationColor = (rec?: string) => {
         switch (rec) {
             case 'buy': return 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-950/30 dark:border-emerald-800';
@@ -558,8 +664,8 @@ function AIInsightsSummary({ insights }: { insights: AIInsights }) {
         return { label: 'Low', color: 'text-red-600 dark:text-red-400' };
     };
 
-    const confidenceLevel = getConfidenceLevel(insights.confidence);
-    const timeSinceUpdate = Date.now() - insights.lastUpdated;
+    const confidenceLevel = getConfidenceLevel(confidence);
+    const timeSinceUpdate = Date.now() - lastUpdated;
     const isRecent = timeSinceUpdate < 300000; // 5 minutes
 
     return (
@@ -574,7 +680,7 @@ function AIInsightsSummary({ insights }: { insights: AIInsights }) {
                 </div>
                 <div className="text-xs text-muted-foreground">
                     <span className={confidenceLevel.color}>{confidenceLevel.label}</span>
-                    <span className="ml-1">({insights.confidence}%)</span>
+                    <span className="ml-1">({confidence}%)</span>
                 </div>
             </div>
             
@@ -582,37 +688,37 @@ function AIInsightsSummary({ insights }: { insights: AIInsights }) {
                 <div className="text-xs text-muted-foreground">
                     Risk Level: <span className={cn(
                         "font-medium",
-                        insights.riskLevel === 'low' ? 'text-emerald-600 dark:text-emerald-400' :
-                        insights.riskLevel === 'medium' ? 'text-yellow-600 dark:text-yellow-400' :
+                        riskLevel === 'low' ? 'text-emerald-600 dark:text-emerald-400' :
+                        riskLevel === 'medium' ? 'text-yellow-600 dark:text-yellow-400' :
                         'text-red-600 dark:text-red-400'
                     )}>
-                        {insights.riskLevel.toUpperCase()}
+                        {riskLevel.toUpperCase()}
                     </span>
                 </div>
                 
-                {insights.recommendation && (
+                {recommendation && (
                     <div className={cn(
                         "px-2 py-1 rounded-md text-xs font-bold text-center border",
-                        getRecommendationColor(insights.recommendation)
+                        getRecommendationColor(recommendation)
                     )}>
-                        {insights.recommendation.toUpperCase()}
+                        {recommendation.toUpperCase()}
                     </div>
                 )}
             </div>
             
-            {insights.keyFactors.length > 0 && (
+            {keyFactors.length > 0 && (
                 <div className="space-y-1">
                     <div className="text-xs font-medium text-foreground">Key Factors:</div>
                     <div className="text-xs text-muted-foreground leading-relaxed">
-                        {insights.keyFactors.slice(0, 3).map((factor, idx) => (
+                        {keyFactors.slice(0, 3).map((factor, idx) => (
                             <div key={idx} className="flex items-start gap-1">
                                 <span className="text-primary">•</span>
                                 <span>{factor}</span>
                             </div>
                         ))}
-                        {insights.keyFactors.length > 3 && (
+                        {keyFactors.length > 3 && (
                             <div className="text-xs text-muted-foreground/70 mt-1">
-                                +{insights.keyFactors.length - 3} more factors
+                                +{keyFactors.length - 3} more factors
                             </div>
                         )}
                     </div>
@@ -621,7 +727,7 @@ function AIInsightsSummary({ insights }: { insights: AIInsights }) {
             
             <div className="text-[10px] text-muted-foreground/70 flex items-center gap-1">
                 <Clock className="h-2.5 w-2.5" />
-                Updated {formatTimeAgo(insights.lastUpdated)}
+                Updated {formatTimeAgo(lastUpdated)}
             </div>
         </div>
     );
