@@ -368,8 +368,6 @@ export default async function Home({
                         series={series}
                         showAIInsights={true}
                         enableRealTimeUpdates={true}
-                        showMarketPreviews={true}
-                        maxMarketPreviews={3}
                         featured={series.totalVolume > 500000}
                         trending={series.totalVolume > 1000000}
                       />

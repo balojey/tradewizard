@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MarketSearch, type SearchFilters } from "@/components/market-search";
 import { MarketSearchResults } from "@/components/market-search-results";
-import { CategoryFilter } from "@/components/categories-bar";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Search, TrendingUp, Calendar, Percent, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -69,13 +68,6 @@ export function MarketSearchPage({ searchParams }: MarketSearchPageProps) {
   const handleFiltersChange = useCallback((newFilters: SearchFilters) => {
     setFilters(newFilters);
   }, []);
-
-  // Handle category changes from category filter
-  const handleCategoryChange = useCallback((category: string | null) => {
-    const newFilters = { ...filters, category: category || 'all' };
-    setFilters(newFilters);
-    handleFiltersChange(newFilters);
-  }, [filters, handleFiltersChange]);
 
   // Handle results count change
   const handleResultsChange = useCallback((count: number) => {
@@ -155,14 +147,6 @@ export function MarketSearchPage({ searchParams }: MarketSearchPageProps) {
           </div>
         </div>
       </div>
-
-      {/* Category Filter Bar */}
-      <CategoryFilter
-        activeCategory={filters.category === 'all' ? null : filters.category}
-        onCategoryChange={handleCategoryChange}
-        showCounts={true}
-        enableSearch={false} // We have our own search
-      />
 
       {/* Main Content */}
       <div className="container max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-12">

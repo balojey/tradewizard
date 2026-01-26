@@ -99,21 +99,28 @@ export default async function MarketPage({ params }: MarketPageProps) {
  */
 async function getMarketDataBySlug(marketSlug: string): Promise<DetailedMarket | null> {
   try {
+    console.log(`Attempting to fetch market data for slug: ${marketSlug}`);
+    
     // First try to get the market directly by slug
     const market = await marketDiscoveryService.getMarketBySlug(marketSlug);
     
     if (market) {
+      console.log(`Found market by slug: ${market.id} - ${market.question}`);
       return processMarketForDetail(market);
     }
 
+    console.log(`Market not found by slug, trying as event slug: ${marketSlug}`);
+    
     // If not found as market slug, try as event slug
     const event = await marketDiscoveryService.getEventBySlug(marketSlug);
     
     if (event && event.markets.length > 0) {
+      console.log(`Found event by slug: ${event.id} - ${event.title} with ${event.markets.length} markets`);
       // Use the first market from the event
       return processMarketForDetail(event.markets[0], event);
     }
 
+    console.log(`No market or event found for slug: ${marketSlug}`);
     return null;
   } catch (error) {
     console.error('Failed to fetch market data by slug:', error);

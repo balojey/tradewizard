@@ -41,12 +41,17 @@ export default async function SeriesPage({ params }: SeriesPageProps) {
  */
 async function getSeriesDataBySlug(seriesSlug: string): Promise<ProcessedSeries | null> {
   try {
+    console.log(`Attempting to fetch series data for slug: ${seriesSlug}`);
+    
     // Get event by slug (series are typically events with multiple markets)
     const event = await marketDiscoveryService.getEventBySlug(seriesSlug);
     
     if (!event || !event.markets.length) {
+      console.log(`No event found or event has no markets for slug: ${seriesSlug}`);
       return null;
     }
+
+    console.log(`Found event: ${event.id} - ${event.title} with ${event.markets.length} markets`);
 
     // Check if this event has series information
     const hasSeriesInfo = event.markets.some(market => 
@@ -54,9 +59,15 @@ async function getSeriesDataBySlug(seriesSlug: string): Promise<ProcessedSeries 
     );
 
     if (!hasSeriesInfo) {
-      return null;
+      console.log(`Event ${event.id} does not have series information (no groupItemTitle)`);
+      // Still process as series if it has multiple markets
+      if (event.markets.length <= 1) {
+        return null;
+      }
     }
 
+    console.log(`Processing event as series: ${event.id}`);
+    
     // Process the event as a series
     return processSeriesForDetail(event);
   } catch (error) {

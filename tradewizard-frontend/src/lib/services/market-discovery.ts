@@ -228,7 +228,7 @@ export class PolymarketDiscoveryService implements MarketDiscoveryService {
   }
 
   /**
-   * Get market by slug with enhanced caching
+   * Get market by slug with enhanced caching and fallback
    * Implements Requirements 4.8, 4.9 - slug-based routing
    */
   async getMarketBySlug(marketSlug: string): Promise<PolymarketMarket | null> {
@@ -237,18 +237,60 @@ export class PolymarketDiscoveryService implements MarketDiscoveryService {
     return marketCacheManager.getOrRefresh(
       cacheKey,
       async () => {
-        // Since Polymarket API doesn't have direct slug lookup, we need to search
-        // In a real implementation, this would be optimized with a slug-to-ID mapping
-        const allMarkets = await this.getMarkets({ active: true, limit: 1000 });
-        
-        const market = allMarkets.find(m => m.slug === marketSlug);
-        return market || null;
+        try {
+          // First, try to get market directly if the slug is actually an ID
+          if (marketSlug.match(/^[0-9a-f-]{36}$/i) || marketSlug.match(/^\d+$/)) {
+            const marketById = await this.getMarketById(marketSlug);
+            if (marketById) {
+              return marketById;
+            }
+          }
+
+          // Since Polymarket API doesn't have direct slug lookup, we need to search
+          // Start with a smaller batch and expand if needed
+          let allMarkets: PolymarketMarket[] = [];
+          let offset = 0;
+          const batchSize = 100;
+          let foundMarket: PolymarketMarket | null = null;
+
+          // Search in batches to avoid loading too much data at once
+          while (!foundMarket && offset < 1000) {
+            const batch = await this.getMarkets({ 
+              active: true, 
+              limit: batchSize, 
+              offset,
+              sortBy: 'volume24hr',
+              order: 'desc'
+            });
+
+            if (batch.length === 0) break;
+
+            foundMarket = batch.find(m => m.slug === marketSlug) || null;
+            offset += batchSize;
+          }
+
+          // If still not found, try with closed markets
+          if (!foundMarket) {
+            const closedBatch = await this.getMarkets({ 
+              closed: true, 
+              limit: 100,
+              sortBy: 'volume24hr',
+              order: 'desc'
+            });
+            foundMarket = closedBatch.find(m => m.slug === marketSlug) || null;
+          }
+
+          return foundMarket;
+        } catch (error) {
+          console.error('Error in getMarketBySlug:', error);
+          return null;
+        }
       }
     );
   }
 
   /**
-   * Get event by slug with enhanced caching
+   * Get event by slug with enhanced caching and fallback
    * Implements Requirements 4.8, 4.9 - slug-based routing
    */
   async getEventBySlug(eventSlug: string): Promise<PolymarketEvent | null> {
@@ -257,12 +299,53 @@ export class PolymarketDiscoveryService implements MarketDiscoveryService {
     return marketCacheManager.getOrRefresh(
       cacheKey,
       async () => {
-        // Since Polymarket API doesn't have direct slug lookup, we need to search
-        // In a real implementation, this would be optimized with a slug-to-ID mapping
-        const allEvents = await this.getEvents({ active: true, limit: 1000 });
-        
-        const event = allEvents.find(e => e.slug === eventSlug);
-        return event || null;
+        try {
+          // First, try to get event directly if the slug is actually an ID
+          if (eventSlug.match(/^[0-9a-f-]{36}$/i) || eventSlug.match(/^\d+$/)) {
+            const eventById = await this.getEventById(eventSlug);
+            if (eventById) {
+              return eventById;
+            }
+          }
+
+          // Since Polymarket API doesn't have direct slug lookup, we need to search
+          // Start with a smaller batch and expand if needed
+          let offset = 0;
+          const batchSize = 100;
+          let foundEvent: PolymarketEvent | null = null;
+
+          // Search in batches to avoid loading too much data at once
+          while (!foundEvent && offset < 1000) {
+            const batch = await this.getEvents({ 
+              active: true, 
+              limit: batchSize, 
+              offset,
+              sortBy: 'volume24hr',
+              order: 'desc'
+            });
+
+            if (batch.length === 0) break;
+
+            foundEvent = batch.find(e => e.slug === eventSlug) || null;
+            offset += batchSize;
+          }
+
+          // If still not found, try with closed events
+          if (!foundEvent) {
+            const closedBatch = await this.getEvents({ 
+              closed: true, 
+              limit: 100,
+              sortBy: 'volume24hr',
+              order: 'desc'
+            });
+            foundEvent = closedBatch.find(e => e.slug === eventSlug) || null;
+          }
+
+          return foundEvent;
+        } catch (error) {
+          console.error('Error in getEventBySlug:', error);
+          return null;
+        }
       }
     );
   }

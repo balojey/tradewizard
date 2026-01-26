@@ -8,8 +8,7 @@ import { MarketType, ProcessedOutcome } from "@/lib/polymarket-types";
 import { 
     ProcessedMarket, 
     AIMarketInsights, 
-    MarketOutcome as EnhancedMarketOutcome,
-    isSeriesMarket 
+    MarketOutcome as EnhancedMarketOutcome
 } from "@/lib/enhanced-polymarket-types";
 import { ErrorBoundary, MarketErrorFallback } from "@/components/error-boundary";
 import { MarketImage } from "@/components/market-image";
@@ -105,6 +104,12 @@ export function MarketCard(props: MarketCardProps) {
     const showSeriesInfo = props.showSeriesInfo || false;
     const seriesTitle = market?.seriesTitle || props.seriesTitle;
     const groupItemTitle = market?.groupItemTitle || props.groupItemTitle;
+    
+    // Local helper function to determine if this is a series market
+    const isSeriesMarket = (market: ProcessedMarket): boolean => {
+        return !!(market.groupItemTitle || market.seriesTitle);
+    };
+    
     const isSeriesMarketCard = market ? isSeriesMarket(market) : !!(seriesTitle || groupItemTitle);
     
     // Event handlers
@@ -175,7 +180,8 @@ export function MarketCard(props: MarketCardProps) {
                     if (isSeriesMarketCard && onSeriesClick && market?.slug) {
                         onSeriesClick(market.slug);
                     } else if (onClick) {
-                        onClick(safeId);
+                        const identifier = market?.slug || safeId;
+                        onClick(identifier);
                     } else {
                         cardRef.current.click();
                     }
@@ -216,10 +222,13 @@ export function MarketCard(props: MarketCardProps) {
     const handleClick = (event: React.MouseEvent) => {
         event.preventDefault();
         
+        // Determine the correct route and call appropriate handler
         if (isSeriesMarketCard && onSeriesClick && market?.slug) {
             onSeriesClick(market.slug);
         } else if (onClick) {
-            onClick(safeId);
+            // For regular markets, pass the slug if available, otherwise ID
+            const identifier = market?.slug || safeId;
+            onClick(identifier);
         }
         // If no custom handlers, let the Link handle navigation
     };
@@ -280,11 +289,27 @@ export function MarketCard(props: MarketCardProps) {
         return null;
     }
 
+    // Determine the correct route based on market type and available data
+    const getMarketRoute = () => {
+        // If it's a series market and we have a slug, route to series
+        if (isSeriesMarketCard && market?.slug) {
+            return `/series/${market.slug}`;
+        }
+        
+        // For regular markets, use slug if available, otherwise fall back to ID
+        if (market?.slug) {
+            return `/market/${market.slug}`;
+        }
+        
+        // Fallback to ID-based routing (should be avoided in production)
+        return `/market/${safeId}`;
+    };
+
     return (
         <ErrorBoundary fallback={MarketErrorFallback} name="MarketCard">
             <Link 
                 ref={cardRef}
-                href={isSeriesMarketCard && market?.slug ? `/series/${market.slug}` : `/market/${safeId}`}
+                href={getMarketRoute()}
                 className={cn(
                     "group block h-full cursor-pointer transition-all duration-200",
                     "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background",

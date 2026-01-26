@@ -16,13 +16,12 @@ import {
 import { 
     ProcessedSeries, 
     ProcessedMarket, 
-    SeriesAIInsights,
-    isSeriesMarket 
+    SeriesAIInsights
 } from "@/lib/enhanced-polymarket-types";
 import { ErrorBoundary, MarketErrorFallback } from "@/components/error-boundary";
 import { LazyMarketImage } from "@/components/lazy-market-image";
 import { useRealtimePricesSafe } from "@/lib/realtime-context";
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { 
     useScreenReader, 
     useAccessibilityPreferences, 
@@ -64,9 +63,8 @@ export function SeriesCard({
     onMarketClick,
 }: SeriesCardProps) {
     // Accessibility hooks
-    const { announce, announceMarketUpdate } = useScreenReader();
+    const { announce } = useScreenReader();
     const { reduceMotion, screenReader, keyboardNavigation } = useAccessibilityPreferences();
-    const { saveFocus, restoreFocus } = useFocusManagement();
 
     // Enhanced hover state for trading features
     const [isHovered, setIsHovered] = useState(false);
@@ -81,9 +79,6 @@ export function SeriesCard({
     const allTokenIds = activeMarkets
         .flatMap(market => market.outcomes?.filter(o => o.tokenId).map(o => o.tokenId!) || []);
     const { prices, isSubscribed } = useRealtimePricesSafe(enableRealTimeUpdates ? allTokenIds : []);
-
-    // Time until series ends (earliest end date)
-    const timeUntilEnd = series.endDate ? getTimeUntilEnd(series.endDate) : null;
 
     // Generate unique IDs for ARIA relationships
     const cardId = AriaUtils.generateId('series-card');
