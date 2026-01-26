@@ -14,7 +14,7 @@ import { RecentTrades } from '@/components/recent-trades';
 import { MarketStats } from '@/components/market-stats';
 import { AIInsightsPanel } from '@/components/ai-insights-panel';
 import { ErrorBoundary } from '@/components/error-boundary';
-import type { DetailedMarket } from '@/lib/polymarket-api-types';
+import type { DetailedMarket } from '@/lib/enhanced-polymarket-types';
 
 interface MarketDetailViewProps {
   market: DetailedMarket;

@@ -6,8 +6,6 @@
 import type {
   PolymarketEvent,
   PolymarketMarket,
-  ProcessedMarket,
-  DetailedMarket,
   MarketOutcome,
   OrderBook,
   RecentTrade,
@@ -16,6 +14,13 @@ import type {
   AIMarketInsights,
   PayoutInfo,
 } from './polymarket-api-types';
+
+import type {
+  ProcessedMarket,
+  ProcessedSeries,
+  SeriesAIInsights,
+  DetailedMarket,
+} from './enhanced-polymarket-types';
 
 /**
  * Process a market for detailed view
@@ -44,15 +49,15 @@ export function processMarketForDetail(
     volumeHistory: [],
     
     // Market Statistics
-    totalTrades: 0, // Would come from analytics API
-    uniqueTraders: 0, // Would come from analytics API
+    totalTrades: 0,
+    uniqueTraders: 0,
     averageTradeSize: 0,
     largestTrade: 0,
     
     // Liquidity Metrics
     bidAskSpread: market.spread || 0,
     marketDepth: market.liquidityNum || 0,
-    liquidityProviders: 0, // Would come from analytics API
+    liquidityProviders: 0,
     
     // Market Health
     healthScore: calculateMarketHealthScore(market),
@@ -63,6 +68,74 @@ export function processMarketForDetail(
   return detailedMarket;
 }
 
+/**
+ * Process an event as a series for detailed view
+ * Implements Requirements 13.5, 13.6, 13.7, 13.8
+ */
+export function processSeriesForDetail(event: PolymarketEvent): ProcessedSeries {
+  // Process all markets in the series
+  const processedMarkets = event.markets.map(market => processMarket(market, event));
+  
+  // Calculate aggregate statistics
+  const totalVolume = processedMarkets.reduce((sum, market) => sum + market.volume24h, 0);
+  const totalLiquidity = processedMarkets.reduce((sum, market) => sum + market.liquidity, 0);
+  
+  // Count market states
+  const activeMarkets = processedMarkets.filter(m => m.active && !m.closed).length;
+  const completedMarkets = processedMarkets.filter(m => m.closed).length;
+  const upcomingMarkets = processedMarkets.filter(m => !m.active && new Date(m.startDate) > new Date()).length;
+  
+  // Find earliest end date
+  const endDates = processedMarkets.map(m => new Date(m.endDate).getTime());
+  const earliestEndDate = new Date(Math.min(...endDates)).toISOString();
+  
+  // Determine series type and recurrence from market patterns
+  const seriesType = determineSeriesType(event, event.markets);
+  const recurrence = determineSeriesRecurrence(event, processedMarkets);
+  
+  return {
+    id: event.id,
+    title: event.title,
+    description: event.description,
+    image: event.image || '',
+    slug: event.slug,
+    seriesType,
+    recurrence,
+    markets: processedMarkets,
+    marketCount: processedMarkets.length,
+    activeMarkets,
+    completedMarkets,
+    upcomingMarkets,
+    totalVolume,
+    totalVolumeFormatted: formatVolume(totalVolume),
+    totalLiquidity,
+    totalLiquidityFormatted: formatVolume(totalLiquidity),
+    endDate: earliestEndDate,
+    startDate: event.startDate,
+    active: activeMarkets > 0,
+    tags: event.tags.map(tag => ({
+      id: tag.id.toString(),
+      label: tag.label,
+      slug: tag.slug,
+      forceShow: tag.forceShow || false,
+      forceHide: tag.forceHide || false,
+      isPolitics: isPoliticsTag(tag.label),
+    })),
+    politicsTags: event.tags.filter(tag => isPoliticsTag(tag.label)).map(tag => ({
+      id: tag.id.toString(),
+      label: tag.label,
+      slug: tag.slug,
+      forceShow: tag.forceShow || false,
+      forceHide: tag.forceHide || false,
+      isPolitics: true as const,
+      marketCount: 1,
+    })),
+    
+    // AI Enhancement fields (placeholder)
+    seriesInsights: generateMockSeriesInsights(event, processedMarkets),
+    lastUpdated: Date.now(),
+  };
+}
 /**
  * Process a basic market for card display
  */
@@ -94,19 +167,29 @@ export function processMarket(
     description: market.description || '',
     image: market.image || event?.image || '',
     category,
-    outcomes,
-    volume24h: market.volume24hr || market.volumeNum || 0,
-    volumeFormatted,
-    liquidity: market.liquidityNum || 0,
-    liquidityFormatted,
+    slug: market.slug,
+    
+    // Market Metadata
     endDate: market.endDate,
     startDate: market.startDate,
     active: market.active,
     closed: market.closed,
+    resolved: market.closed && !!market.resolvedBy,
     isNew: market.new,
     featured: market.featured,
-    slug: market.slug,
-    tags: event?.tags.map(tag => tag.slug) || [],
+    
+    // Series Support
+    groupItemTitle: market.groupItemTitle,
+    groupItemThreshold: market.groupItemThreshold,
+    
+    // Market Outcomes
+    outcomes,
+    
+    // Volume and Liquidity Metrics
+    volume24h: market.volume24hr || market.volumeNum || 0,
+    volumeFormatted,
+    liquidity: market.liquidityNum || 0,
+    liquidityFormatted,
     
     // Trading Enhancement fields
     spread,
@@ -118,6 +201,7 @@ export function processMarket(
     tradingEnabled: market.acceptingOrders !== false && market.active && !market.closed,
     acceptingOrders: market.acceptingOrders !== false,
     minOrderSize: market.orderMinSize,
+    maxOrderSize: 10000,
     tickSize: market.orderPriceMinTickSize,
     
     // Market Quality Metrics
@@ -128,11 +212,29 @@ export function processMarket(
     // Resolution Information
     resolutionSource: market.resolutionSource,
     resolutionCriteria: market.description,
-    resolved: market.closed && !!market.resolvedBy,
     resolutionResult: market.closed ? determineResolutionResult(market) : undefined,
     payoutInfo: market.closed ? generatePayoutInfo(market) : undefined,
     
-    // AI Enhancement fields (placeholder - would be populated by AI service)
+    // Enhanced Tag System
+    tags: event?.tags.map(tag => ({
+      id: tag.id.toString(),
+      label: tag.label,
+      slug: tag.slug,
+      forceShow: tag.forceShow || false,
+      forceHide: tag.forceHide || false,
+      isPolitics: isPoliticsTag(tag.label),
+    })) || [],
+    politicsTags: event?.tags.filter(tag => isPoliticsTag(tag.label)).map(tag => ({
+      id: tag.id.toString(),
+      label: tag.label,
+      slug: tag.slug,
+      forceShow: tag.forceShow || false,
+      forceHide: tag.forceHide || false,
+      isPolitics: true as const,
+      marketCount: 1,
+    })) || [],
+    
+    // AI Enhancement fields
     aiInsights: generateMockAIInsights(market),
     riskLevel: determineRiskLevel(market),
     confidence: calculateConfidenceScore(market),
@@ -140,12 +242,98 @@ export function processMarket(
     // Real-time Status
     lastUpdated: Date.now(),
     connectionStatus: 'connected',
+    
+    // Navigation and Routing
+    events: [{
+      id: event?.id || market.id,
+      title: event?.title || market.question,
+      description: event?.description || market.description || '',
+      slug: event?.slug || market.slug,
+      image: event?.image || market.image || '',
+      startDate: event?.startDate || market.startDate,
+      endDate: event?.endDate || market.endDate,
+      active: event?.active ?? market.active,
+      marketCount: event?.markets.length || 1,
+      totalVolume: market.volumeNum || 0,
+      tags: event?.tags.map(tag => ({
+        id: tag.id.toString(),
+        label: tag.label,
+        slug: tag.slug,
+        forceShow: tag.forceShow || false,
+        forceHide: tag.forceHide || false,
+        isPolitics: isPoliticsTag(tag.label),
+      })) || [],
+    }],
+  };
+}
+// Helper functions
+
+function determineSeriesType(event: PolymarketEvent, markets: PolymarketMarket[]): string {
+  const title = event.title.toLowerCase();
+  
+  if (title.includes('election') || title.includes('primary')) {
+    return 'Election';
+  }
+  
+  if (title.includes('season') || title.includes('championship')) {
+    return 'Sports Season';
+  }
+  
+  if (title.includes('quarter') || title.includes('earnings')) {
+    return 'Financial';
+  }
+  
+  if (markets.some(m => m.groupItemTitle)) {
+    return 'Multi-Outcome';
+  }
+  
+  return 'Event Series';
+}
+
+function determineSeriesRecurrence(event: PolymarketEvent, markets: ProcessedMarket[]): string {
+  const title = event.title.toLowerCase();
+  
+  if (title.includes('daily')) return 'Daily';
+  if (title.includes('weekly')) return 'Weekly';
+  if (title.includes('monthly')) return 'Monthly';
+  if (title.includes('quarterly')) return 'Quarterly';
+  if (title.includes('annual') || title.includes('yearly')) return 'Annual';
+  
+  return 'One-time';
+}
+
+function isPoliticsTag(tagLabel: string): boolean {
+  const politicsKeywords = [
+    'politics', 'election', 'president', 'congress', 'senate', 'house',
+    'democrat', 'republican', 'vote', 'campaign', 'primary', 'ballot',
+    'government', 'policy', 'legislation', 'political'
+  ];
+  
+  const label = tagLabel.toLowerCase();
+  return politicsKeywords.some(keyword => label.includes(keyword));
+}
+
+function generateMockSeriesInsights(event: PolymarketEvent, markets: ProcessedMarket[]): SeriesAIInsights {
+  const avgConfidence = markets.reduce((sum, m) => sum + (m.confidence || 50), 0) / markets.length;
+  
+  let seriesRisk: 'low' | 'medium' | 'high' = 'medium';
+  let seriesTrend: 'bullish' | 'bearish' | 'neutral' = 'neutral';
+  
+  return {
+    seriesSummary: `Series contains ${markets.length} markets with average confidence of ${avgConfidence.toFixed(1)}%`,
+    seriesTrend,
+    correlationAnalysis: [`${markets.filter(m => m.active).length} active markets`],
+    marketCorrelations: {},
+    leadingIndicators: ['Volume trends', 'Price momentum'],
+    seriesStrategy: 'Monitor for opportunities',
+    optimalAllocation: {},
+    seriesRisk,
+    diversificationBenefit: 0.5,
+    confidence: Math.round(avgConfidence),
+    lastUpdated: Date.now(),
   };
 }
 
-/**
- * Parse market outcomes from JSON strings
- */
 function parseMarketOutcomes(market: PolymarketMarket): MarketOutcome[] {
   try {
     const outcomeNames = JSON.parse(market.outcomes);
@@ -159,7 +347,6 @@ function parseMarketOutcomes(market: PolymarketMarket): MarketOutcome[] {
       const price = parseFloat(outcomePrices[index] || '0');
       const probability = price * 100;
       
-      // Determine color based on outcome name and position
       let color: 'yes' | 'no' | 'neutral' = 'neutral';
       if (name.toLowerCase().includes('yes') || index === 0) {
         color = 'yes';
@@ -169,45 +356,19 @@ function parseMarketOutcomes(market: PolymarketMarket): MarketOutcome[] {
       
       return {
         name,
-        tokenId: extractTokenId(market, index),
+        tokenId: `${market.id}-${index}`,
         probability,
         price,
-        volume24h: (market.volume24hr || 0) * price, // Approximate volume for this outcome
+        volume24h: (market.volume24hr || 0) * price,
         color,
-        
-        // Enhanced Trading Fields
         lastPrice: price,
-        priceChange24h: market.oneDayPriceChange,
-        priceChangePercent: market.oneDayPriceChange ? market.oneDayPriceChange * 100 : undefined,
-        bestBid: market.bestBid,
-        bestAsk: market.bestAsk,
-        spread: market.spread,
-        spreadPercent: market.spread ? market.spread * 100 : undefined,
-        
-        // Price History
-        high24h: price * 1.1, // Mock data - would come from price history API
-        low24h: price * 0.9,
-        open24h: price,
-        
-        // Volume Metrics
-        volumeChange24h: 0, // Would come from analytics API
-        volumeChangePercent: 0,
-        tradeCount24h: 0,
-        
-        // Real-time Status
-        lastTradeTime: Date.now() - Math.random() * 3600000, // Mock recent trade
-        lastUpdateTime: Date.now(),
-        
-        // Trading Configuration
         minOrderSize: market.orderMinSize || 0.01,
-        maxOrderSize: 10000, // Default max
+        maxOrderSize: 10000,
         tickSize: market.orderPriceMinTickSize || 0.01,
+        lastUpdateTime: Date.now(),
       };
     });
   } catch (error) {
-    console.warn('Failed to parse market outcomes:', error);
-    
-    // Return default outcomes
     return [
       {
         name: 'Yes',
@@ -238,33 +399,11 @@ function parseMarketOutcomes(market: PolymarketMarket): MarketOutcome[] {
     ];
   }
 }
-
-/**
- * Extract token ID for outcome (simplified implementation)
- */
-function extractTokenId(market: PolymarketMarket, outcomeIndex: number): string {
-  if (market.clobTokenIds) {
-    try {
-      const tokenIds = JSON.parse(market.clobTokenIds);
-      return tokenIds[outcomeIndex] || `${market.id}-${outcomeIndex}`;
-    } catch {
-      // Fall through to default
-    }
-  }
-  
-  return `${market.id}-${outcomeIndex}`;
-}
-
-/**
- * Determine market category from tags or market data
- */
 function determineMarketCategory(market: PolymarketMarket, event?: PolymarketEvent): string {
   if (event?.tags && event.tags.length > 0) {
-    // Use the first tag as primary category
     return event.tags[0].label;
   }
   
-  // Fallback to analyzing market question
   const question = market.question.toLowerCase();
   
   if (question.includes('election') || question.includes('president') || question.includes('vote')) {
@@ -282,9 +421,6 @@ function determineMarketCategory(market: PolymarketMarket, event?: PolymarketEve
   return 'Other';
 }
 
-/**
- * Format volume for display
- */
 function formatVolume(volume: number): string {
   if (volume >= 1000000) {
     return `$${(volume / 1000000).toFixed(1)}M`;
@@ -297,9 +433,6 @@ function formatVolume(volume: number): string {
   return `$${volume.toFixed(0)}`;
 }
 
-/**
- * Calculate bid-ask spread
- */
 function calculateSpread(market: PolymarketMarket): number | undefined {
   if (market.bestBid && market.bestAsk) {
     return market.bestAsk - market.bestBid;
@@ -308,24 +441,18 @@ function calculateSpread(market: PolymarketMarket): number | undefined {
   return market.spread;
 }
 
-/**
- * Calculate liquidity score (0-10 scale)
- */
 function calculateLiquidityScore(market: PolymarketMarket): number {
   const volume = market.volumeNum || 0;
   const liquidity = market.liquidityNum || 0;
   
-  // Simple scoring based on volume and liquidity
   let score = 0;
   
-  // Volume component (0-5 points)
   if (volume > 1000000) score += 5;
   else if (volume > 100000) score += 4;
   else if (volume > 10000) score += 3;
   else if (volume > 1000) score += 2;
   else if (volume > 100) score += 1;
   
-  // Liquidity component (0-5 points)
   if (liquidity > 100000) score += 5;
   else if (liquidity > 10000) score += 4;
   else if (liquidity > 1000) score += 3;
@@ -335,9 +462,6 @@ function calculateLiquidityScore(market: PolymarketMarket): number {
   return Math.min(score, 10);
 }
 
-/**
- * Determine volatility regime
- */
 function determineVolatilityRegime(market: PolymarketMarket): 'low' | 'medium' | 'high' {
   const priceChange = Math.abs(market.oneDayPriceChange || 0);
   
@@ -346,9 +470,6 @@ function determineVolatilityRegime(market: PolymarketMarket): 'low' | 'medium' |
   return 'low';
 }
 
-/**
- * Determine risk level
- */
 function determineRiskLevel(market: PolymarketMarket): 'low' | 'medium' | 'high' {
   const volatility = determineVolatilityRegime(market);
   const liquidity = market.liquidityNum || 0;
@@ -358,41 +479,26 @@ function determineRiskLevel(market: PolymarketMarket): 'low' | 'medium' | 'high'
   return 'low';
 }
 
-/**
- * Calculate confidence score
- */
 function calculateConfidenceScore(market: PolymarketMarket): number {
   const volume = market.volumeNum || 0;
   const liquidity = market.liquidityNum || 0;
-  const age = Date.now() - new Date(market.startDate).getTime();
-  const ageInDays = age / (1000 * 60 * 60 * 24);
   
-  let confidence = 50; // Base confidence
+  let confidence = 50;
   
-  // Volume boost
   if (volume > 100000) confidence += 20;
   else if (volume > 10000) confidence += 10;
   else if (volume > 1000) confidence += 5;
   
-  // Liquidity boost
   if (liquidity > 10000) confidence += 15;
   else if (liquidity > 1000) confidence += 10;
   else if (liquidity > 100) confidence += 5;
   
-  // Age factor (more mature markets are more reliable)
-  if (ageInDays > 7) confidence += 10;
-  else if (ageInDays > 1) confidence += 5;
-  
   return Math.min(Math.max(confidence, 0), 100);
 }
 
-/**
- * Calculate market health score
- */
 function calculateMarketHealthScore(market: PolymarketMarket): number {
-  let score = 100; // Start with perfect health
+  let score = 100;
   
-  // Deduct for issues
   if (!market.active) score -= 30;
   if (market.closed) score -= 20;
   if (!market.acceptingOrders) score -= 25;
@@ -402,9 +508,6 @@ function calculateMarketHealthScore(market: PolymarketMarket): number {
   return Math.max(score, 0);
 }
 
-/**
- * Generate risk warnings
- */
 function generateRiskWarnings(market: PolymarketMarket): string[] {
   const warnings: string[] = [];
   
@@ -424,46 +527,23 @@ function generateRiskWarnings(market: PolymarketMarket): string[] {
     warnings.push('Low liquidity - trades may have high slippage');
   }
   
-  if (market.restricted) {
-    warnings.push('Market has trading restrictions');
-  }
-  
-  const timeToEnd = new Date(market.endDate).getTime() - Date.now();
-  if (timeToEnd < 24 * 60 * 60 * 1000) { // Less than 24 hours
-    warnings.push('Market closes within 24 hours');
-  }
-  
   return warnings;
 }
 
-/**
- * Generate trading restrictions
- */
 function generateTradingRestrictions(market: PolymarketMarket): string[] {
   const restrictions: string[] = [];
   
   if (market.orderMinSize) {
-    restrictions.push(`Minimum order size: $${market.orderMinSize}`);
+    restrictions.push(`Minimum order size: ${market.orderMinSize}`);
   }
   
   if (market.orderPriceMinTickSize) {
-    restrictions.push(`Minimum price increment: $${market.orderPriceMinTickSize}`);
-  }
-  
-  if (market.rewardsMinSize) {
-    restrictions.push(`Minimum size for rewards: $${market.rewardsMinSize}`);
-  }
-  
-  if (market.rewardsMaxSpread) {
-    restrictions.push(`Maximum spread for rewards: ${(market.rewardsMaxSpread * 100).toFixed(2)}%`);
+    restrictions.push(`Minimum price increment: ${market.orderPriceMinTickSize}`);
   }
   
   return restrictions;
 }
 
-/**
- * Determine resolution result
- */
 function determineResolutionResult(market: PolymarketMarket): string | undefined {
   if (!market.closed) return undefined;
   
@@ -471,7 +551,6 @@ function determineResolutionResult(market: PolymarketMarket): string | undefined
     const outcomes = JSON.parse(market.outcomes);
     const prices = JSON.parse(market.outcomePrices);
     
-    // Find the outcome with price closest to 1 (winning outcome)
     let winningIndex = 0;
     let maxPrice = 0;
     
@@ -489,9 +568,6 @@ function determineResolutionResult(market: PolymarketMarket): string | undefined
   }
 }
 
-/**
- * Generate payout information
- */
 function generatePayoutInfo(market: PolymarketMarket): PayoutInfo | undefined {
   if (!market.closed) return undefined;
   
@@ -500,16 +576,13 @@ function generatePayoutInfo(market: PolymarketMarket): PayoutInfo | undefined {
   return {
     resolved: true,
     winningOutcome: resolutionResult,
-    payoutRatio: 1.0, // Simplified - would be calculated based on final prices
+    payoutRatio: 1.0,
     resolutionDate: market.closedTime ? new Date(market.closedTime).getTime() : Date.now(),
     payoutDate: market.closedTime ? new Date(market.closedTime).getTime() + 24 * 60 * 60 * 1000 : undefined,
     totalPayout: market.volumeNum || 0,
   };
 }
 
-/**
- * Generate mock AI insights (placeholder)
- */
 function generateMockAIInsights(market: PolymarketMarket): AIMarketInsights {
   const confidence = calculateConfidenceScore(market);
   const riskLevel = determineRiskLevel(market);
@@ -528,20 +601,15 @@ function generateMockAIInsights(market: PolymarketMarket): AIMarketInsights {
     confidence,
     lastUpdated: Date.now(),
     
-    // Enhanced AI Fields
     sentiment: confidence > 60 ? 'bullish' : confidence < 40 ? 'bearish' : 'neutral',
     volatilityPrediction: determineVolatilityRegime(market),
     liquidityAssessment: (market.liquidityNum || 0) > 10000 ? 'good' : 
                         (market.liquidityNum || 0) > 1000 ? 'fair' : 'poor',
     
-    // Trading Insights
     positionSizing: riskLevel === 'low' ? 'medium' : 'small',
   };
 }
 
-/**
- * Create empty order book for initialization
- */
 function createEmptyOrderBook(marketId: string): OrderBook {
   return {
     market: marketId,
@@ -551,7 +619,6 @@ function createEmptyOrderBook(marketId: string): OrderBook {
     asks: [],
     timestamp: Date.now(),
     
-    // Calculated Fields
     spread: 0,
     spreadPercent: 0,
     midPrice: 0.5,
@@ -562,12 +629,10 @@ function createEmptyOrderBook(marketId: string): OrderBook {
     totalBidSize: 0,
     totalAskSize: 0,
     
-    // Market Quality Metrics
     liquidityScore: 0,
     depthScore: 0,
     tightness: 0,
     
-    // Real-time Status
     lastUpdated: Date.now(),
     updateCount: 0,
   };

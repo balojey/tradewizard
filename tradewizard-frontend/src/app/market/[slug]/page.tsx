@@ -6,21 +6,21 @@ import { AIInsightsPanel } from '@/components/ai-insights-panel';
 import { MarketDetailSkeleton } from '@/components/market-detail-skeleton';
 import { marketDiscoveryService } from '@/lib/services/market-discovery';
 import { processMarketForDetail } from '@/lib/polymarket-data-processor';
-import type { DetailedMarket } from '@/lib/polymarket-api-types';
+import type { DetailedMarket } from '@/lib/enhanced-polymarket-types';
 
 interface MarketPageProps {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string }>;
 }
 
 /**
- * Market Detail Page
- * Implements Requirements 4.1, 4.2, 4.3, 4.6
+ * Market Detail Page with Slug-based Routing
+ * Implements Requirements 4.1, 4.2, 4.3, 4.6, 4.8, 4.9
  */
 export default async function MarketPage({ params }: MarketPageProps) {
-  const { id } = await params;
+  const { slug } = await params;
 
-  // Fetch market data
-  const market = await getMarketData(id);
+  // Fetch market data by slug
+  const market = await getMarketDataBySlug(slug);
   
   if (!market) {
     notFound();
@@ -94,19 +94,20 @@ export default async function MarketPage({ params }: MarketPageProps) {
 }
 
 /**
- * Fetch and process market data for detail view
+ * Fetch and process market data by slug for detail view
+ * Implements Requirements 4.8, 4.9 - slug-based routing
  */
-async function getMarketData(marketId: string): Promise<DetailedMarket | null> {
+async function getMarketDataBySlug(marketSlug: string): Promise<DetailedMarket | null> {
   try {
-    // First try to get the market directly
-    const market = await marketDiscoveryService.getMarketById(marketId);
+    // First try to get the market directly by slug
+    const market = await marketDiscoveryService.getMarketBySlug(marketSlug);
     
     if (market) {
       return processMarketForDetail(market);
     }
 
-    // If not found as market, try as event ID
-    const event = await marketDiscoveryService.getEventById(marketId);
+    // If not found as market slug, try as event slug
+    const event = await marketDiscoveryService.getEventBySlug(marketSlug);
     
     if (event && event.markets.length > 0) {
       // Use the first market from the event
@@ -115,17 +116,18 @@ async function getMarketData(marketId: string): Promise<DetailedMarket | null> {
 
     return null;
   } catch (error) {
-    console.error('Failed to fetch market data:', error);
+    console.error('Failed to fetch market data by slug:', error);
     return null;
   }
 }
 
 /**
  * Generate metadata for the market page
+ * Implements Requirements 4.2, 4.3 - comprehensive information display
  */
 export async function generateMetadata({ params }: MarketPageProps) {
-  const { id } = await params;
-  const market = await getMarketData(id);
+  const { slug } = await params;
+  const market = await getMarketDataBySlug(slug);
 
   if (!market) {
     return {
@@ -142,5 +144,45 @@ export async function generateMetadata({ params }: MarketPageProps) {
       description: market.description,
       images: market.image ? [{ url: market.image }] : [],
     },
+    twitter: {
+      card: 'summary_large_image',
+      title: market.title,
+      description: market.description,
+      images: market.image ? [market.image] : [],
+    },
+    alternates: {
+      canonical: `/market/${slug}`,
+    },
   };
+}
+
+/**
+ * Generate static params for static generation (optional)
+ * Can be used for popular markets
+ */
+export async function generateStaticParams() {
+  try {
+    // Get popular markets for static generation
+    const events = await marketDiscoveryService.getEvents({
+      active: true,
+      limit: 50,
+      sortBy: 'volume24hr',
+      order: 'desc'
+    });
+
+    const params = [];
+    
+    for (const event of events) {
+      for (const market of event.markets) {
+        if (market.slug) {
+          params.push({ slug: market.slug });
+        }
+      }
+    }
+
+    return params.slice(0, 100); // Limit to top 100 markets
+  } catch (error) {
+    console.error('Failed to generate static params:', error);
+    return [];
+  }
 }

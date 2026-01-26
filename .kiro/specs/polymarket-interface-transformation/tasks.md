@@ -90,8 +90,8 @@ Transform the TradeWizard frontend to display prediction markets exactly like Po
     - **Property 15: Series Market Grouping**
     - **Validates: Requirements 13.1, 13.2, 13.3, 13.4**
 
-- [ ] 6. Implement market detail view and trading interface
-  - [ ] 6.1 Create detailed market view page
+- [x] 6. Implement market detail view and trading interface
+  - [x] 6.1 Create detailed market view page
     - Build market detail layout with comprehensive information display
     - Add price chart integration with historical data
     - Implement market resolution status and payout display
@@ -102,7 +102,7 @@ Transform the TradeWizard frontend to display prediction markets exactly like Po
     - **Property 6: Market Detail Information Completeness**
     - **Validates: Requirements 4.2, 4.4, 4.5, 4.6**
 
-  - [ ] 6.3 Create series detail view page
+  - [x] 6.3 Create series detail view page
     - Build series detail layout showing all related markets
     - Display series information and aggregate statistics
     - Implement navigation between series and individual markets

@@ -27,6 +27,8 @@ export interface MarketDiscoveryService {
   searchMarkets(params: SearchParams): Promise<PolymarketMarket[]>;
   getMarketById(marketId: string): Promise<PolymarketMarket | null>;
   getEventById(eventId: string): Promise<PolymarketEvent | null>;
+  getMarketBySlug(marketSlug: string): Promise<PolymarketMarket | null>;
+  getEventBySlug(eventSlug: string): Promise<PolymarketEvent | null>;
 }
 
 /**
@@ -221,6 +223,46 @@ export class PolymarketDiscoveryService implements MarketDiscoveryService {
         }
         
         throw new Error(response.error?.message || 'Failed to fetch event');
+      }
+    );
+  }
+
+  /**
+   * Get market by slug with enhanced caching
+   * Implements Requirements 4.8, 4.9 - slug-based routing
+   */
+  async getMarketBySlug(marketSlug: string): Promise<PolymarketMarket | null> {
+    const cacheKey = `market_slug_${marketSlug}`;
+    
+    return marketCacheManager.getOrRefresh(
+      cacheKey,
+      async () => {
+        // Since Polymarket API doesn't have direct slug lookup, we need to search
+        // In a real implementation, this would be optimized with a slug-to-ID mapping
+        const allMarkets = await this.getMarkets({ active: true, limit: 1000 });
+        
+        const market = allMarkets.find(m => m.slug === marketSlug);
+        return market || null;
+      }
+    );
+  }
+
+  /**
+   * Get event by slug with enhanced caching
+   * Implements Requirements 4.8, 4.9 - slug-based routing
+   */
+  async getEventBySlug(eventSlug: string): Promise<PolymarketEvent | null> {
+    const cacheKey = `event_slug_${eventSlug}`;
+    
+    return marketCacheManager.getOrRefresh(
+      cacheKey,
+      async () => {
+        // Since Polymarket API doesn't have direct slug lookup, we need to search
+        // In a real implementation, this would be optimized with a slug-to-ID mapping
+        const allEvents = await this.getEvents({ active: true, limit: 1000 });
+        
+        const event = allEvents.find(e => e.slug === eventSlug);
+        return event || null;
       }
     );
   }

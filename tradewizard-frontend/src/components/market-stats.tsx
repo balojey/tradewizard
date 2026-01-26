@@ -3,7 +3,7 @@
 import { TrendingUp, DollarSign, Users, Activity, Clock, Target } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import type { DetailedMarket } from '@/lib/polymarket-api-types';
+import type { DetailedMarket } from '@/lib/enhanced-polymarket-types';
 
 interface MarketStatsProps {
   market: DetailedMarket;

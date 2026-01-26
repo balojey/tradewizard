@@ -5,7 +5,7 @@ import { X, TrendingUp, TrendingDown, DollarSign, AlertTriangle, Wallet, Setting
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import type { DetailedMarket, MarketOutcome, OrderRequest } from '@/lib/polymarket-api-types';
+import type { DetailedMarket, MarketOutcome, OrderRequest } from '@/lib/enhanced-polymarket-types';
 
 interface TradingPanelProps {
   market: DetailedMarket;

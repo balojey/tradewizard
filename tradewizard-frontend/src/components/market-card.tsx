@@ -35,7 +35,7 @@ interface Outcome {
 
 interface AIInsights {
     confidence: number; // 0-100
-    riskLevel: 'low' | 'medium' | 'high';
+    volatilityPrediction: 'low' | 'medium' | 'high';
     keyFactors: string[];
     recommendation?: 'buy' | 'sell' | 'hold';
     lastUpdated: number;
@@ -547,8 +547,8 @@ function AIInsightsIndicator({
 }) {
     // Handle both legacy and enhanced AI insights formats
     const confidence = insights.confidence;
-    const riskLevel = insights.riskLevel;
-    const recommendation = insights.recommendation;
+    const riskLevel = 'volatilityPrediction' in insights ? insights.volatilityPrediction : 'medium';
+    const recommendation = 'recommendation' in insights ? insights.recommendation : undefined;
     
     const getConfidenceColor = (confidence: number) => {
         if (confidence >= 80) return 'text-emerald-500';
@@ -644,8 +644,8 @@ function AIInsightsIndicator({
 function AIInsightsSummary({ insights }: { insights: AIInsights | AIMarketInsights }) {
     // Handle both legacy and enhanced AI insights formats
     const confidence = insights.confidence;
-    const riskLevel = insights.riskLevel;
-    const recommendation = insights.recommendation;
+    const riskLevel = 'volatilityPrediction' in insights ? insights.volatilityPrediction : 'medium';
+    const recommendation = 'recommendation' in insights ? insights.recommendation : undefined;
     const keyFactors = insights.keyFactors;
     const lastUpdated = insights.lastUpdated;
     
