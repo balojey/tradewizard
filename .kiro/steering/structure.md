@@ -1,129 +1,137 @@
-# Project Structure
+---
+inclusion: always
+---
+
+# Project Structure & Development Guidelines
 
 ## Repository Layout
 
+TradeWizard is a monorepo with two main applications:
+
 ```
-├── docs/                           # Product documentation
-├── tradewizard-agents/            # Backend multi-agent system
-├── tradewizard-frontend/          # Next.js web application
+├── tradewizard-agents/            # Backend: Multi-agent LangGraph system
+├── tradewizard-frontend/          # Frontend: Next.js web application
+├── docs/                          # Product documentation
 └── .kiro/                         # Kiro configuration and specs
-    ├── specs/                     # Feature specifications
-    └── steering/                  # Project steering documents
 ```
 
-## Backend Structure (tradewizard-agents/)
+## Backend Architecture (tradewizard-agents/)
 
-### Core Directories
+### Core Directory Structure
+
+When working with the backend, follow this organization:
 
 ```
 src/
-├── nodes/                         # LangGraph node implementations
-│   ├── market-ingestion.ts       # Polymarket data ingestion
-│   ├── agents.ts                 # Intelligence agent nodes
-│   ├── thesis-construction.ts    # Bull/bear thesis generation
-│   ├── cross-examination.ts      # Adversarial testing
-│   ├── consensus-engine.ts       # Probability consensus
-│   └── recommendation-generation.ts # Trade recommendations
-├── models/                        # Data models and schemas
-│   ├── types.ts                  # TypeScript interfaces
-│   ├── schemas.ts                # Zod validation schemas
-│   └── state.ts                  # LangGraph state definition
-├── utils/                         # Utility functions and services
-│   ├── polymarket-client.ts      # Market data client
-│   ├── audit-logger.ts           # Audit trail logging
-│   ├── newsdata-*.ts             # News data integration
-│   └── performance-*.ts          # Performance monitoring
+├── nodes/                         # LangGraph workflow nodes (core business logic)
+├── models/                        # Data models, schemas, and state definitions
+├── utils/                         # Reusable services and utilities
 ├── config/                        # Configuration management
-├── database/                      # Database layer
-│   ├── persistence.ts            # Data persistence
-│   ├── migrations/               # Database migrations
-│   └── supabase-client.ts        # Supabase integration
-├── workflow.ts                    # Main LangGraph workflow
+├── database/                      # Data persistence layer
+├── workflow.ts                    # Main LangGraph workflow orchestration
 ├── cli.ts                        # Command-line interface
 └── monitor.ts                    # Automated monitoring service
 ```
 
-### Supporting Files
+### Development Rules
 
-```
-├── dist/                          # Compiled JavaScript output
-├── docs/                         # Technical documentation
-├── scripts/                      # Utility scripts
-├── supabase/                     # Database configuration
-│   ├── migrations/               # SQL migration files
-│   └── config.toml              # Supabase configuration
-├── .env.example                  # Environment template
-├── package.json                  # Dependencies and scripts
-├── tsconfig.json                 # TypeScript configuration
-├── vitest.config.ts              # Test configuration
-└── eslint.config.js              # Linting rules
-```
+**File Placement Guidelines:**
+- **New LangGraph nodes**: Place in `src/nodes/` with descriptive kebab-case names
+- **Data models**: Define TypeScript interfaces in `src/models/types.ts`, Zod schemas in `src/models/schemas.ts`
+- **External integrations**: Create clients in `src/utils/` with `-client.ts` suffix
+- **Database operations**: Add to `src/database/` with appropriate migrations
+- **Configuration**: Environment-specific configs go in `src/config/`
 
-## Frontend Structure (tradewizard-frontend/)
+**Code Organization Patterns:**
+- Each LangGraph node should be self-contained with its own types and validation
+- Shared state flows through `GraphState` schema defined in `src/models/state.ts`
+- Use dependency injection pattern for external services (Polymarket, news APIs)
+- Implement graceful degradation - partial failures shouldn't crash the workflow
+
+## Frontend Architecture (tradewizard-frontend/)
 
 ### Next.js App Router Structure
 
 ```
-src/
-├── app/                          # Next.js app router
-│   ├── layout.tsx               # Root layout
-│   ├── page.tsx                 # Home page
-│   └── globals.css              # Global styles
-├── components/                   # React components
-│   ├── ui/                      # Base UI components
-│   │   ├── button.tsx
-│   │   ├── card.tsx
-│   │   └── navbar.tsx
-│   ├── categories-bar.tsx       # Market categories
-│   └── market-card.tsx          # Market display component
-└── lib/                         # Utility libraries
-    ├── polymarket.ts            # Market data utilities
-    └── utils.ts                 # General utilities
+├── app/                          # Next.js 13+ app router pages
+├── components/                   # React components (organized by feature)
+├── hooks/                        # Custom React hooks
+├── lib/                          # Utility libraries and configurations
+├── providers/                    # React context providers
+└── utils/                        # Pure utility functions
 ```
+
+**Component Organization:**
+- Group related components in feature folders under `components/`
+- Shared UI components go in `components/shared/`
+- Page-specific components can be co-located with their routes
 
 ## File Naming Conventions
 
-### Backend
-- **Node files**: `kebab-case.ts` (e.g., `market-ingestion.ts`)
-- **Test files**: `*.test.ts` for unit tests, `*.property.test.ts` for property-based tests
-- **Integration tests**: `*.integration.test.ts`
-- **Performance tests**: `*.performance.test.ts`
-- **Utility files**: Descriptive names with service suffix (e.g., `polymarket-client.ts`)
+### Backend (TypeScript)
+- **LangGraph nodes**: `kebab-case.ts` (e.g., `market-ingestion.ts`)
+- **Utilities/Services**: `kebab-case.ts` with descriptive suffix (e.g., `polymarket-client.ts`)
+- **Test files**: 
+  - Unit tests: `*.test.ts`
+  - Property-based tests: `*.property.test.ts`
+  - Integration tests: `*.integration.test.ts`
+  - Performance tests: `*.performance.test.ts`
 
-### Frontend
-- **Components**: `kebab-case.tsx`
-- **Pages**: Next.js convention (`page.tsx`, `layout.tsx`)
+### Frontend (React/Next.js)
+- **Components**: `PascalCase.tsx` for component files
+- **Pages**: Follow Next.js conventions (`page.tsx`, `layout.tsx`)
+- **Hooks**: `camelCase.ts` with `use` prefix
 - **Utilities**: `camelCase.ts`
 
-## Configuration Files
+## Testing Strategy & Requirements
 
-### Backend Configuration
-- **TypeScript**: `tsconfig.json` with ES2022 target and strict mode
-- **Testing**: `vitest.config.ts` with 30s timeout for LLM calls
-- **Linting**: `eslint.config.js` with TypeScript-specific rules
-- **Environment**: `.env` files for different environments
+### Backend Testing
+- **Unit Tests**: Test individual functions and classes with specific examples
+- **Property Tests**: Use fast-check for testing universal properties across random inputs
+- **Integration Tests**: Test complete workflows with real external APIs
+- **Performance Tests**: Load testing for LLM-heavy operations (30s timeout configured)
 
-### Frontend Configuration
-- **Next.js**: `next.config.ts` for framework configuration
-- **Styling**: `postcss.config.mjs` and Tailwind CSS
-- **TypeScript**: `tsconfig.json` with Next.js optimizations
+### Test File Requirements
+- All new backend features MUST include both unit and property-based tests
+- LangGraph nodes MUST have integration tests that verify the complete workflow
+- External API clients MUST have tests that can run against real APIs (with proper mocking for CI)
 
-## Key Architectural Patterns
+## Architecture Patterns
 
-### Multi-Agent System
-- Each agent is implemented as a separate LangGraph node
-- Shared state flows through the workflow using GraphState schema
-- Parallel execution where possible, sequential where dependencies exist
+### Multi-Agent System Design
+- **Node Independence**: Each LangGraph node operates independently with clear inputs/outputs
+- **State Management**: Use `GraphState` for passing data between nodes
+- **Parallel Execution**: Design nodes to run in parallel where possible
+- **Error Handling**: Implement graceful degradation - node failures shouldn't crash the entire workflow
 
-### Data Flow
+### Data Flow Pattern
 ```
-Polymarket APIs → MarketBriefingDocument → AgentSignals → 
+External APIs → Data Ingestion → Agent Analysis → 
 Thesis Construction → Cross-Examination → Consensus → 
-Trade Recommendation
+Final Recommendation
 ```
 
-### Testing Strategy
-- **Unit Tests**: Specific examples and edge cases
-- **Property Tests**: Universal properties across random inputs
-- **Integration Tests**: End-to-end workflows with real APIs
-- **Performance Tests**: Load and stress testing
+### External Integration Pattern
+- **Client Pattern**: Create dedicated client classes for external APIs (Polymarket, news sources)
+- **Rate Limiting**: Implement rate limiting and retry logic for all external calls
+- **Caching**: Use appropriate caching strategies for expensive API calls
+- **Observability**: All external calls must be traced through Opik integration
+
+## Development Workflow
+
+### Adding New Features
+1. **Backend**: Create LangGraph node in `src/nodes/`, add to workflow, write tests
+2. **Frontend**: Create components in appropriate feature folder, add routing if needed
+3. **Integration**: Ensure proper error handling and observability
+4. **Testing**: Write comprehensive test suite including property-based tests
+
+### Database Changes
+1. Create migration in `src/database/migrations/`
+2. Update TypeScript types in `src/models/types.ts`
+3. Update Zod schemas in `src/models/schemas.ts`
+4. Test migration with `npm run migrate`
+
+### Configuration Management
+- Environment variables go in `.env` files with examples in `.env.example`
+- Type-safe config validation using Zod schemas in `src/config/`
+- Different configs for development, staging, and production environments
