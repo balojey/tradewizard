@@ -1,5 +1,5 @@
 {
-  "name": "tradewizard-frontend",
+  "name": "polymarket-magic-safe",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,30 +9,25 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@polymarket/clob-client": "^5.2.1",
-    "@wagmi/connectors": "^7.1.5",
-    "@wagmi/core": "^3.3.1",
-    "clsx": "^2.1.1",
-    "ethers": "^6.16.0",
-    "framer-motion": "^12.27.5",
-    "lucide-react": "^0.562.0",
-    "magic-sdk": "^33.1.1",
-    "next": "16.1.4",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
-    "tailwind-merge": "^3.4.0",
-    "viem": "^2.44.4",
-    "wagmi": "^3.4.1",
-    "ws": "^8.19.0"
+    "@polymarket/builder-relayer-client": "^0.0.6",
+    "@polymarket/builder-signing-sdk": "^0.0.8",
+    "@polymarket/clob-client": "^4.22.8",
+    "@tanstack/react-query": "^5.90.10",
+    "ethers": "^5.8.0",
+    "magic-sdk": "^31.2.0",
+    "next": "^16.0.10",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "viem": "^2.39.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@types/ws": "^8.18.1",
     "eslint": "^9",
-    "eslint-config-next": "16.1.4",
+    "eslint-config-next": "16.0.3",
+    "prettier": "^3.6.2",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
