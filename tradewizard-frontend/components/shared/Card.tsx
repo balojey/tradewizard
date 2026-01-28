@@ -15,8 +15,8 @@ export default function Card({
   return (
     <div
       className={cn(
-        CARD_STYLES,
-        hover && "hover:bg-white/10 transition-colors",
+        "bg-white/5 backdrop-blur-xl rounded-xl border border-white/10 shadow-xl ring-1 ring-white/5 transition-all duration-300",
+        hover && "hover:bg-white/10 hover:border-white/20 hover:ring-white/10 hover:-translate-y-1 hover:shadow-2xl cursor-pointer",
         className
       )}
     >

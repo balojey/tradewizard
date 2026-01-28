@@ -28,21 +28,29 @@ export default function MarketTabs() {
   return (
     <Card className="p-6">
       {/* Tab Navigation */}
-      <div className="bg-white/5 backdrop-blur-md rounded-lg border border-white/10 p-1 flex gap-1 mb-4">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={cn(
-              "flex-1 py-3 px-4 rounded-md font-medium transition-all duration-200",
-              activeTab === tab.id
-                ? "bg-blue-600 text-white shadow-lg"
-                : "text-gray-300 hover:text-white hover:bg-white/5"
-            )}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-bold text-white">Market Overview</h2>
+
+        {/* Segmented Control */}
+        <div className="bg-white/5 p-1 rounded-xl flex gap-1 border border-white/5">
+          {tabs.map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  "px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 min-w-[100px]",
+                  isActive
+                    ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20"
+                    : "text-gray-400 hover:text-white hover:bg-white/5"
+                )}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Tab Content */}
