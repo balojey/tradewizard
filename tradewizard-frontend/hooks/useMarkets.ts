@@ -2,6 +2,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { useTrading } from "@/providers/TradingProvider";
 import { Side } from "@polymarket/clob-client";
 import type { CategoryId, Category } from "@/constants/categories";
+import usePublicMarketPrices from "@/hooks/usePublicMarketPrices";
 
 export type PolymarketMarket = {
   id: string;
@@ -50,9 +51,9 @@ interface UseMarketsOptions {
 
 export default function useMarkets(options: UseMarketsOptions = {}) {
   const { pageSize = 20, categoryId = "trending", tagId, categories = [] } = options;
-  const { clobClient } = useTrading();
+  const { clobClient, eoaAddress } = useTrading();
 
-  return useInfiniteQuery({
+  const marketsQuery = useInfiniteQuery({
     queryKey: ["political-markets", pageSize, categoryId, tagId, !!clobClient],
     queryFn: async ({ pageParam = 0 }): Promise<PolymarketMarket[]> => {
       let url = `/api/polymarket/markets?limit=${pageSize}&offset=${pageParam}`;
@@ -79,7 +80,7 @@ export default function useMarkets(options: UseMarketsOptions = {}) {
 
       const markets: PolymarketMarket[] = await response.json();
 
-      // Fetch realtime prices from CLOB if client is available
+      // Fetch realtime prices from CLOB if client is available (authenticated users)
       if (clobClient) {
         await Promise.all(
           markets.map(async (market) => {
@@ -152,5 +153,61 @@ export default function useMarkets(options: UseMarketsOptions = {}) {
     refetchIntervalInBackground: false, // Disable background refetch for infinite queries
     refetchOnWindowFocus: false, // Disable refetch on window focus for infinite queries
   });
+
+  // Get all markets from all pages for public price fetching
+  const allMarkets = marketsQuery.data?.pages.flat() || [];
+  
+  // Fetch public prices for unauthenticated users
+  const publicPricesQuery = usePublicMarketPrices(allMarkets);
+
+  // If user is authenticated, return markets as-is
+  if (clobClient && eoaAddress) {
+    return marketsQuery;
+  }
+
+  // For unauthenticated users, enhance markets with public prices
+  const enhancedData = marketsQuery.data ? {
+    ...marketsQuery.data,
+    pages: marketsQuery.data.pages.map(page => 
+      page.map(market => {
+        // If we have public prices, merge them in
+        if (publicPricesQuery.data && market.clobTokenIds) {
+          try {
+            const tokenIds = JSON.parse(market.clobTokenIds);
+            const priceMap: Record<string, any> = {};
+
+            tokenIds.forEach((tokenId: string) => {
+              const publicPrice = publicPricesQuery.data![tokenId];
+              if (publicPrice) {
+                priceMap[tokenId] = {
+                  bidPrice: publicPrice.bidPrice,
+                  askPrice: publicPrice.askPrice,
+                  midPrice: publicPrice.midPrice,
+                  spread: publicPrice.spread,
+                };
+              }
+            });
+
+            if (Object.keys(priceMap).length > 0) {
+              console.log(`Enhanced market ${market.question} with ${Object.keys(priceMap).length} prices`);
+              return {
+                ...market,
+                realtimePrices: priceMap,
+              };
+            }
+          } catch (error) {
+            console.warn(`Failed to parse token IDs for market ${market.id}`);
+          }
+        }
+
+        return market;
+      })
+    ),
+  } : undefined;
+
+  return {
+    ...marketsQuery,
+    data: enhancedData,
+  };
 }
 

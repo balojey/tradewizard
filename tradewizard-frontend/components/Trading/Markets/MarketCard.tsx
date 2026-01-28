@@ -33,7 +33,26 @@ export default function MarketCard({
   const tokenIds = market.clobTokenIds ? JSON.parse(market.clobTokenIds) : [];
   const negRisk = market.negRisk || false;
   const outcomePrices = tokenIds.map((tokenId: string) => {
-    return market.realtimePrices?.[tokenId]?.bidPrice || 0;
+    // First try to get realtime prices (from CLOB client or public API)
+    const realtimePrice = market.realtimePrices?.[tokenId]?.bidPrice;
+    if (realtimePrice && realtimePrice > 0) {
+      return realtimePrice;
+    }
+    
+    // Fallback to static outcome prices from market data
+    if (market.outcomePrices) {
+      try {
+        const staticPrices = JSON.parse(market.outcomePrices);
+        const tokenIndex = tokenIds.indexOf(tokenId);
+        if (tokenIndex !== -1 && staticPrices[tokenIndex]) {
+          return parseFloat(staticPrices[tokenIndex]);
+        }
+      } catch (error) {
+        console.warn(`Failed to parse static prices for market ${market.id}`);
+      }
+    }
+    
+    return 0;
   });
 
   // Calculate "Yes" probability for the gauge if 'Yes' outcome exists
