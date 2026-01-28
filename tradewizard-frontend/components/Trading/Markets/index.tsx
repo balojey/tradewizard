@@ -28,10 +28,10 @@ export default function PoliticalMarkets() {
   const { clobClient, isGeoblocked } = useTrading();
 
   // Fetch dynamic political categories
-  const { 
-    data: categories = [], 
-    isLoading: categoriesLoading, 
-    error: categoriesError 
+  const {
+    data: categories = [],
+    isLoading: categoriesLoading,
+    error: categoriesError
   } = usePoliticalCategories();
 
   // Get current active category details
@@ -39,9 +39,9 @@ export default function PoliticalMarkets() {
   const activeTagId = activeCategoryObj?.tagId ?? 2; // Default to politics tag
 
   // Fetch markets for the active category with infinite query
-  const { 
+  const {
     data,
-    isLoading: marketsLoading, 
+    isLoading: marketsLoading,
     error: marketsError,
     fetchNextPage,
     hasNextPage,
@@ -141,7 +141,7 @@ export default function PoliticalMarkets() {
 
         {/* Market Cards */}
         {markets.length > 0 && (
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {markets.map((market, index) => (
               <MarketCard
                 key={`${market.id}-${index}`} // Include index to handle potential duplicates
