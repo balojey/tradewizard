@@ -1,4 +1,5 @@
 import type { PolymarketMarket } from "@/hooks/useMarkets";
+import { isMarketEndingSoon } from "@/utils/marketFilters";
 
 import Card from "@/components/shared/Card";
 import OutcomeButtons from "@/components/Trading/Markets/OutcomeButtons";
@@ -28,6 +29,24 @@ export default function MarketCard({
   );
   const liquidityUSD = parseFloat(String(market.liquidity || "0"));
   const isClosed = market.closed;
+  const isActive = market.active && !market.closed;
+  const isEndingSoon = isActive && isMarketEndingSoon(market);
+
+  // Determine status badge
+  const getStatusBadge = () => {
+    if (isClosed) {
+      return { text: "Closed", color: "bg-red-500/20 text-red-400 border-red-500/30" };
+    }
+    if (isEndingSoon) {
+      return { text: "Ending Soon", color: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" };
+    }
+    if (isActive) {
+      return { text: "Active", color: "bg-green-500/20 text-green-400 border-green-500/30" };
+    }
+    return null;
+  };
+
+  const statusBadge = getStatusBadge();
 
   const outcomes = market.outcomes ? JSON.parse(market.outcomes) : [];
   const tokenIds = market.clobTokenIds ? JSON.parse(market.clobTokenIds) : [];
@@ -77,10 +96,19 @@ export default function MarketCard({
               <div className="w-10 h-10 rounded-md bg-white/10 flex-shrink-0" />
             )}
 
-            {/* Title */}
-            <h4 className="font-semibold text-base line-clamp-3 leading-snug">
-              {market.question}
-            </h4>
+            {/* Title and Status */}
+            <div className="flex-1 min-w-0">
+              <h4 className="font-semibold text-base line-clamp-3 leading-snug mb-2">
+                {market.question}
+              </h4>
+              
+              {/* Status Badge */}
+              {statusBadge && (
+                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${statusBadge.color}`}>
+                  {statusBadge.text}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Probability Gauge (Visual only, based on 'Yes' price) */}

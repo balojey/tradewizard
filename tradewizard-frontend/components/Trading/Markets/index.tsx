@@ -6,17 +6,20 @@ import useMarkets from "@/hooks/useMarkets";
 import usePoliticalCategories from "@/hooks/usePoliticalCategories";
 import useInfiniteScroll from "@/hooks/useInfiniteScroll";
 import { type CategoryId, DEFAULT_CATEGORY } from "@/constants/categories";
+import { filterMarketsByStatus, getMarketStatusCounts } from "@/utils/marketFilters";
 
 import ErrorState from "@/components/shared/ErrorState";
 import EmptyState from "@/components/shared/EmptyState";
 import LoadingState from "@/components/shared/LoadingState";
 import MarketCard from "@/components/Trading/Markets/MarketCard";
 import CategoryTabs from "@/components/Trading/Markets/CategoryTabs";
+import MarketStatusFilter, { type MarketStatus } from "@/components/Trading/Markets/MarketStatusFilter";
 import OrderPlacementModal from "@/components/Trading/OrderModal";
 
 export default function PoliticalMarkets() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<CategoryId>(DEFAULT_CATEGORY);
+  const [marketStatus, setMarketStatus] = useState<MarketStatus>("all");
   const [selectedOutcome, setSelectedOutcome] = useState<{
     marketTitle: string;
     outcome: string;
@@ -54,9 +57,19 @@ export default function PoliticalMarkets() {
   });
 
   // Flatten all pages into a single array
-  const markets = useMemo(() => {
+  const allMarkets = useMemo(() => {
     return data?.pages.flat() ?? [];
   }, [data]);
+
+  // Filter markets by status
+  const markets = useMemo(() => {
+    return filterMarketsByStatus(allMarkets, marketStatus);
+  }, [allMarkets, marketStatus]);
+
+  // Calculate market counts for filter display
+  const marketCounts = useMemo(() => {
+    return getMarketStatusCounts(allMarkets);
+  }, [allMarkets]);
 
   const isLoading = categoriesLoading || marketsLoading;
   const error = categoriesError || marketsError;
@@ -101,6 +114,10 @@ export default function PoliticalMarkets() {
     setActiveCategory(categoryId);
   };
 
+  const handleStatusChange = (status: MarketStatus) => {
+    setMarketStatus(status);
+  };
+
   return (
     <>
       <div className="space-y-4">
@@ -113,11 +130,21 @@ export default function PoliticalMarkets() {
           />
         )}
 
-        {/* Header */}
+        {/* Header with Status Filter */}
         <div className="flex items-center justify-between">
-          <h3 className="text-xl font-bold">
-            {categoryLabel} Markets {markets.length > 0 ? `(${markets.length}${hasNextPage ? '+' : ''})` : ""}
-          </h3>
+          <div className="flex items-center gap-4">
+            <h3 className="text-xl font-bold">
+              {categoryLabel} Markets {markets.length > 0 ? `(${markets.length}${hasNextPage ? '+' : ''})` : ""}
+            </h3>
+            
+            {/* Market Status Filter */}
+            <MarketStatusFilter
+              currentStatus={marketStatus}
+              onStatusChange={handleStatusChange}
+              marketCounts={marketCounts}
+            />
+          </div>
+          
           <p className="text-xs text-gray-400">Political prediction markets only</p>
         </div>
 
@@ -132,7 +159,15 @@ export default function PoliticalMarkets() {
         )}
 
         {/* Empty State */}
-        {!isLoading && !error && markets.length === 0 && (
+        {!isLoading && !error && markets.length === 0 && allMarkets.length > 0 && (
+          <EmptyState
+            title={`No ${marketStatus === "all" ? "" : marketStatus.charAt(0).toUpperCase() + marketStatus.slice(1).replace("-", " ")} Markets`}
+            message={`No ${categoryLabel.toLowerCase()} markets match the selected filter.`}
+          />
+        )}
+
+        {/* Empty State - No markets at all */}
+        {!isLoading && !error && allMarkets.length === 0 && (
           <EmptyState
             title="No Political Markets Available"
             message={`No active ${categoryLabel.toLowerCase()} markets found.`}
