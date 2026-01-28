@@ -1,12 +1,4 @@
-export type CategoryId =
-  | "trending"
-  | "politics"
-  | "finance"
-  | "crypto"
-  | "sports"
-  | "tech"
-  | "culture"
-  | "geopolitics";
+export type CategoryId = string;
 
 export interface Category {
   id: CategoryId;
@@ -18,42 +10,7 @@ export const CATEGORIES: Category[] = [
   {
     id: "trending",
     label: "Trending",
-    tagId: null,
-  },
-  {
-    id: "politics",
-    label: "Politics",
-    tagId: 2,
-  },
-  {
-    id: "finance",
-    label: "Finance",
-    tagId: 120,
-  },
-  {
-    id: "crypto",
-    label: "Crypto",
-    tagId: 21,
-  },
-  {
-    id: "sports",
-    label: "Sports",
-    tagId: 100639,
-  },
-  {
-    id: "tech",
-    label: "Tech",
-    tagId: 1401,
-  },
-  {
-    id: "culture",
-    label: "Culture",
-    tagId: 596,
-  },
-  {
-    id: "geopolitics",
-    label: "Geopolitics",
-    tagId: 100265,
+    tagId: 2, // Politics tag ID
   },
 ];
 

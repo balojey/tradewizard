@@ -1,20 +1,22 @@
 "use client";
 
-import { CATEGORIES, type CategoryId } from "@/constants/categories";
+import { type CategoryId, type Category } from "@/constants/categories";
 import { cn } from "@/utils/classNames";
 
 interface CategoryTabsProps {
+  categories: Category[];
   activeCategory: CategoryId;
   onCategoryChange: (categoryId: CategoryId) => void;
 }
 
 export default function CategoryTabs({
+  categories,
   activeCategory,
   onCategoryChange,
 }: CategoryTabsProps) {
   return (
     <div className="flex gap-2 flex-wrap mb-4">
-      {CATEGORIES.map((category) => {
+      {categories.map((category) => {
         const isActive = activeCategory === category.id;
         return (
           <button

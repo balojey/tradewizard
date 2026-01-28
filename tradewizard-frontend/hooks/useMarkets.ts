@@ -45,20 +45,26 @@ export type PolymarketMarket = {
 interface UseMarketsOptions {
   limit?: number;
   categoryId?: CategoryId;
+  tagId?: number | null;
 }
 
 export default function useMarkets(options: UseMarketsOptions = {}) {
-  const { limit = 10, categoryId = "trending" } = options;
+  const { limit = 10, categoryId = "trending", tagId } = options;
   const { clobClient } = useTrading();
 
   return useQuery({
-    queryKey: ["high-volume-markets", limit, categoryId, !!clobClient],
+    queryKey: ["high-volume-markets", limit, categoryId, tagId, !!clobClient],
     queryFn: async (): Promise<PolymarketMarket[]> => {
-      const category = getCategoryById(categoryId);
       let url = `/api/polymarket/markets?limit=${limit}`;
+      let targetTagId = tagId;
 
-      if (category?.tagId) {
-        url += `&tag_id=${category.tagId}`;
+      if (targetTagId === undefined) {
+        const category = getCategoryById(categoryId);
+        targetTagId = category?.tagId ?? null;
+      }
+
+      if (targetTagId) {
+        url += `&tag_id=${targetTagId}`;
       }
 
       const response = await fetch(url);
