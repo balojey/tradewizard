@@ -8,13 +8,19 @@ const EVERGREEN_TAG_IDS = [2, 21, 120, 596, 1401, 100265, 100639];
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const limit = searchParams.get("limit") || "10";
+  const limit = searchParams.get("limit") || "20";
+  const offset = searchParams.get("offset") || "0";
   const tagId = searchParams.get("tag_id");
 
   try {
-    const fetchLimit = parseInt(limit) * 5;
+    const requestedLimit = parseInt(limit);
+    const requestedOffset = parseInt(offset);
+    
+    // Fetch more than requested to account for filtering
+    const fetchLimit = Math.max(requestedLimit * 3, 100);
+    const fetchOffset = Math.floor(requestedOffset * 1.5); // Approximate offset accounting for filtering
 
-    let url = `${GAMMA_API_URL}/events?closed=false&order=volume24hr&ascending=false&limit=${fetchLimit}&offset=0`;
+    let url = `${GAMMA_API_URL}/events?closed=false&order=volume24hr&ascending=false&limit=${fetchLimit}&offset=${fetchOffset}`;
 
     if (tagId) {
       url += `&tag_id=${tagId}&related_tags=true`;
@@ -103,9 +109,12 @@ export async function GET(request: NextRequest) {
       return bScore - aScore;
     });
 
-    const limitedMarkets = sortedMarkets.slice(0, parseInt(limit));
+    // Apply client-side pagination after filtering and sorting
+    const startIndex = requestedOffset;
+    const endIndex = startIndex + requestedLimit;
+    const paginatedMarkets = sortedMarkets.slice(startIndex, endIndex);
 
-    return NextResponse.json(limitedMarkets);
+    return NextResponse.json(paginatedMarkets);
   } catch (error) {
     console.error("Error fetching markets:", error);
     return NextResponse.json(

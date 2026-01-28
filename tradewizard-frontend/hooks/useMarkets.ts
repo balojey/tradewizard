@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { useTrading } from "@/providers/TradingProvider";
 import { Side } from "@polymarket/clob-client";
 import type { CategoryId, Category } from "@/constants/categories";
@@ -42,20 +42,20 @@ export type PolymarketMarket = {
 };
 
 interface UseMarketsOptions {
-  limit?: number;
+  pageSize?: number;
   categoryId?: CategoryId;
   tagId?: number | null;
   categories?: Category[];
 }
 
 export default function useMarkets(options: UseMarketsOptions = {}) {
-  const { limit = 10, categoryId = "trending", tagId, categories = [] } = options;
+  const { pageSize = 20, categoryId = "trending", tagId, categories = [] } = options;
   const { clobClient } = useTrading();
 
-  return useQuery({
-    queryKey: ["political-markets", limit, categoryId, tagId, !!clobClient],
-    queryFn: async (): Promise<PolymarketMarket[]> => {
-      let url = `/api/polymarket/markets?limit=${limit}`;
+  return useInfiniteQuery({
+    queryKey: ["political-markets", pageSize, categoryId, tagId, !!clobClient],
+    queryFn: async ({ pageParam = 0 }): Promise<PolymarketMarket[]> => {
+      let url = `/api/polymarket/markets?limit=${pageSize}&offset=${pageParam}`;
       let targetTagId = tagId;
 
       // If no explicit tagId provided, get it from the category
@@ -138,10 +138,19 @@ export default function useMarkets(options: UseMarketsOptions = {}) {
 
       return markets;
     },
+    getNextPageParam: (lastPage, allPages) => {
+      // If the last page has fewer markets than pageSize, we've reached the end
+      if (lastPage.length < pageSize) {
+        return undefined;
+      }
+      // Return the offset for the next page
+      return allPages.length * pageSize;
+    },
+    initialPageParam: 0,
     staleTime: 2_000,
-    refetchInterval: 3_000,
-    refetchIntervalInBackground: true,
-    refetchOnWindowFocus: true,
+    refetchInterval: 10_000, // Reduced frequency for infinite queries
+    refetchIntervalInBackground: false, // Disable background refetch for infinite queries
+    refetchOnWindowFocus: false, // Disable refetch on window focus for infinite queries
   });
 }
 
