@@ -32,12 +32,19 @@ export default function useGeoblock(): UseGeoblockReturn {
     setError(null);
 
     try {
+      // Create abort controller for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
       const response = await fetch(GEOBLOCK_API_URL, {
         method: "GET",
         headers: {
           Accept: "application/json",
         },
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error(`Geoblock API error: ${response.status}`);
@@ -51,11 +58,17 @@ export default function useGeoblock(): UseGeoblockReturn {
       const error =
         err instanceof Error ? err : new Error("Failed to check geoblock");
       setError(error);
-      console.error("Geoblock check failed:", error);
+      console.warn("Geoblock check failed, defaulting to not blocked:", error.message);
 
       // On error, default to not blocked to avoid false positives
-      // In production, you may want to block by default for safety
+      // This ensures the app continues to work even if geoblock API is down
       setIsBlocked(false);
+      setGeoblockStatus({
+        blocked: false,
+        ip: "unknown",
+        country: "unknown",
+        region: "unknown",
+      });
     } finally {
       setIsLoading(false);
     }
