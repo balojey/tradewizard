@@ -9,13 +9,7 @@ import GeoBlockedBanner from "@/components/GeoBlockedBanner";
 
 export default function Home() {
   const {
-    tradingSession,
-    currentStep,
-    sessionError,
-    isTradingSessionComplete,
-    initializeTradingSession,
     endTradingSession,
-    eoaAddress,
     isGeoblocked,
     isGeoblockLoading,
     geoblockStatus,
@@ -31,24 +25,15 @@ export default function Home() {
           <GeoBlockedBanner geoblockStatus={geoblockStatus} />
         )}
 
-        <PolygonAssets />
-
-        {/* Hide trading session initialization when geoblocked */}
-        {!isGeoblocked && (
-          <TradingSession
-            session={tradingSession}
-            currentStep={currentStep}
-            error={sessionError}
-            isComplete={isTradingSessionComplete}
-            initialize={initializeTradingSession}
-            endSession={endTradingSession}
-          />
-        )}
-
-        {/* Markets are viewable even when geoblocked, but trading buttons should be disabled */}
-        {(isTradingSessionComplete || isGeoblocked) && eoaAddress && (
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <h1 className="text-3xl font-bold text-white">Prediction Markets</h1>
+            <p className="text-gray-400">
+              Trade on the outcome of future events with AI-powered insights.
+            </p>
+          </div>
           <MarketTabs />
-        )}
+        </div>
       </main>
     </div>
   );
