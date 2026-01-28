@@ -1,8 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTrading } from "@/providers/TradingProvider";
 import { Side } from "@polymarket/clob-client";
-import type { CategoryId } from "@/constants/categories";
-import { getCategoryById } from "@/constants/categories";
+import type { CategoryId, Category } from "@/constants/categories";
 
 export type PolymarketMarket = {
   id: string;
@@ -46,31 +45,36 @@ interface UseMarketsOptions {
   limit?: number;
   categoryId?: CategoryId;
   tagId?: number | null;
+  categories?: Category[];
 }
 
 export default function useMarkets(options: UseMarketsOptions = {}) {
-  const { limit = 10, categoryId = "trending", tagId } = options;
+  const { limit = 10, categoryId = "trending", tagId, categories = [] } = options;
   const { clobClient } = useTrading();
 
   return useQuery({
-    queryKey: ["high-volume-markets", limit, categoryId, tagId, !!clobClient],
+    queryKey: ["political-markets", limit, categoryId, tagId, !!clobClient],
     queryFn: async (): Promise<PolymarketMarket[]> => {
       let url = `/api/polymarket/markets?limit=${limit}`;
       let targetTagId = tagId;
 
-      if (targetTagId === undefined) {
-        const category = getCategoryById(categoryId);
-        targetTagId = category?.tagId ?? null;
+      // If no explicit tagId provided, get it from the category
+      if (targetTagId === undefined && categories.length > 0) {
+        const category = categories.find(c => c.id === categoryId);
+        targetTagId = category?.tagId ?? 2; // Default to politics tag (2)
       }
 
+      // Always ensure we're filtering by politics (tag 2) or its subcategories
       if (targetTagId) {
         url += `&tag_id=${targetTagId}`;
+      } else {
+        url += `&tag_id=2`; // Default to politics
       }
 
       const response = await fetch(url);
 
       if (!response.ok) {
-        throw new Error("Failed to fetch markets");
+        throw new Error("Failed to fetch political markets");
       }
 
       const markets: PolymarketMarket[] = await response.json();

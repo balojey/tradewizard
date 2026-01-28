@@ -5,7 +5,7 @@ import { useState } from "react";
 import Card from "@/components/shared/Card";
 import ActiveOrders from "@/components/Trading/Orders";
 import UserPositions from "@/components/Trading/Positions";
-import HighVolumeMarkets from "@/components/Trading/Markets";
+import PoliticalMarkets from "@/components/Trading/Markets";
 
 import { cn } from "@/utils/classNames";
 
@@ -19,7 +19,7 @@ interface Tab {
 const tabs: Tab[] = [
   { id: "positions", label: "My Positions" },
   { id: "orders", label: "Open Orders" },
-  { id: "markets", label: "Markets" },
+  { id: "markets", label: "Political Markets" },
 ];
 
 export default function MarketTabs() {
@@ -29,7 +29,7 @@ export default function MarketTabs() {
     <Card className="p-6">
       {/* Tab Navigation */}
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold text-white">Market Overview</h2>
+        <h2 className="text-xl font-bold text-white">Political Trading Hub</h2>
 
         {/* Segmented Control */}
         <div className="bg-white/5 p-1 rounded-xl flex gap-1 border border-white/5">
@@ -57,7 +57,7 @@ export default function MarketTabs() {
       <div>
         {activeTab === "positions" && <UserPositions />}
         {activeTab === "orders" && <ActiveOrders />}
-        {activeTab === "markets" && <HighVolumeMarkets />}
+        {activeTab === "markets" && <PoliticalMarkets />}
       </div>
     </Card>
   );

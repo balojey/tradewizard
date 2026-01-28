@@ -15,9 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Polymarket Safe Trader - Magic EOA",
+  title: "TradeWizard - AI-Powered Political Prediction Markets",
   description:
-    "Polymarket demo using Magic Link for authentication and embedded wallets, trading through a Safe Wallet using the CLOB and Relayer client",
+    "TradeWizard provides AI-driven intelligence for political prediction markets on Polymarket. Get expert analysis, probability-driven recommendations, and trade political events with confidence.",
 };
 
 export default function RootLayout({
