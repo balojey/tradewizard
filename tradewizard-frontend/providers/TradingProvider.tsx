@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, ReactNode, useCallback } from "react";
+import { createContext, useContext, ReactNode, useCallback, useEffect, useRef } from "react";
 import type { ClobClient } from "@polymarket/clob-client";
 import type { RelayClient } from "@polymarket/builder-relayer-client";
 import { useWallet } from "./WalletContext";
@@ -24,6 +24,7 @@ interface TradingContextType {
   isGeoblocked: boolean;
   isGeoblockLoading: boolean;
   geoblockStatus: GeoblockStatus | null;
+  isAutoInitializing: boolean;
 }
 
 const TradingContext = createContext<TradingContextType | null>(null);
@@ -35,8 +36,9 @@ export function useTrading() {
 }
 
 export default function TradingProvider({ children }: { children: ReactNode }) {
-  const { eoaAddress } = useWallet();
+  const { eoaAddress, isConnected } = useWallet();
   const { derivedSafeAddressFromEoa } = useSafeDeployment(eoaAddress);
+  const autoInitRef = useRef<boolean>(false);
 
   const {
     isBlocked: isGeoblocked,
@@ -68,6 +70,46 @@ export default function TradingProvider({ children }: { children: ReactNode }) {
     return initSession();
   }, [isGeoblocked, initSession]);
 
+  // Automatic trading session initialization on wallet connection
+  useEffect(() => {
+    const shouldAutoInitialize = 
+      isConnected && 
+      eoaAddress && 
+      !isGeoblocked && 
+      !isGeoblockLoading &&
+      !isTradingSessionComplete &&
+      currentStep === "idle" &&
+      !autoInitRef.current;
+
+    if (shouldAutoInitialize) {
+      autoInitRef.current = true;
+      console.log("Auto-initializing trading session for authenticated user:", eoaAddress);
+      
+      initializeTradingSession()
+        .then(() => {
+          console.log("Trading session auto-initialized successfully");
+        })
+        .catch((error) => {
+          console.error("Auto-initialization failed:", error);
+          // Reset the ref so user can retry manually if needed
+          autoInitRef.current = false;
+        });
+    }
+
+    // Reset auto-init flag when user disconnects
+    if (!isConnected || !eoaAddress) {
+      autoInitRef.current = false;
+    }
+  }, [
+    isConnected,
+    eoaAddress,
+    isGeoblocked,
+    isGeoblockLoading,
+    isTradingSessionComplete,
+    currentStep,
+    initializeTradingSession,
+  ]);
+
   return (
     <TradingContext.Provider
       value={{
@@ -84,6 +126,7 @@ export default function TradingProvider({ children }: { children: ReactNode }) {
         isGeoblocked,
         isGeoblockLoading,
         geoblockStatus,
+        isAutoInitializing: autoInitRef.current && currentStep !== "idle" && currentStep !== "complete",
       }}
     >
       {children}
