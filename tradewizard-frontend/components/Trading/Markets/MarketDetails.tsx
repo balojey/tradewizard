@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
+import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
 import { useTrading } from "@/providers/TradingProvider";
 import { formatVolume, formatNumber } from "@/utils/formatting";
 import type { PolymarketMarket } from "@/hooks/useMarkets";
@@ -86,7 +88,16 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
 
     return (
         <div className="max-w-4xl mx-auto pb-20">
-            {/* Breadcrumbs / Back navigation could go here */}
+            {/* Back Navigation */}
+            <div className="mb-6">
+                <Link 
+                    href="/" 
+                    className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors duration-200 group"
+                >
+                    <ChevronLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform duration-200" />
+                    <span className="text-sm font-medium">Back to Markets</span>
+                </Link>
+            </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
