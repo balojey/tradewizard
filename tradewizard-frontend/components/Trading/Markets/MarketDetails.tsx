@@ -341,17 +341,25 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                 <div className="lg:col-span-4 space-y-6">
                     <div className="sticky top-6 space-y-6">
                         {/* Quick Trade Service - Prioritized */}
-                        {recommendation && recommendation.action !== 'NO_TRADE' && (
-                            <QuickTradeService
-                                recommendation={recommendation}
-                                marketTitle={market.question}
-                                currentPrice={yesPrice}
-                                tokenId={tokenIds[yesIndex] || tokenIds[0]}
-                                negRisk={negRisk}
-                                disabled={disabled}
-                                userPosition={findUserPosition(positions, tokenIds[yesIndex] || tokenIds[0])}
-                            />
-                        )}
+                        {recommendation && recommendation.action !== 'NO_TRADE' && (() => {
+                            // Determine the correct outcome index and price based on recommendation
+                            const isLongYes = recommendation.action === 'LONG_YES';
+                            const targetOutcomeIndex = isLongYes ? yesIndex : outcomes.findIndex((o: string) => o.toLowerCase() === "no");
+                            const targetPrice = targetOutcomeIndex !== -1 ? (outcomePrices?.[targetOutcomeIndex] || 0) : 0;
+                            const targetTokenId = targetOutcomeIndex !== -1 ? tokenIds[targetOutcomeIndex] : tokenIds[0];
+                            
+                            return (
+                                <QuickTradeService
+                                    recommendation={recommendation}
+                                    marketTitle={market.question}
+                                    currentPrice={targetPrice}
+                                    tokenId={targetTokenId}
+                                    negRisk={negRisk}
+                                    disabled={disabled}
+                                    userPosition={findUserPosition(positions, targetTokenId)}
+                                />
+                            );
+                        })()}
 
                         <Card className="p-6 border-indigo-500/20 shadow-[0_0_50px_-12px_rgba(79,70,229,0.1)]">
                             <div className="flex items-center justify-between mb-8">
