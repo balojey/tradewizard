@@ -14,7 +14,7 @@ import { cn } from "@/utils/classNames";
 import { MIN_ORDER_SIZE } from "@/constants/validation";
 import type { ClobClient } from "@polymarket/clob-client";
 import { isValidSize } from "@/utils/validation";
-import { X, CheckCircle, AlertCircle, ArrowRight } from "lucide-react";
+import { X, CheckCircle, AlertCircle, ArrowRight, Target, Zap } from "lucide-react";
 
 function getDecimalPlaces(tickSize: number): number {
   if (tickSize >= 1) return 0;
@@ -45,6 +45,13 @@ type OrderPlacementModalProps = {
     size: number;
     avgPrice: number;
   } | null;
+  quickTradeMode?: {
+    zone: 'entry' | 'target' | 'current';
+    recommendedPrice: number;
+    entryZone: [number, number];
+    targetZone: [number, number];
+    autoCreateTarget?: boolean;
+  };
 };
 
 export default function OrderPlacementModal({
@@ -58,6 +65,7 @@ export default function OrderPlacementModal({
   clobClient,
   orderSide = "BUY",
   userPosition = null,
+  quickTradeMode,
 }: OrderPlacementModalProps) {
   const [size, setSize] = useState<string>("");
   const [orderType, setOrderType] = useState<"market" | "limit">("market");
@@ -65,6 +73,7 @@ export default function OrderPlacementModal({
   const [localError, setLocalError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [currentOrderSide, setCurrentOrderSide] = useState<"BUY" | "SELL">(orderSide);
+  const [autoCreateTarget, setAutoCreateTarget] = useState<boolean>(quickTradeMode?.autoCreateTarget ?? true);
 
   const { eoaAddress } = useWallet();
 
@@ -91,8 +100,15 @@ export default function OrderPlacementModal({
       setLocalError(null);
       setShowSuccess(false);
       setCurrentOrderSide(orderSide);
+      setAutoCreateTarget(quickTradeMode?.autoCreateTarget ?? true);
+      
+      // Pre-fill for quick trade mode
+      if (quickTradeMode) {
+        setOrderType("limit");
+        setLimitPrice(quickTradeMode.recommendedPrice.toFixed(4));
+      }
     }
-  }, [isOpen, orderSide]);
+  }, [isOpen, orderSide, quickTradeMode]);
 
   useEffect(() => {
     if (orderId && isOpen) {
@@ -196,6 +212,35 @@ export default function OrderPlacementModal({
         negRisk,
         isMarketOrder: orderType === "market",
       });
+
+      // Auto-create target sell order for buy MARKET orders in quick trade mode
+      // Note: Only for market orders since limit orders may not fill immediately
+      if (autoCreateTarget && 
+          currentOrderSide === "BUY" && 
+          orderType === "market" &&
+          quickTradeMode &&
+          (quickTradeMode.zone === 'entry' || quickTradeMode.zone === 'current')) {
+        
+        // Calculate target price (midpoint of target zone)
+        const targetPrice = (quickTradeMode.targetZone[0] + quickTradeMode.targetZone[1]) / 2;
+        
+        // Small delay to ensure first order is processed
+        setTimeout(async () => {
+          try {
+            await submitOrder({
+              tokenId,
+              size: sizeNum,
+              price: targetPrice,
+              side: "SELL",
+              negRisk,
+              isMarketOrder: false, // Always limit order for targets
+            });
+          } catch (targetError) {
+            console.warn("Failed to create auto-target order:", targetError);
+            // Don't show error to user as main order succeeded
+          }
+        }, 1000);
+      }
     } catch (err) {
       console.error("Error placing order:", err);
     }
@@ -221,6 +266,15 @@ export default function OrderPlacementModal({
           <div className="flex items-start justify-between p-6 border-b border-white/5 bg-white/[0.02]">
             <div className="space-y-1 pr-4">
               <div className="flex items-center gap-2 text-sm text-gray-400 mb-1">
+                {quickTradeMode && (
+                  <>
+                    <div className="flex items-center gap-1 px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded-full border border-indigo-500/30">
+                      <Zap className="w-3 h-3" />
+                      <span className="text-xs font-semibold">Quick Trade</span>
+                    </div>
+                    <ArrowRight className="w-3 h-3" />
+                  </>
+                )}
                 <span>{currentOrderSide === "BUY" ? "Buying" : "Selling"}</span>
                 <ArrowRight className="w-3 h-3" />
                 <span className={cn("font-bold uppercase tracking-wide px-1.5 py-0.5 rounded text-[10px] bg-white/5", accentColor)}>
@@ -235,6 +289,19 @@ export default function OrderPlacementModal({
               <h3 className="text-base font-medium leading-snug line-clamp-2 text-gray-100">
                 {marketTitle}
               </h3>
+              {quickTradeMode && (
+                <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
+                  <Target className="w-3 h-3" />
+                  <span>
+                    {quickTradeMode.zone === 'entry' && 'AI Entry Zone'}
+                    {quickTradeMode.zone === 'target' && 'AI Target Zone'}
+                    {quickTradeMode.zone === 'current' && 'Current Market Price'}
+                  </span>
+                  <span className="text-indigo-400 font-mono">
+                    {(quickTradeMode.recommendedPrice * 100).toFixed(1)}%
+                  </span>
+                </div>
+              )}
             </div>
             <button
               onClick={onClose}
@@ -316,7 +383,45 @@ export default function OrderPlacementModal({
               </div>
             )}
 
-            {/* Controls */}
+            {/* Quick Trade Mode Info */}
+            {quickTradeMode && (
+              <div className="mb-6 p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl">
+                <div className="flex items-center gap-2 mb-2">
+                  <Zap className="w-4 h-4 text-indigo-400" />
+                  <span className="text-sm font-semibold text-indigo-400">Quick Trade Mode</span>
+                </div>
+                <p className="text-xs text-gray-300 mb-3">
+                  {quickTradeMode.zone === 'entry' && 'Buying at AI-recommended entry zone'}
+                  {quickTradeMode.zone === 'current' && 'Buying at current market price'}
+                  {quickTradeMode.zone === 'target' && 'Setting sell target for profit-taking'}
+                </p>
+                
+                {/* Auto-target toggle for buy orders */}
+                {(quickTradeMode.zone === 'entry' || quickTradeMode.zone === 'current') && (
+                  <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5">
+                    <div>
+                      <div className="text-sm font-medium text-white">Auto-create sell target</div>
+                      <div className="text-xs text-gray-400">
+                        {orderType === "market" 
+                          ? `Automatically place sell order at ${(quickTradeMode.targetZone[0] * 100 + quickTradeMode.targetZone[1] * 100) / 2}% after buy`
+                          : "Only available for market orders (immediate execution)"
+                        }
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={autoCreateTarget && orderType === "market"}
+                        onChange={(e) => setAutoCreateTarget(e.target.checked)}
+                        disabled={orderType !== "market"}
+                        className="sr-only peer"
+                      />
+                      <div className={`w-11 h-6 ${orderType === "market" ? "bg-gray-600" : "bg-gray-700"} peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all ${orderType === "market" ? "peer-checked:bg-indigo-600" : "peer-checked:bg-gray-600"} ${orderType !== "market" ? "opacity-50" : ""}`}></div>
+                    </label>
+                  </div>
+                )}
+              </div>
+            )}
             <OrderTypeToggle
               orderType={orderType}
               onChangeOrderType={(type) => {

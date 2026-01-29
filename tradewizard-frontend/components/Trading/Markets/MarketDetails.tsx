@@ -3,9 +3,9 @@
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import Link from "next/link";
-import { ChevronLeft, Brain, Activity, Users, TrendingUp, BarChart3, Clock, DollarSign, Wallet, Info } from "lucide-react";
+import { ChevronLeft, Brain, Activity, Users, TrendingUp, BarChart3, Clock, Wallet, Info } from "lucide-react";
 import { useTrading } from "@/providers/TradingProvider";
-import { formatVolume, formatNumber } from "@/utils/formatting";
+import { formatVolume } from "@/utils/formatting";
 import type { PolymarketMarket } from "@/hooks/useMarkets";
 import useUserPositions from "@/hooks/useUserPositions";
 import { findUserPosition } from "@/utils/positionHelpers";
@@ -13,18 +13,16 @@ import { isMarketEndingSoon } from "@/utils/marketFilters";
 import { useTradeRecommendation } from "@/hooks/useTradeRecommendation";
 
 import Card from "@/components/shared/Card";
-import PercentageGauge from "@/components/shared/PercentageGauge";
 import OutcomeButtons from "@/components/Trading/Markets/OutcomeButtons";
 import RecommendationBadge from "@/components/Trading/Markets/RecommendationBadge";
 import OrderPlacementModal from "@/components/Trading/OrderModal";
 import AIInsightsPanel from "@/components/Trading/Markets/AIInsightsPanel";
-import MarketSentimentAnalysis from "@/components/Trading/Markets/MarketSentimentAnalysis";
-import PriceHistoryChart from "@/components/Trading/Markets/PriceHistoryChart";
 import RealAgentDebatePanel from "@/components/Trading/Markets/RealAgentDebatePanel";
 import AgentWorkflowDiagram from "@/components/Trading/Markets/AgentWorkflowDiagram";
 import AgentInteractionNetwork from "@/components/Trading/Markets/AgentInteractionNetwork";
 import ConsensusFormationTimeline from "@/components/Trading/Markets/ConsensusFormationTimeline";
 import AgentOutputComparison from "@/components/Trading/Markets/AgentOutputComparison";
+import QuickTradeService from "@/components/Trading/QuickTradeService";
 
 interface MarketDetailsProps {
     market: PolymarketMarket;
@@ -431,6 +429,20 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                                     </button>
                                 </div>
                             </div>
+                        )}
+
+                        {/* Quick Trade Service */}
+                        {recommendation && recommendation.action !== 'NO_TRADE' && (
+                            <QuickTradeService
+                                recommendation={recommendation}
+                                marketTitle={market.question}
+                                currentPrice={yesPrice}
+                                tokenId={tokenIds[yesIndex] || tokenIds[0]}
+                                negRisk={negRisk}
+                                outcomes={outcomes}
+                                disabled={disabled}
+                                userPosition={findUserPosition(positions, tokenIds[yesIndex] || tokenIds[0])}
+                            />
                         )}
                     </div>
                 </div>
