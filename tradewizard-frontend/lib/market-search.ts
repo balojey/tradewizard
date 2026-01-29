@@ -39,6 +39,41 @@ export async function findMarketBySlug(slug: string) {
       }
     }
 
+    // Try to find market directly by slug
+    try {
+      const marketResponse = await fetch(`${GAMMA_API_URL}/markets?slug=${slug}`, {
+        headers: { "Content-Type": "application/json" },
+        next: { revalidate: 60 },
+      });
+
+      if (marketResponse.ok) {
+        const markets = await marketResponse.json();
+        
+        if (Array.isArray(markets) && markets.length > 0) {
+          const market = markets[0];
+          
+          // Enrich with event data if available
+          if (market.events && market.events.length > 0) {
+            const event = market.events[0];
+            return {
+              ...market,
+              eventTitle: event.title,
+              eventSlug: event.slug,
+              eventId: event.id,
+              eventIcon: event.image || event.icon,
+              description: event.description,
+              tags: event.tags,
+              negRisk: event.negRisk || false,
+            };
+          }
+
+          return market;
+        }
+      }
+    } catch (error) {
+      // Continue to other search methods
+    }
+
     // Try to find by event slug first (most common case for event-based markets)
     const eventsResponse = await fetch(`${GAMMA_API_URL}/events?slug=${slug}`, {
       headers: { "Content-Type": "application/json" },
