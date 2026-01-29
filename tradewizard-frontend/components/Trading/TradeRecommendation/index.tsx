@@ -3,13 +3,13 @@
 import { useState } from "react";
 import { useTradeRecommendation, useRefreshRecommendation } from "@/hooks/useTradeRecommendation";
 import type { PolymarketMarket } from "@/hooks/useMarkets";
-import { Card } from "@/components/shared/Card";
-import { LoadingState } from "@/components/shared/LoadingState";
-import { ErrorState } from "@/components/shared/ErrorState";
-import { Badge } from "@/components/shared/Badge";
-import { InfoTooltip } from "@/components/shared/InfoTooltip";
-import { PercentageGauge } from "@/components/shared/PercentageGauge";
-import { StatDisplay } from "@/components/shared/StatDisplay";
+import Card from "@/components/shared/Card";
+import LoadingState from "@/components/shared/LoadingState";
+import ErrorState from "@/components/shared/ErrorState";
+import Badge from "@/components/shared/Badge";
+import InfoTooltip from "@/components/shared/InfoTooltip";
+import PercentageGauge from "@/components/shared/PercentageGauge";
+import StatDisplay from "@/components/shared/StatDisplay";
 import { 
   Brain, 
   TrendingUp, 
@@ -17,8 +17,6 @@ import {
   AlertTriangle, 
   Target, 
   DollarSign,
-  Clock,
-  Zap,
   RefreshCw,
   ChevronDown,
   ChevronUp,
@@ -36,21 +34,6 @@ export default function TradeRecommendation({ market, className = "" }: TradeRec
   
   const conditionId = market.conditionId;
   
-  // Fetch recommendation from Supabase
-  const {
-    data: recommendation,
-    isLoading,
-    error,
-    isFetching,
-  } = useTradeRecommendation(conditionId);
-
-  // Manual refresh mutation
-  const refreshMutation = useRefreshRecommendation();
-
-  const handleRefresh = () => {
-    refreshMutation.mutate(conditionId);
-  };
-
   if (!conditionId) {
     return (
       <Card className={`p-4 ${className}`}>
@@ -61,6 +44,20 @@ export default function TradeRecommendation({ market, className = "" }: TradeRec
       </Card>
     );
   }
+  
+  // Fetch recommendation from Supabase
+  const {
+    data: recommendation,
+    isLoading,
+    error,
+  } = useTradeRecommendation(conditionId);
+
+  // Manual refresh mutation
+  const refreshMutation = useRefreshRecommendation();
+
+  const handleRefresh = () => {
+    refreshMutation.mutate(conditionId);
+  };
 
   if (isLoading) {
     return (
@@ -68,14 +65,13 @@ export default function TradeRecommendation({ market, className = "" }: TradeRec
         <div className="flex items-center gap-3 mb-4">
           <Brain className="w-5 h-5 text-blue-600" />
           <h3 className="font-semibold text-gray-900">AI Trade Analysis</h3>
-          <Badge variant="secondary" className="text-xs">
+          <Badge variant="default" className="text-xs">
             <Database className="w-3 h-3 mr-1" />
             Loading
           </Badge>
         </div>
         <LoadingState 
           message="Loading AI recommendation from database..." 
-          submessage="Checking for existing analysis"
         />
       </Card>
     );
@@ -100,7 +96,6 @@ export default function TradeRecommendation({ market, className = "" }: TradeRec
         </div>
         <ErrorState 
           error={error instanceof Error ? error.message : 'Failed to load recommendation'}
-          onRetry={handleRefresh}
         />
       </Card>
     );
@@ -167,7 +162,7 @@ export default function TradeRecommendation({ market, className = "" }: TradeRec
         <div className="flex items-center gap-3">
           <Brain className="w-5 h-5 text-blue-600" />
           <h3 className="font-semibold text-gray-900">AI Trade Analysis</h3>
-          <Badge variant="secondary" className="text-xs">
+          <Badge variant="default" className="text-xs">
             <Database className="w-3 h-3 mr-1" />
             From Database
           </Badge>
@@ -210,21 +205,20 @@ export default function TradeRecommendation({ market, className = "" }: TradeRec
           <StatDisplay
             label="Expected Value"
             value={`$${recommendation.expectedValue.toFixed(2)}`}
-            subtext="per $100"
-            icon={<DollarSign className="w-4 h-4" />}
-            color={recommendation.expectedValue > 0 ? 'green' : 'red'}
+            highlight={recommendation.expectedValue > 0}
+            highlightColor={recommendation.expectedValue > 0 ? 'green' : 'red'}
           />
           <StatDisplay
             label="Win Probability"
             value={formatPercentage(recommendation.winProbability)}
-            icon={<Target className="w-4 h-4" />}
-            color="blue"
+            highlight={true}
+            highlightColor="green"
           />
           <StatDisplay
             label="Market Edge"
             value={`${recommendation.metadata.edge > 0 ? '+' : ''}${formatPercentage(recommendation.metadata.edge)}`}
-            icon={<TrendingUp className="w-4 h-4" />}
-            color={recommendation.metadata.edge > 0 ? 'green' : 'red'}
+            highlight={Math.abs(recommendation.metadata.edge) > 0.05}
+            highlightColor={recommendation.metadata.edge > 0 ? 'green' : 'red'}
           />
           <div className="flex flex-col">
             <div className="flex items-center gap-1 mb-1">
@@ -243,7 +237,7 @@ export default function TradeRecommendation({ market, className = "" }: TradeRec
             <div>
               <div className="flex items-center gap-1 mb-2">
                 <span className="text-sm font-medium text-gray-700">Entry Zone</span>
-                <InfoTooltip content="Recommended price range to enter the position" />
+                <InfoTooltip text="Recommended price range to enter the position" />
               </div>
               <div className="text-lg font-semibold text-gray-900">
                 {formatPrice(recommendation.entryZone[0])} - {formatPrice(recommendation.entryZone[1])}
@@ -252,7 +246,7 @@ export default function TradeRecommendation({ market, className = "" }: TradeRec
             <div>
               <div className="flex items-center gap-1 mb-2">
                 <span className="text-sm font-medium text-gray-700">Target Zone</span>
-                <InfoTooltip content="Expected price range for profit-taking" />
+                <InfoTooltip text="Expected price range for profit-taking" />
               </div>
               <div className="text-lg font-semibold text-gray-900">
                 {formatPrice(recommendation.targetZone[0])} - {formatPrice(recommendation.targetZone[1])}
@@ -265,23 +259,23 @@ export default function TradeRecommendation({ market, className = "" }: TradeRec
         <div className="p-4 bg-blue-50 rounded-lg">
           <div className="flex items-center gap-2 mb-3">
             <span className="text-sm font-medium text-blue-900">Probability Analysis</span>
-            <InfoTooltip content="AI consensus vs market-implied probability" />
+            <InfoTooltip text="AI consensus vs market-implied probability" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <div className="text-xs text-blue-700 mb-1">AI Consensus</div>
               <PercentageGauge 
-                percentage={recommendation.metadata.consensusProbability * 100}
-                color="blue"
-                size="sm"
+                value={recommendation.metadata.consensusProbability * 100}
+                size={60}
+                label="chance"
               />
             </div>
             <div>
               <div className="text-xs text-blue-700 mb-1">Market Implied</div>
               <PercentageGauge 
-                percentage={recommendation.metadata.marketProbability * 100}
-                color="gray"
-                size="sm"
+                value={recommendation.metadata.marketProbability * 100}
+                size={60}
+                label="chance"
               />
             </div>
           </div>
@@ -296,7 +290,7 @@ export default function TradeRecommendation({ market, className = "" }: TradeRec
             {showDetails ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             <span>Detailed Analysis</span>
             {recommendation.metadata.agentCount && (
-              <Badge variant="secondary" className="text-xs ml-auto">
+              <Badge variant="default" className="text-xs ml-auto">
                 {recommendation.metadata.agentCount} agents
               </Badge>
             )}

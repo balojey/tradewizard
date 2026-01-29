@@ -1,12 +1,12 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import type { Tables } from "@/lib/database.types";
+import type { Database } from "@/lib/database.types";
 
 // Type definitions based on the database schema
-export type Market = Tables<"markets">;
-export type Recommendation = Tables<"recommendations">;
-export type AgentSignal = Tables<"agent_signals">;
-export type AnalysisHistory = Tables<"analysis_history">;
+export type Market = Database['public']['Tables']['markets']['Row'];
+export type Recommendation = Database['public']['Tables']['recommendations']['Row'];
+export type AgentSignal = Database['public']['Tables']['agent_signals']['Row'];
+export type AnalysisHistory = Database['public']['Tables']['analysis_history']['Row'];
 
 export interface RecommendationWithMarket extends Recommendation {
   market: Market;
@@ -138,8 +138,22 @@ export function useTradeRecommendation(conditionId: string | null) {
         throw new Error(`Failed to fetch recommendation: ${recError.message}`);
       }
 
+      if (!recommendation) {
+        console.log(`[useTradeRecommendation] No recommendation data returned for market: ${market.id}`);
+        return null;
+      }
+
       console.log(`[useTradeRecommendation] Found recommendation:`, recommendation.direction);
-      return transformRecommendation(recommendation as RecommendationWithMarket);
+      
+      // Ensure the recommendation has the expected structure
+      const recommendationWithMarket: RecommendationWithMarket = {
+        ...recommendation,
+        market: Array.isArray(recommendation.market) ? recommendation.market[0] : recommendation.market,
+        agent_signals: Array.isArray(recommendation.agent_signals) ? recommendation.agent_signals : [],
+        analysis_history: Array.isArray(recommendation.analysis_history) ? recommendation.analysis_history : [],
+      };
+      
+      return transformRecommendation(recommendationWithMarket);
     },
     enabled: !!conditionId,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -171,7 +185,19 @@ export function useRecentRecommendations(limit: number = 10) {
         throw new Error(`Failed to fetch recommendations: ${error.message}`);
       }
 
-      return recommendations.map(rec => transformRecommendation(rec as RecommendationWithMarket));
+      if (!recommendations) {
+        return [];
+      }
+
+      return recommendations.map(rec => {
+        const recommendationWithMarket: RecommendationWithMarket = {
+          ...rec,
+          market: Array.isArray(rec.market) ? rec.market[0] : rec.market,
+          agent_signals: Array.isArray(rec.agent_signals) ? rec.agent_signals : [],
+          analysis_history: Array.isArray(rec.analysis_history) ? rec.analysis_history : [],
+        };
+        return transformRecommendation(recommendationWithMarket);
+      });
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
@@ -202,7 +228,19 @@ export function useRecommendationsByStatus(status: 'active' | 'inactive' | 'reso
         throw new Error(`Failed to fetch recommendations: ${error.message}`);
       }
 
-      return recommendations.map(rec => transformRecommendation(rec as RecommendationWithMarket));
+      if (!recommendations) {
+        return [];
+      }
+
+      return recommendations.map(rec => {
+        const recommendationWithMarket: RecommendationWithMarket = {
+          ...rec,
+          market: Array.isArray(rec.market) ? rec.market[0] : rec.market,
+          agent_signals: Array.isArray(rec.agent_signals) ? rec.agent_signals : [],
+          analysis_history: Array.isArray(rec.analysis_history) ? rec.analysis_history : [],
+        };
+        return transformRecommendation(recommendationWithMarket);
+      });
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 15 * 60 * 1000, // 15 minutes

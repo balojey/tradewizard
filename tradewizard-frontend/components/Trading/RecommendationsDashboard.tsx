@@ -1,11 +1,11 @@
 "use client";
 
 import { useRecentRecommendations, useRecommendationsByStatus } from "@/hooks/useTradeRecommendations";
-import { Card } from "@/components/shared/Card";
-import { LoadingState } from "@/components/shared/LoadingState";
-import { ErrorState } from "@/components/shared/ErrorState";
-import { Badge } from "@/components/shared/Badge";
-import { StatDisplay } from "@/components/shared/StatDisplay";
+import Card from "@/components/shared/Card";
+import LoadingState from "@/components/shared/LoadingState";
+import ErrorState from "@/components/shared/ErrorState";
+import Badge from "@/components/shared/Badge";
+import StatDisplay from "@/components/shared/StatDisplay";
 import { 
   Brain, 
   TrendingUp, 
@@ -95,7 +95,7 @@ export default function RecommendationsDashboard({ className = "" }: Recommendat
       <div className="flex items-center gap-3">
         <Brain className="w-6 h-6 text-blue-600" />
         <h2 className="text-xl font-bold text-gray-900">AI Recommendations Dashboard</h2>
-        <Badge variant="secondary" className="text-xs">
+        <Badge variant="default" className="text-xs">
           <Database className="w-3 h-3 mr-1" />
           Live from Database
         </Badge>
@@ -106,27 +106,24 @@ export default function RecommendationsDashboard({ className = "" }: Recommendat
         <StatDisplay
           label="Total Active"
           value={totalRecommendations.toString()}
-          icon={<Activity className="w-4 h-4" />}
-          color="blue"
         />
         <StatDisplay
           label="Buy Signals"
           value={buyRecommendations.toString()}
-          icon={<TrendingUp className="w-4 h-4" />}
-          color="green"
+          highlight={buyRecommendations > 0}
+          highlightColor="green"
         />
         <StatDisplay
           label="Sell Signals"
           value={sellRecommendations.toString()}
-          icon={<TrendingDown className="w-4 h-4" />}
-          color="red"
+          highlight={sellRecommendations > 0}
+          highlightColor="red"
         />
         <StatDisplay
           label="Avg Expected Value"
           value={`$${avgExpectedValue.toFixed(2)}`}
-          subtext="per $100"
-          icon={<DollarSign className="w-4 h-4" />}
-          color={avgExpectedValue > 0 ? 'green' : 'red'}
+          highlight={Math.abs(avgExpectedValue) > 0}
+          highlightColor={avgExpectedValue > 0 ? 'green' : 'red'}
         />
       </div>
 

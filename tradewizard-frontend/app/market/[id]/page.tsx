@@ -10,19 +10,30 @@ import type { PolymarketMarket } from "@/hooks/useMarkets";
 import { useTrading } from "@/providers/TradingProvider";
 import { formatVolume, formatCurrency } from "@/utils/formatting";
 
-import { Card } from "@/components/shared/Card";
-import { LoadingState } from "@/components/shared/LoadingState";
-import { ErrorState } from "@/components/shared/ErrorState";
-import { Badge } from "@/components/shared/Badge";
-import { PercentageGauge } from "@/components/shared/PercentageGauge";
-import { StatDisplay } from "@/components/shared/StatDisplay";
+import Card from "@/components/shared/Card";
+import LoadingState from "@/components/shared/LoadingState";
+import ErrorState from "@/components/shared/ErrorState";
+import Badge from "@/components/shared/Badge";
+import PercentageGauge from "@/components/shared/PercentageGauge";
+import StatDisplay from "@/components/shared/StatDisplay";
 import TradeRecommendation from "@/components/Trading/TradeRecommendation";
 import OutcomeButtons from "@/components/Trading/Markets/OutcomeButtons";
 
 export default function MarketDetailPage() {
   const params = useParams();
   const marketId = params.id as string;
-  const { onOutcomeClick } = useTrading();
+
+  // Placeholder function for outcome clicks
+  const handleOutcomeClick = (
+    marketTitle: string,
+    outcome: string,
+    price: number,
+    tokenId: string,
+    negRisk: boolean
+  ) => {
+    console.log("Outcome clicked:", { marketTitle, outcome, price, tokenId, negRisk });
+    // TODO: Implement actual trading logic
+  };
 
   // Fetch market details
   const { data: market, isLoading, error } = useQuery({
@@ -61,7 +72,6 @@ export default function MarketDetailPage() {
         <div className="max-w-6xl mx-auto">
           <ErrorState 
             error={error instanceof Error ? error.message : "Failed to load market"}
-            onRetry={() => window.location.reload()}
           />
         </div>
       </div>
@@ -125,7 +135,7 @@ export default function MarketDetailPage() {
 
               <div className="flex items-center gap-4 flex-wrap">
                 <Badge 
-                  variant={isActive ? "success" : "secondary"}
+                  variant={isActive ? "buy" : "default"}
                   className="text-sm"
                 >
                   {isActive ? "Active" : market.closed ? "Closed" : "Inactive"}
@@ -150,9 +160,8 @@ export default function MarketDetailPage() {
             {/* Probability Gauge */}
             <div className="flex-shrink-0">
               <PercentageGauge 
-                percentage={yesChance} 
-                size="lg"
-                showLabel={true}
+                value={yesChance} 
+                size={80}
                 label="YES Probability"
               />
             </div>
@@ -172,21 +181,15 @@ export default function MarketDetailPage() {
                 <StatDisplay
                   label="24h Volume"
                   value={formatVolume(volumeUSD)}
-                  icon={<DollarSign className="w-4 h-4" />}
-                  color="blue"
                 />
                 <StatDisplay
                   label="Liquidity"
                   value={formatCurrency(liquidityUSD)}
-                  icon={<TrendingUp className="w-4 h-4" />}
-                  color="green"
                 />
                 {market.volume && (
                   <StatDisplay
                     label="Total Volume"
                     value={formatVolume(parseFloat(String(market.volume)))}
-                    icon={<DollarSign className="w-4 h-4" />}
-                    color="gray"
                   />
                 )}
               </div>
@@ -203,7 +206,7 @@ export default function MarketDetailPage() {
                 negRisk={market.negRisk || false}
                 marketQuestion={market.question}
                 disabled={!isActive}
-                onOutcomeClick={onOutcomeClick}
+                onOutcomeClick={handleOutcomeClick}
               />
             </Card>
 

@@ -122,7 +122,7 @@ export default function MarketCard({
         <div className="mt-auto pt-2 space-y-3">
           {/* AI Recommendation Display */}
           <RecommendationBadge 
-            conditionId={market.conditionId}
+            conditionId={market.conditionId || null}
             size="md"
             showDetails={true}
           />
