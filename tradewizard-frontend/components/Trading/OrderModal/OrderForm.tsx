@@ -1,4 +1,6 @@
 import { isValidDecimalInput } from "@/utils/validation";
+import { cn } from "@/utils/classNames";
+import { DollarSign, Hash } from "lucide-react";
 
 interface OrderFormProps {
   size: string;
@@ -18,6 +20,8 @@ const isValidPriceInput = (value: string, maxDecimals: number): boolean => {
   const regex = new RegExp(`^(0?\\.[0-9]{0,${maxDecimals}}|0)$`);
   return regex.test(value);
 };
+
+const QUICK_AMOUNTS = [10, 50, 100, 500];
 
 export default function OrderForm({
   size,
@@ -44,59 +48,103 @@ export default function OrderForm({
   };
 
   const priceInCents = Math.round(currentPrice * 100);
-  // Ensure tickSize is a valid number before calling toFixed
   const safeTickSize =
     typeof tickSize === "number" && !isNaN(tickSize) ? tickSize : 0.01;
   const tickSizeDisplay = safeTickSize.toFixed(decimalPlaces);
   const maxPriceDisplay = (1 - safeTickSize).toFixed(decimalPlaces);
 
+  // Helper to convert explicit dollar amount to share size based on current price
+  const handleQuickAmount = (amount: number) => {
+    // If buying $10 worth at current price $0.50, we get 20 shares.
+    // Cost = price * shares => shares = cost / price
+    if (currentPrice > 0) {
+      const estimatedShares = Math.floor(amount / currentPrice);
+      handleSizeChange(estimatedShares.toString());
+    }
+  };
+
   return (
     <>
-      {/* Current Price */}
-      <div className="mb-4 bg-white/5 rounded-lg p-3">
-        <p className="text-xs text-gray-400 mb-1">Current Market Price</p>
-        <p className="text-lg font-bold">{priceInCents}¢</p>
+      {/* Current Price Banner */}
+      <div className="mb-6 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-xl p-4 flex items-center justify-between">
+        <div>
+          <p className="text-xs text-indigo-300 font-medium mb-0.5 uppercase tracking-wide">Market Price</p>
+          <p className="text-2xl font-bold text-white tracking-tight">{priceInCents}¢</p>
+        </div>
+        <div className="text-right">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20">
+            Live
+          </span>
+        </div>
       </div>
 
       {/* Size Input */}
-      <div className="mb-4">
-        <label className="block text-sm text-gray-400 mb-2">
-          Size (shares)
+      <div className="mb-6 space-y-3">
+        <label className="text-sm font-medium text-gray-300 flex justify-between">
+          <span>Shares to Buy</span>
+          <span className="text-xs text-gray-500">How many outcomes?</span>
         </label>
-        <input
-          type="text"
-          value={size}
-          onChange={(e) => handleSizeChange(e.target.value)}
-          placeholder="0"
-          className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-blue-500 text-white"
-          disabled={isSubmitting}
-        />
+
+        <div className="relative group">
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+            <Hash className="h-5 w-5 text-gray-500 group-focus-within:text-indigo-400 transition-colors" />
+          </div>
+          <input
+            type="text"
+            value={size}
+            onChange={(e) => handleSizeChange(e.target.value)}
+            placeholder="0"
+            className="block w-full pl-11 pr-4 py-4 bg-[#141416] border border-white/10 rounded-xl focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 text-white placeholder-gray-600 transition-all font-mono text-lg"
+            disabled={isSubmitting}
+          />
+        </div>
+
+        {/* Quick Amount Buttons */}
+        <div className="flex gap-2">
+          {QUICK_AMOUNTS.map((amt) => (
+            <button
+              key={amt}
+              onClick={() => handleQuickAmount(amt)}
+              disabled={currentPrice <= 0 || isSubmitting}
+              className="flex-1 py-1.5 text-xs font-medium bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg text-gray-400 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              ${amt}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Limit Price Input */}
       {orderType === "limit" && (
-        <div className="mb-4">
-          <label className="block text-sm text-gray-400 mb-2">
-            Limit Price ($)
+        <div className="mb-6 space-y-3 animate-slide-down">
+          <label className="text-sm font-medium text-gray-300 flex justify-between">
+            <span>Limit Price</span>
             {isLoadingTickSize && (
-              <span className="ml-2 text-xs text-blue-400">
-                Loading tick size...
+              <span className="text-xs text-indigo-400 animate-pulse">
+                Syncing...
               </span>
             )}
           </label>
-          <input
-            type="text"
-            inputMode="decimal"
-            value={limitPrice}
-            onChange={(e) => handleLimitPriceChange(e.target.value)}
-            placeholder={tickSizeDisplay}
-            className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-blue-500 text-white"
-            disabled={isSubmitting || isLoadingTickSize}
-          />
-          <p className="text-xs text-gray-400 mt-1">
-            Tick size: ${tickSizeDisplay} • Range: ${tickSizeDisplay} - $
-            {maxPriceDisplay}
-          </p>
+
+          <div className="relative group">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <DollarSign className="h-5 w-5 text-gray-500 group-focus-within:text-indigo-400 transition-colors" />
+            </div>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={limitPrice}
+              onChange={(e) => handleLimitPriceChange(e.target.value)}
+              placeholder={tickSizeDisplay}
+              className="block w-full pl-11 pr-4 py-4 bg-[#141416] border border-white/10 rounded-xl focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 text-white placeholder-gray-600 transition-all font-mono text-lg"
+              disabled={isSubmitting || isLoadingTickSize}
+            />
+          </div>
+
+          <div className="flex justify-between items-center text-xs text-gray-500 px-1">
+            <span>Step: ${tickSizeDisplay}</span>
+            <span>Max: ${maxPriceDisplay}</span>
+          </div>
         </div>
       )}
     </>

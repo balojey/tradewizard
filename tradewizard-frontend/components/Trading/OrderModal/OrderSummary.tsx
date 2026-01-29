@@ -1,5 +1,6 @@
 import { formatCurrency, formatShares } from "@/utils/formatting";
 import { calculateTotalCost } from "@/utils/order";
+import { Receipt } from "lucide-react";
 
 interface OrderSummaryProps {
   size: number;
@@ -10,20 +11,40 @@ export default function OrderSummary({ size, price }: OrderSummaryProps) {
   if (size <= 0) return null;
 
   const totalCost = calculateTotalCost(size, price);
+  const potentialPayout = size; // Since each share pays out $1 if successful
+  const potentialProfit = potentialPayout - totalCost;
+  const roi = totalCost > 0 ? (potentialProfit / totalCost) * 100 : 0;
 
   return (
-    <div className="mb-4 bg-white/5 rounded-lg p-3">
-      <div className="flex justify-between text-sm mb-1">
-        <span className="text-gray-400">Shares</span>
-        <span className="font-medium">{formatShares(size)}</span>
+    <div className="space-y-3 p-4 bg-white/[0.03] border border-white/5 rounded-xl">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
+        <Receipt className="w-3.5 h-3.5" />
+        Order Summary
       </div>
-      <div className="flex justify-between text-sm mb-1">
-        <span className="text-gray-400">Price</span>
-        <span className="font-medium">{formatCurrency(price, 3)}</span>
-      </div>
-      <div className="flex justify-between font-bold border-t border-white/10 pt-2 mt-2">
-        <span>Total</span>
-        <span>{formatCurrency(totalCost)}</span>
+
+      <div className="space-y-2">
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-400">Entry Price</span>
+          <span className="text-gray-200 font-mono">{formatCurrency(price, 3)}</span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-400">Est. Shares</span>
+          <span className="text-gray-200 font-mono">{formatShares(size)}</span>
+        </div>
+        <div className="h-px bg-white/10 my-2" />
+        <div className="flex justify-between items-end">
+          <span className="text-sm text-gray-300 font-medium">Total Cost</span>
+          <span className="text-xl font-bold text-white tracking-tight">{formatCurrency(totalCost)}</span>
+        </div>
+
+        {/* ROI Projection */}
+        <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between text-xs">
+          <span className="text-emerald-400">Potential Return</span>
+          <div className="text-right">
+            <span className="text-emerald-400 font-bold block">+{roi.toFixed(1)}%</span>
+            <span className="text-emerald-500/60 block">Pay out: {formatCurrency(potentialPayout)}</span>
+          </div>
+        </div>
       </div>
     </div>
   );
