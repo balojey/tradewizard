@@ -340,6 +340,19 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                 {/* Sidebar: Trading Panel */}
                 <div className="lg:col-span-4 space-y-6">
                     <div className="sticky top-6 space-y-6">
+                        {/* Quick Trade Service - Prioritized */}
+                        {recommendation && recommendation.action !== 'NO_TRADE' && (
+                            <QuickTradeService
+                                recommendation={recommendation}
+                                marketTitle={market.question}
+                                currentPrice={yesPrice}
+                                tokenId={tokenIds[yesIndex] || tokenIds[0]}
+                                negRisk={negRisk}
+                                disabled={disabled}
+                                userPosition={findUserPosition(positions, tokenIds[yesIndex] || tokenIds[0])}
+                            />
+                        )}
+
                         <Card className="p-6 border-indigo-500/20 shadow-[0_0_50px_-12px_rgba(79,70,229,0.1)]">
                             <div className="flex items-center justify-between mb-8">
                                 <h3 className="font-bold text-xl text-white">Place Order</h3>
@@ -383,67 +396,9 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                             </div>
                         </Card>
 
-                        {/* Quick AI Summary Card */}
-                        {recommendation && (
-                            <div className="relative overflow-hidden rounded-2xl border border-indigo-500/30 bg-gradient-to-br from-indigo-500/10 via-[#0A0A0A] to-purple-500/10 p-1">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 blur-[50px] -z-10" />
 
-                                <div className="bg-[#0A0A0A]/80 backdrop-blur-xl rounded-xl p-5">
-                                    <div className="flex items-center gap-2.5 mb-4">
-                                        <div className="p-1.5 bg-indigo-500/20 rounded-lg text-indigo-400">
-                                            <Brain className="w-4 h-4" />
-                                        </div>
-                                        <h4 className="font-bold text-white">AI Analysis</h4>
-                                        <span className="ml-auto text-xs font-mono text-indigo-400 px-2 py-0.5 bg-indigo-500/10 rounded border border-indigo-500/20">
-                                            LIVE
-                                        </span>
-                                    </div>
 
-                                    <div className="space-y-3 mb-5">
-                                        <div className="flex justify-between items-baseline p-2 rounded-lg bg-white/5">
-                                            <span className="text-sm text-gray-400">Signal</span>
-                                            <span className="font-bold text-green-400">
-                                                {recommendation.action.replace('_', ' ')}
-                                            </span>
-                                        </div>
-                                        <div className="flex justify-between items-baseline p-2 rounded-lg bg-white/5">
-                                            <span className="text-sm text-gray-400">Exp. Value</span>
-                                            <span className="font-mono text-white">
-                                                ${recommendation.expectedValue.toFixed(2)}
-                                            </span>
-                                        </div>
-                                        <div className="flex justify-between items-baseline p-2 rounded-lg bg-white/5">
-                                            <span className="text-sm text-gray-400">Win Rate</span>
-                                            <span className="font-mono text-white">
-                                                {(recommendation.winProbability * 100).toFixed(1)}%
-                                            </span>
-                                        </div>
-                                    </div>
 
-                                    <button
-                                        onClick={() => setActiveTab('ai-insights')}
-                                        className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-lg shadow-lg shadow-indigo-500/20 transition-all flex items-center justify-center gap-2 group"
-                                    >
-                                        View Full Report
-                                        <ChevronLeft className="w-4 h-4 rotate-180 transition-transform group-hover:translate-x-0.5" />
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Quick Trade Service */}
-                        {recommendation && recommendation.action !== 'NO_TRADE' && (
-                            <QuickTradeService
-                                recommendation={recommendation}
-                                marketTitle={market.question}
-                                currentPrice={yesPrice}
-                                tokenId={tokenIds[yesIndex] || tokenIds[0]}
-                                negRisk={negRisk}
-                                outcomes={outcomes}
-                                disabled={disabled}
-                                userPosition={findUserPosition(positions, tokenIds[yesIndex] || tokenIds[0])}
-                            />
-                        )}
                     </div>
                 </div>
             </div>

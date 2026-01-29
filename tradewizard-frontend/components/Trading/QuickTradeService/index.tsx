@@ -1,364 +1,309 @@
 "use client";
 
 import { useState } from "react";
-import { Zap, Target, TrendingUp, AlertTriangle, Clock, DollarSign } from "lucide-react";
+import { Zap, Target, TrendingUp, AlertTriangle, ArrowRight, Sparkles, ChevronRight, Info } from "lucide-react";
 import { useTrading } from "@/providers/TradingProvider";
 import type { TradeRecommendation } from "@/hooks/useTradeRecommendation";
 import { useQuickTrade } from "@/hooks/useQuickTrade";
 import Card from "@/components/shared/Card";
 import OrderPlacementModal from "@/components/Trading/OrderModal";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface QuickTradeServiceProps {
-  recommendation: TradeRecommendation;
-  marketTitle: string;
-  currentPrice: number;
-  tokenId: string;
-  negRisk: boolean;
-  outcomes: string[];
-  disabled?: boolean;
-  userPosition?: {
-    size: number;
-    avgPrice: number;
-  } | null;
+    recommendation: TradeRecommendation;
+    marketTitle: string;
+    currentPrice: number;
+    tokenId: string;
+    negRisk: boolean;
+    disabled?: boolean;
+    userPosition?: {
+        size: number;
+        avgPrice: number;
+    } | null;
 }
 
 export default function QuickTradeService({
-  recommendation,
-  marketTitle,
-  currentPrice,
-  tokenId,
-  negRisk,
-  outcomes,
-  disabled = false,
-  userPosition = null
+    recommendation,
+    marketTitle,
+    currentPrice,
+    tokenId,
+    negRisk,
+    disabled = false,
+    userPosition = null
 }: QuickTradeServiceProps) {
-  const { clobClient } = useTrading();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [autoCreateTarget, setAutoCreateTarget] = useState(true); // Default to true for better UX
-  
-  const {
-    analysis,
-    selectedZone,
-    selectZone,
-    clearSelection,
-    getZone,
-    shouldTrade,
-    getOptimalZone
-  } = useQuickTrade({ recommendation, currentPrice });
+    const { clobClient } = useTrading();
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [autoCreateTarget, setAutoCreateTarget] = useState(true);
 
-  // Determine the outcome based on recommendation action
-  const recommendedOutcome = recommendation.action === 'LONG_YES' ? 'Yes' : 
-                           recommendation.action === 'LONG_NO' ? 'No' : null;
+    const {
+        analysis,
+        selectedZone,
+        selectZone,
+        clearSelection,
+        getZone,
+        shouldTrade
+    } = useQuickTrade({ recommendation, currentPrice });
 
-  // Check if user has position in the recommended outcome token
-  const hasPosition = userPosition && userPosition.size > 0;
+    const recommendedOutcome = recommendation.action === 'LONG_YES' ? 'Yes' :
+        recommendation.action === 'LONG_NO' ? 'No' : null;
 
-  const handleQuickTrade = (zoneType: 'entry' | 'target' | 'current') => {
-    if (!recommendedOutcome || !shouldTrade) return;
-    
-    selectZone(zoneType);
-    setIsModalOpen(true);
-  };
+    const hasPosition = userPosition && userPosition.size > 0;
 
-  // Determine order side based on zone type
-  const getOrderSide = (zoneType: 'entry' | 'target' | 'current'): 'BUY' | 'SELL' => {
-    if (zoneType === 'target') return 'SELL'; // Target zone is for taking profits
-    return 'BUY'; // Entry and current are for entering positions
-  };
+    const handleQuickTrade = (zoneType: 'entry' | 'target' | 'current') => {
+        if (!recommendedOutcome || !shouldTrade) return;
+        selectZone(zoneType);
+        setIsModalOpen(true);
+    };
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    clearSelection();
-    setAutoCreateTarget(true); // Reset to default
-  };
+    const getOrderSide = (zoneType: 'entry' | 'target' | 'current'): 'BUY' | 'SELL' => {
+        return zoneType === 'target' ? 'SELL' : 'BUY';
+    };
 
-  if (!shouldTrade) {
-    return (
-      <Card className="p-6 border-yellow-500/20 bg-yellow-500/5">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 bg-yellow-500/20 rounded-lg text-yellow-400">
-            <AlertTriangle className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="font-bold text-white">No Trade Recommended</h3>
-            <p className="text-sm text-gray-400">AI analysis suggests waiting for better opportunities</p>
-          </div>
-        </div>
-        <p className="text-sm text-gray-300 leading-relaxed">
-          {recommendation.explanation.summary}
-        </p>
-      </Card>
-    );
-  }
+    const handleCloseModal = () => {
+        setIsModalOpen(false);
+        clearSelection();
+        setAutoCreateTarget(true);
+    };
 
-  const entryZone = getZone('entry')!;
-  const currentZone = getZone('current')!;
-  const targetZone = getZone('target')!;
-
-  return (
-    <div className="space-y-4">
-      {/* Quick Trade Header */}
-      <Card className="p-6 border-indigo-500/20 bg-gradient-to-br from-indigo-500/10 via-transparent to-purple-500/5">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 bg-indigo-500/20 rounded-lg text-indigo-400">
-            <Zap className="w-5 h-5" />
-          </div>
-          <div className="flex-1">
-            <h3 className="font-bold text-white">Quick Trade Service</h3>
-            <p className="text-sm text-gray-400">Execute AI recommendations with optimal entry & target zones</p>
-          </div>
-          <div className="text-right">
-            <div className="text-sm text-gray-400">Potential Return</div>
-            <div className={`font-bold ${analysis.potentialReturn > 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {analysis.potentialReturn > 0 ? '+' : ''}{analysis.potentialReturn.toFixed(1)}%
-            </div>
-          </div>
-        </div>
-
-        {/* Auto-Target Toggle */}
-        <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5 mb-4">
-          <div className="flex items-center gap-3">
-            <Target className="w-4 h-4 text-purple-400" />
-            <div>
-              <div className="text-sm font-semibold text-white">Auto-create sell targets</div>
-              <div className="text-xs text-gray-400">
-                Automatically place sell orders at {(targetZone.price * 100).toFixed(1)}% after market buy orders
-              </div>
-            </div>
-          </div>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              checked={autoCreateTarget}
-              onChange={(e) => setAutoCreateTarget(e.target.checked)}
-              className="sr-only peer"
-            />
-            <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-          </label>
-        </div>
-
-        {/* Recommendation Summary */}
-        <div className="flex items-center gap-4 p-4 bg-white/5 rounded-xl border border-white/5">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-green-400" />
-            <span className="font-semibold text-white">
-              {analysis.recommendation} {recommendedOutcome}
-            </span>
-          </div>
-          <div className="text-sm text-gray-400">•</div>
-          <div className="text-sm text-gray-300">
-            Win Rate: <span className="font-mono text-white">{(recommendation.winProbability * 100).toFixed(1)}%</span>
-          </div>
-          <div className="text-sm text-gray-400">•</div>
-          <div className="text-sm text-gray-300">
-            Edge: <span className="font-mono text-green-400">+{(recommendation.metadata.edge * 100).toFixed(1)}%</span>
-          </div>
-        </div>
-      </Card>
-
-      {/* Trading Zones */}
-      <div className={`grid grid-cols-1 gap-4 ${hasPosition ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
-        {/* Entry Zone */}
-        <Card className={`p-5 transition-all hover:scale-[1.02] cursor-pointer ${
-          analysis.isInEntryZone 
-            ? 'border-green-500/30 bg-green-500/10 shadow-[0_0_20px_-8px_rgba(34,197,94,0.3)]' 
-            : 'border-white/10 hover:border-green-500/20 hover:bg-green-500/5'
-        }`}>
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Target className="w-4 h-4 text-green-400" />
-              <span className="font-semibold text-white">Entry Zone</span>
-            </div>
-            {analysis.isInEntryZone && (
-              <div className="px-2 py-1 bg-green-500/20 text-green-400 text-xs font-semibold rounded-full border border-green-500/30">
-                ACTIVE
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-2 mb-4">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-400">Range</span>
-              <span className="font-mono text-white">
-                {(recommendation.entryZone[0] * 100).toFixed(1)}% - {(recommendation.entryZone[1] * 100).toFixed(1)}%
-              </span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-400">Optimal</span>
-              <span className="font-mono text-green-400">
-                {(entryZone.price * 100).toFixed(1)}%
-              </span>
-            </div>
-            {autoCreateTarget && (
-              <div className="text-xs text-purple-400 bg-purple-500/10 p-2 rounded border border-purple-500/20">
-                🎯 Auto-target at {(targetZone.price * 100).toFixed(1)}% (market orders only)
-              </div>
-            )}
-          </div>
-
-          <button
-            onClick={() => handleQuickTrade('entry')}
-            disabled={disabled || !clobClient}
-            className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-all ${
-              analysis.isInEntryZone
-                ? 'bg-green-600 hover:bg-green-500 text-white shadow-lg shadow-green-500/20'
-                : 'bg-green-600/20 hover:bg-green-600/30 text-green-400 border border-green-500/20'
-            } disabled:opacity-50 disabled:cursor-not-allowed`}
-          >
-            {analysis.isInEntryZone ? 'Trade Now' : 'Set Entry Order'}
-          </button>
-        </Card>
-
-        {/* Current Price */}
-        <Card className="p-5 border-blue-500/20 bg-blue-500/5">
-          <div className="flex items-center gap-2 mb-3">
-            <Clock className="w-4 h-4 text-blue-400" />
-            <span className="font-semibold text-white">Current Price</span>
-          </div>
-
-          <div className="space-y-2 mb-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-white mb-1">
-                {(currentPrice * 100).toFixed(1)}%
-              </div>
-              <div className="text-xs text-gray-400">
-                {currentPrice < recommendation.entryZone[0] && 'Below Entry Zone'}
-                {analysis.isInEntryZone && 'In Entry Zone'}
-                {currentPrice > recommendation.entryZone[1] && 'Above Entry Zone'}
-              </div>
-            </div>
-            {autoCreateTarget && (
-              <div className="text-xs text-purple-400 bg-purple-500/10 p-2 rounded border border-purple-500/20">
-                🎯 Auto-target at {(targetZone.price * 100).toFixed(1)}% (market orders only)
-              </div>
-            )}
-          </div>
-
-          <button
-            onClick={() => handleQuickTrade('current')}
-            disabled={disabled || !clobClient}
-            className="w-full py-2.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/20 rounded-lg text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Trade at Market
-          </button>
-        </Card>
-
-        {/* Target Zone - Only show if user has position */}
-        {hasPosition && (
-          <Card className="p-5 border-purple-500/20 bg-purple-500/5">
-            <div className="flex items-center gap-2 mb-3">
-              <DollarSign className="w-4 h-4 text-purple-400" />
-              <span className="font-semibold text-white">Target Zone</span>
-            </div>
-
-            <div className="space-y-2 mb-4">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Range</span>
-                <span className="font-mono text-white">
-                  {(recommendation.targetZone[0] * 100).toFixed(1)}% - {(recommendation.targetZone[1] * 100).toFixed(1)}%
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Target</span>
-                <span className="font-mono text-purple-400">
-                  {(targetZone.price * 100).toFixed(1)}%
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Your Position</span>
-                <span className="font-mono text-green-400">
-                  {userPosition?.size.toFixed(2)} shares
-                </span>
-              </div>
-              <div className="text-xs text-gray-500 bg-white/5 p-2 rounded">
-                💡 Sell order - you own {userPosition?.size.toFixed(2)} shares
-              </div>
-            </div>
-
-            <button
-              onClick={() => handleQuickTrade('target')}
-              disabled={disabled || !clobClient}
-              className="w-full py-2.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/20 rounded-lg text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Set Sell Target
-            </button>
-          </Card>
-        )}
-
-        {/* No Position Message - Show when user has no position */}
-        {!hasPosition && (
-          <Card className="p-5 border-gray-500/20 bg-gray-500/5 md:col-span-2">
-            <div className="flex items-center gap-3 mb-3">
-              <DollarSign className="w-4 h-4 text-gray-400" />
-              <span className="font-semibold text-white">Target Zone</span>
-              <span className="text-xs text-gray-500 bg-gray-500/20 px-2 py-1 rounded-full">
-                No Position
-              </span>
-            </div>
-
-            <div className="space-y-2 mb-4">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Target Range</span>
-                <span className="font-mono text-gray-500">
-                  {(recommendation.targetZone[0] * 100).toFixed(1)}% - {(recommendation.targetZone[1] * 100).toFixed(1)}%
-                </span>
-              </div>
-              <div className="text-sm text-gray-400 bg-white/5 p-3 rounded-lg border border-white/5">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-yellow-400">ℹ️</span>
-                  <span className="font-medium">Buy shares first to unlock sell targets</span>
+    if (!shouldTrade) {
+        return (
+            <Card className="relative overflow-hidden group p-5 border-white/5 bg-white/5 backdrop-blur-sm">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-white/5 rounded-full text-gray-500 group-hover:bg-white/10 transition-colors">
+                        <Zap className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <h3 className="text-sm font-semibold text-gray-300">No Active Signal</h3>
+                        <p className="text-xs text-gray-500">AI is monitoring this market...</p>
+                    </div>
                 </div>
-                <p className="text-xs text-gray-500">
-                  Use the Entry Zone or Current Price to buy {recommendedOutcome} shares, then you can set sell targets here.
-                </p>
-              </div>
-            </div>
+            </Card>
+        );
+    }
 
-            <button
-              disabled={true}
-              className="w-full py-2.5 bg-gray-600/20 text-gray-500 border border-gray-500/20 rounded-lg text-sm font-semibold cursor-not-allowed opacity-50"
-            >
-              No Position to Sell
-            </button>
-          </Card>
-        )}
-      </div>
+    const entryZone = getZone('entry')!;
+    const targetZone = getZone('target')!;
+    const zoneColor = analysis.isInEntryZone ? "text-green-400" : "text-blue-400";
+    const limitColor = analysis.isInEntryZone ? "bg-green-500" : "bg-blue-500";
 
-      {/* Risk Warning */}
-      {analysis.riskLevel === 'high' && (
-        <Card className="p-4 border-yellow-500/20 bg-yellow-500/5">
-          <div className="flex items-center gap-2 text-yellow-400">
-            <AlertTriangle className="w-4 h-4" />
-            <span className="text-sm font-semibold">High Liquidity Risk</span>
-          </div>
-          <p className="text-xs text-gray-400 mt-1">
-            This market has limited liquidity. Large orders may experience significant slippage.
-          </p>
-        </Card>
-      )}
+    // Visualizing the price range
+    const rangeMin = Math.min(entryZone.price, currentPrice) * 0.9;
+    const rangeMax = Math.max(targetZone.price, currentPrice) * 1.1;
+    const getPercentPos = (val: number) => ((val - rangeMin) / (rangeMax - rangeMin)) * 100;
 
-      {/* Order Modal */}
-      {selectedZone && recommendedOutcome && (
-        <OrderPlacementModal
-          isOpen={isModalOpen}
-          onClose={handleCloseModal}
-          marketTitle={marketTitle}
-          outcome={recommendedOutcome}
-          currentPrice={getZone(selectedZone)?.price || currentPrice}
-          tokenId={tokenId}
-          negRisk={negRisk}
-          clobClient={clobClient}
-          orderSide={getOrderSide(selectedZone)}
-          userPosition={userPosition}
-          quickTradeMode={{
-            zone: selectedZone,
-            recommendedPrice: getZone(selectedZone)?.price || currentPrice,
-            entryZone: recommendation.entryZone,
-            targetZone: recommendation.targetZone,
-            autoCreateTarget: selectedZone !== 'target' ? autoCreateTarget : false,
-          }}
-        />
-      )}
-    </div>
-  );
+    return (
+        <div className="relative group">
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-2xl opacity-30 group-hover:opacity-60 blur-md transition-opacity duration-500" />
+
+            <Card className="relative p-0 overflow-hidden border-white/10 bg-[#0A0A0A] backdrop-blur-xl">
+                {/* Header Section */}
+                <div className="p-5 border-b border-white/5 bg-gradient-to-b from-white/5 to-transparent">
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <div className="flex items-center gap-2 mb-1">
+                                <Sparkles className="w-4 h-4 text-indigo-400" />
+                                <h3 className="font-bold text-white tracking-wide">Smart Execution</h3>
+                            </div>
+                            <p className="text-xs text-gray-400">AI-optimized entry & exit zones</p>
+                        </div>
+                        <div className={`px-2.5 py-1 rounded-lg border text-xs font-bold tracking-wider ${analysis.potentialReturn > 0
+                            ? 'bg-green-500/10 border-green-500/20 text-green-400'
+                            : 'bg-gray-500/10 border-gray-500/20 text-gray-400'
+                            }`}>
+                            +{analysis.potentialReturn.toFixed(1)}% Pot.
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 mt-4">
+                        <div className="p-2.5 bg-white/5 rounded-lg border border-white/5 flex items-center justify-between">
+                            <span className="text-xs text-gray-400">Signal</span>
+                            <span className={`text-sm font-bold ${recommendedOutcome === 'Yes' ? 'text-green-400' : 'text-red-400'}`}>
+                                Buy {recommendedOutcome}
+                            </span>
+                        </div>
+                        <div className="p-2.5 bg-white/5 rounded-lg border border-white/5 flex items-center justify-between">
+                            <span className="text-xs text-gray-400">Win Rate</span>
+                            <span className="text-sm font-bold text-white">{(recommendation.winProbability * 100).toFixed(0)}%</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Trading Visualizer */}
+                <div className="p-6 space-y-7">
+
+                    {/* Visual Range Slider */}
+                    <div className="space-y-4">
+                        <div className="flex justify-between text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <span>Entry Zone</span>
+                            <span>Profit Target</span>
+                        </div>
+
+                        <div className="relative h-2 bg-gray-800 rounded-full w-full">
+                            {/* Entry Range Bar */}
+                            <div
+                                className="absolute h-full bg-green-500/30 rounded-full"
+                                style={{
+                                    left: `${getPercentPos(recommendation.entryZone[0])}%`,
+                                    width: `${getPercentPos(recommendation.entryZone[1]) - getPercentPos(recommendation.entryZone[0])}%`
+                                }}
+                            />
+
+                            {/* Current Price Indicator */}
+                            <div
+                                className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full border-2 border-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)] z-10 transition-all duration-1000"
+                                style={{ left: `${getPercentPos(currentPrice)}%` }}
+                            >
+                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 flex flex-col items-center">
+                                    <span className="px-2 py-0.5 rounded bg-indigo-500 text-white text-[10px] font-bold whitespace-nowrap shadow-lg">
+                                        Curr: {(currentPrice * 100).toFixed(0)}¢
+                                    </span>
+                                    <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[4px] border-t-indigo-500" />
+                                </div>
+                            </div>
+
+                            {/* Targets Markers */}
+                            <div
+                                className="absolute h-3 w-0.5 top-1/2 -translate-y-1/2 bg-green-500 rounded-full opacity-60"
+                                style={{ left: `${getPercentPos(entryZone.price)}%` }}
+                            />
+                            <div
+                                className="absolute h-3 w-0.5 top-1/2 -translate-y-1/2 bg-purple-500 rounded-full opacity-60"
+                                style={{ left: `${getPercentPos(targetZone.price)}%` }}
+                            />
+                        </div>
+
+                        <div className="flex justify-between text-xs font-mono">
+                            <span className="text-green-500">{(entryZone.price * 100).toFixed(1)}¢</span>
+                            <span className="text-purple-500">{(targetZone.price * 100).toFixed(1)}¢</span>
+                        </div>
+                    </div>
+
+                    {/* Primary Action Button */}
+                    {!hasPosition ? (
+                        <div className="space-y-4">
+                            <button
+                                onClick={() => handleQuickTrade('current')}
+                                disabled={disabled || !clobClient}
+                                className={`w-full group relative overflow-hidden rounded-xl p-4 transition-all duration-300 ${analysis.isInEntryZone
+                                    ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:scale-[1.02] shadow-lg shadow-green-500/20'
+                                    : 'bg-gradient-to-r from-indigo-600 to-blue-600 hover:scale-[1.02] shadow-lg shadow-indigo-500/20'
+                                    } cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
+                            >
+                                <div className="relative z-10 flex items-center justify-between">
+                                    <div className="text-left">
+                                        <div className="text-xs font-medium text-white/80 uppercase tracking-widest mb-1">
+                                            {analysis.isInEntryZone ? 'Perfect Entry Range' : 'Market Entry'}
+                                        </div>
+                                        <div className="text-2xl font-bold text-white">
+                                            Buy {recommendedOutcome}
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-sm font-medium text-white/90">@ {(currentPrice * 100).toFixed(1)}¢</div>
+                                    </div>
+                                </div>
+
+                                {/* Animated sheen effect */}
+                                <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-1000" />
+                            </button>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <button
+                                    onClick={() => handleQuickTrade('entry')}
+                                    className="px-3 py-2.5 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 text-xs text-gray-400 hover:text-white transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                                >
+                                    <Target className="w-3.5 h-3.5" />
+                                    Set Limit @ {(entryZone.price * 100).toFixed(1)}¢
+                                </button>
+                                <div className="px-3 py-2.5 rounded-lg bg-white/5 border border-white/5 text-xs text-gray-500 flex items-center justify-center gap-2 cursor-help" title="Profit Target">
+                                    <Target className="w-3.5 h-3.5 text-purple-400" />
+                                    Target: {(targetZone.price * 100).toFixed(1)}¢
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl flex items-center justify-between">
+                                <div>
+                                    <div className="text-xs text-purple-300 font-medium uppercase tracking-wider mb-1">Your Position</div>
+                                    <div className="text-xl font-bold text-white">{userPosition.size.toFixed(0)} Shares</div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-xs text-purple-300 font-medium uppercase tracking-wider mb-1">Unrealized P/L</div>
+                                    <div className="text-xl font-bold text-green-400">+0.0%</div>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={() => handleQuickTrade('target')}
+                                disabled={disabled || !clobClient}
+                                className="w-full relative overflow-hidden rounded-xl p-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:scale-[1.02] transition-all shadow-lg shadow-purple-500/20 group cursor-pointer"
+                            >
+                                <div className="relative z-10 flex items-center justify-between">
+                                    <div className="text-left">
+                                        <div className="text-xs font-medium text-white/80 uppercase tracking-widest mb-1">Take Profit</div>
+                                        <div className="text-xl font-bold text-white">
+                                            Set Sell Target
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-sm font-medium text-white/90">@ {(targetZone.price * 100).toFixed(1)}¢</div>
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Auto Target Toggle - Mini */}
+                    {!hasPosition && (
+                        <div className="flex items-center gap-3 pt-3 border-t border-white/5">
+                            <div className="flex items-center h-5">
+                                <input
+                                    id="auto-target"
+                                    type="checkbox"
+                                    checked={autoCreateTarget}
+                                    onChange={(e) => setAutoCreateTarget(e.target.checked)}
+                                    className="w-4 h-4 text-indigo-500 bg-white/5 border-white/10 rounded focus:ring-indigo-500 focus:ring-offset-gray-900"
+                                />
+                            </div>
+                            <label htmlFor="auto-target" className="text-xs text-gray-400 select-none cursor-pointer">
+                                Auto-create <span className="text-purple-400 font-semibold">Exit Plan</span> (Submit sell target after buy)
+                            </label>
+                        </div>
+                    )}
+                </div>
+            </Card>
+
+            {/* Warning if High Risk */}
+            {analysis.riskLevel === 'high' && (
+                <div className="mt-3 flex items-start gap-2 p-3 rounded-lg bg-yellow-500/10 text-yellow-500 text-xs border border-yellow-500/20">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <p>High slippage warning: Limit orders recommended due to low liquidity.</p>
+                </div>
+            )}
+
+            {/* Order Modal */}
+            {selectedZone && recommendedOutcome && (
+                <OrderPlacementModal
+                    isOpen={isModalOpen}
+                    onClose={handleCloseModal}
+                    marketTitle={marketTitle}
+                    outcome={recommendedOutcome}
+                    currentPrice={getZone(selectedZone)?.price || currentPrice}
+                    tokenId={tokenId}
+                    negRisk={negRisk}
+                    clobClient={clobClient}
+                    orderSide={getOrderSide(selectedZone)}
+                    userPosition={userPosition}
+                    quickTradeMode={{
+                        zone: selectedZone,
+                        recommendedPrice: getZone(selectedZone)?.price || currentPrice,
+                        entryZone: recommendation.entryZone,
+                        targetZone: recommendation.targetZone,
+                        autoCreateTarget: selectedZone !== 'target' ? autoCreateTarget : false,
+                    }}
+                />
+            )}
+        </div>
+    );
 }

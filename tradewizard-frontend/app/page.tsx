@@ -4,6 +4,7 @@ import { useTrading } from "@/providers/TradingProvider";
 import Header from "@/components/Header";
 import MarketTabs from "@/components/Trading/MarketTabs";
 import GeoBlockedBanner from "@/components/GeoBlockedBanner";
+import FeaturedQuickTrade from "@/components/Home/FeaturedQuickTrade";
 
 export default function Home() {
   const {
@@ -30,6 +31,9 @@ export default function Home() {
               <p className="text-gray-400 text-sm">Find the hottest opportunities right now.</p>
             </div>
           </div>
+
+          {/* Featured Trade Widget */}
+          <FeaturedQuickTrade />
 
           <MarketTabs />
         </div>

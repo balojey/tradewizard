@@ -14,6 +14,8 @@ import PositionFilters from "@/components/Trading/Positions/PositionFilters";
 import OrderPlacementModal from "@/components/Trading/OrderModal";
 
 import { DUST_THRESHOLD } from "@/constants/validation";
+import { POLLING_INTERVAL, POLLING_DURATION } from "@/constants/query";
+import { createPollingInterval } from "@/utils/polling";
 
 export default function UserPositions() {
   const { clobClient, relayClient, eoaAddress, safeAddress } = useTrading();
