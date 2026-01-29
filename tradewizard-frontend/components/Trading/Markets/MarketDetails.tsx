@@ -18,7 +18,7 @@ import OrderPlacementModal from "@/components/Trading/OrderModal";
 import AIInsightsPanel from "@/components/Trading/Markets/AIInsightsPanel";
 import MarketSentimentAnalysis from "@/components/Trading/Markets/MarketSentimentAnalysis";
 import PriceHistoryChart from "@/components/Trading/Markets/PriceHistoryChart";
-import AgentDebatePanel from "@/components/Trading/Markets/AgentDebatePanel";
+import RealAgentDebatePanel from "@/components/Trading/Markets/RealAgentDebatePanel";
 
 interface MarketDetailsProps {
     market: PolymarketMarket;
@@ -38,7 +38,7 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
         negRisk: boolean;
     } | null>(null);
 
-    const { data: recommendation } = useTradeRecommendation(market.conditionId, {
+    const { data: recommendation } = useTradeRecommendation(market.conditionId || null, {
         enabled: !!market.conditionId,
     });
 
@@ -85,9 +85,10 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
     const tabs = [
         { id: 'overview' as TabType, label: 'Overview', icon: BarChart3 },
         { id: 'ai-insights' as TabType, label: 'AI Insights', icon: Brain },
-        { id: 'sentiment' as TabType, label: 'Sentiment', icon: Activity },
         { id: 'debate' as TabType, label: 'Agent Debate', icon: Users },
-        { id: 'chart' as TabType, label: 'Price Chart', icon: TrendingUp },
+        // Disabled until real data sources are available
+        // { id: 'sentiment' as TabType, label: 'Sentiment', icon: Activity },
+        // { id: 'chart' as TabType, label: 'Price Chart', icon: TrendingUp },
     ];
 
     const handleOutcomeClick = (
@@ -140,7 +141,7 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                                 {/* Status Badges */}
                                 <div className="flex flex-wrap items-center gap-2 mb-4">
                                     <RecommendationBadge 
-                                        conditionId={market.conditionId} 
+                                        conditionId={market.conditionId || null} 
                                         size="md"
                                         showDetails={true}
                                     />
@@ -250,30 +251,32 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
 
                             {activeTab === 'ai-insights' && (
                                 <AIInsightsPanel 
-                                    conditionId={market.conditionId}
+                                    conditionId={market.conditionId || null}
                                     marketPrice={yesPrice}
                                     volume24h={volumeUSD}
                                     liquidity={liquidityUSD}
                                 />
                             )}
 
-                            {activeTab === 'sentiment' && (
-                                <MarketSentimentAnalysis 
-                                    conditionId={market.conditionId}
+                            {activeTab === 'debate' && (
+                                <RealAgentDebatePanel 
+                                    conditionId={market.conditionId || null}
                                     marketQuestion={market.question}
                                 />
                             )}
 
-                            {activeTab === 'debate' && (
-                                <AgentDebatePanel 
-                                    conditionId={market.conditionId}
+                            {/* Disabled tabs - uncomment when real data sources are available */}
+                            {/*
+                            {activeTab === 'sentiment' && (
+                                <MarketSentimentAnalysis 
+                                    conditionId={market.conditionId || null}
                                     marketQuestion={market.question}
                                 />
                             )}
 
                             {activeTab === 'chart' && (
                                 <PriceHistoryChart 
-                                    conditionId={market.conditionId}
+                                    conditionId={market.conditionId || null}
                                     currentPrice={yesPrice}
                                     aiRecommendation={recommendation ? {
                                         entryZone: recommendation.entryZone,
@@ -282,6 +285,7 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                                     } : undefined}
                                 />
                             )}
+                            */}
                         </div>
                     </Card>
                 </div>

@@ -115,7 +115,7 @@ export default function MarketCard({
                   </span>
                 )}
                 <AIInsightsBadge 
-                  conditionId={market.conditionId} 
+                  conditionId={market.conditionId || null} 
                   size="sm"
                   showDetails={false}
                 />
