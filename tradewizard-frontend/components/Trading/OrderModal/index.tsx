@@ -95,17 +95,27 @@ export default function OrderPlacementModal({
   useEffect(() => {
     if (isOpen) {
       setSize("");
-      setOrderType("market");
       setLimitPrice("");
       setLocalError(null);
       setShowSuccess(false);
       setCurrentOrderSide(orderSide);
       setAutoCreateTarget(quickTradeMode?.autoCreateTarget ?? true);
       
-      // Pre-fill for quick trade mode
+      // Set default order type based on order side and quick trade mode
       if (quickTradeMode) {
-        setOrderType("limit");
-        setLimitPrice(quickTradeMode.recommendedPrice.toFixed(4));
+        // For quick trade mode: market orders for buy, limit for sell (target)
+        if (orderSide === "BUY") {
+          setOrderType("market");
+          // Still pre-fill limit price for easy switching
+          setLimitPrice(quickTradeMode.recommendedPrice.toFixed(4));
+        } else {
+          // Sell orders (targets) should be limit orders
+          setOrderType("limit");
+          setLimitPrice(quickTradeMode.recommendedPrice.toFixed(4));
+        }
+      } else {
+        // For regular orders: market for buy, market for sell (user can change)
+        setOrderType(orderSide === "BUY" ? "market" : "market");
       }
     }
   }, [isOpen, orderSide, quickTradeMode]);
@@ -391,19 +401,21 @@ export default function OrderPlacementModal({
                   <span className="text-sm font-semibold text-indigo-400">Quick Trade Mode</span>
                 </div>
                 <p className="text-xs text-gray-300 mb-3">
-                  {quickTradeMode.zone === 'entry' && 'Buying at AI-recommended entry zone'}
-                  {quickTradeMode.zone === 'current' && 'Buying at current market price'}
-                  {quickTradeMode.zone === 'target' && 'Setting sell target for profit-taking'}
+                  {quickTradeMode.zone === 'entry' && currentOrderSide === "BUY" && 'Market buy at current price (AI entry zone guidance)'}
+                  {quickTradeMode.zone === 'current' && currentOrderSide === "BUY" && 'Market buy at current market price'}
+                  {quickTradeMode.zone === 'target' && 'Setting limit sell order for profit-taking'}
+                  {quickTradeMode.zone === 'entry' && currentOrderSide === "SELL" && 'Limit sell at AI-recommended entry zone'}
+                  {quickTradeMode.zone === 'current' && currentOrderSide === "SELL" && 'Limit sell at current market price'}
                 </p>
                 
                 {/* Auto-target toggle for buy orders */}
-                {(quickTradeMode.zone === 'entry' || quickTradeMode.zone === 'current') && (
+                {(quickTradeMode.zone === 'entry' || quickTradeMode.zone === 'current') && currentOrderSide === "BUY" && (
                   <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5">
                     <div>
                       <div className="text-sm font-medium text-white">Auto-create sell target</div>
                       <div className="text-xs text-gray-400">
                         {orderType === "market" 
-                          ? `Automatically place sell order at ${(quickTradeMode.targetZone[0] * 100 + quickTradeMode.targetZone[1] * 100) / 2}% after buy`
+                          ? `Automatically place sell order at ${((quickTradeMode.targetZone[0] + quickTradeMode.targetZone[1]) / 2 * 100).toFixed(1)}¢ after buy executes`
                           : "Only available for market orders (immediate execution)"
                         }
                       </div>
