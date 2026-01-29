@@ -19,12 +19,16 @@ import AIInsightsPanel from "@/components/Trading/Markets/AIInsightsPanel";
 import MarketSentimentAnalysis from "@/components/Trading/Markets/MarketSentimentAnalysis";
 import PriceHistoryChart from "@/components/Trading/Markets/PriceHistoryChart";
 import RealAgentDebatePanel from "@/components/Trading/Markets/RealAgentDebatePanel";
+import AgentWorkflowDiagram from "@/components/Trading/Markets/AgentWorkflowDiagram";
+import AgentInteractionNetwork from "@/components/Trading/Markets/AgentInteractionNetwork";
+import ConsensusFormationTimeline from "@/components/Trading/Markets/ConsensusFormationTimeline";
+import AgentOutputComparison from "@/components/Trading/Markets/AgentOutputComparison";
 
 interface MarketDetailsProps {
     market: PolymarketMarket;
 }
 
-type TabType = 'overview' | 'ai-insights' | 'sentiment' | 'debate' | 'chart';
+type TabType = 'overview' | 'ai-insights' | 'debate' | 'data-flow' | 'sentiment' | 'chart';
 
 export default function MarketDetails({ market }: MarketDetailsProps) {
     const { clobClient, isGeoblocked } = useTrading();
@@ -86,6 +90,7 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
         { id: 'overview' as TabType, label: 'Overview', icon: BarChart3 },
         { id: 'ai-insights' as TabType, label: 'AI Insights', icon: Brain },
         { id: 'debate' as TabType, label: 'Agent Debate', icon: Users },
+        { id: 'data-flow' as TabType, label: 'Data Flow', icon: Activity },
         // Disabled until real data sources are available
         // { id: 'sentiment' as TabType, label: 'Sentiment', icon: Activity },
         // { id: 'chart' as TabType, label: 'Price Chart', icon: TrendingUp },
@@ -263,6 +268,34 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                                     conditionId={market.conditionId || null}
                                     marketQuestion={market.question}
                                 />
+                            )}
+
+                            {activeTab === 'data-flow' && (
+                                <div className="space-y-8">
+                                    {/* Agent Workflow */}
+                                    <AgentWorkflowDiagram 
+                                        conditionId={market.conditionId || null}
+                                        marketQuestion={market.question}
+                                    />
+                                    
+                                    {/* Agent Interaction Network */}
+                                    <AgentInteractionNetwork 
+                                        conditionId={market.conditionId || null}
+                                        marketQuestion={market.question}
+                                    />
+                                    
+                                    {/* Consensus Formation Timeline */}
+                                    <ConsensusFormationTimeline 
+                                        conditionId={market.conditionId || null}
+                                        marketQuestion={market.question}
+                                    />
+                                    
+                                    {/* Agent Output Comparison */}
+                                    <AgentOutputComparison 
+                                        conditionId={market.conditionId || null}
+                                        marketQuestion={market.question}
+                                    />
+                                </div>
                             )}
 
                             {/* Disabled tabs - uncomment when real data sources are available */}
