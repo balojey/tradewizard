@@ -68,7 +68,7 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
 
     const yesIndex = outcomes.findIndex((o: string) => o.toLowerCase() === "yes");
     const yesPrice = yesIndex !== -1 ? (outcomePrices?.[yesIndex] || 0) : 0;
-    const yesChance = Math.round(yesPrice * 100);
+    const yesChance = Math.round(Number(yesPrice) * 100);
 
     const handleOutcomeClick = (
         marketTitle: string,
@@ -169,13 +169,13 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                     <Card className="p-5 bg-[#1C1C1E] border-white/5 sticky top-24">
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="font-semibold text-lg">Trade</h3>
-                            {yesIndex !== -1 && <PercentageGauge value={yesChance} size="lg" />}
+                            {yesIndex !== -1 && <PercentageGauge value={yesChance} size={80} />}
                         </div>
 
                         <div className="space-y-4">
                             <RecommendationBadge
                                 conditionId={market.conditionId || null}
-                                size="lg"
+                                size="md"
                                 showDetails={true}
                             />
 
