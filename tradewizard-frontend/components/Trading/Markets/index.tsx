@@ -5,6 +5,7 @@ import { useTrading } from "@/providers/TradingProvider";
 import useMarkets from "@/hooks/useMarkets";
 import usePoliticalCategories from "@/hooks/usePoliticalCategories";
 import useInfiniteScroll from "@/hooks/useInfiniteScroll";
+import useMarketRecommendations from "@/hooks/useMarketRecommendations";
 import { type CategoryId, DEFAULT_CATEGORY } from "@/constants/categories";
 import { filterMarketsByStatus, getMarketStatusCounts } from "@/utils/marketFilters";
 
@@ -66,10 +67,17 @@ export default function PoliticalMarkets() {
     return filterMarketsByStatus(allMarkets, marketStatus);
   }, [allMarkets, marketStatus]);
 
+  // Batch fetch recommendations for all visible markets
+  const {
+    recommendations,
+    isLoading: recommendationsLoading,
+    getRecommendationCount
+  } = useMarketRecommendations(markets);
+
   // Calculate market counts for filter display
   const marketCounts = useMemo(() => {
     return getMarketStatusCounts(allMarkets);
-  }, [allMarkets]);
+  }, [allMarkets, marketStatus]);
 
   const isLoading = categoriesLoading || marketsLoading;
   const error = categoriesError || marketsError;
@@ -136,6 +144,16 @@ export default function PoliticalMarkets() {
             <h3 className="text-xl font-bold">
               {categoryLabel} Markets {markets.length > 0 ? `(${markets.length}${hasNextPage ? '+' : ''})` : ""}
             </h3>
+            
+            {/* AI Recommendations Count */}
+            {getRecommendationCount() > 0 && (
+              <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-200 rounded-full">
+                <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse" />
+                <span className="text-sm font-medium text-blue-700">
+                  {getRecommendationCount()} AI Analysis
+                </span>
+              </div>
+            )}
             
             {/* Market Status Filter */}
             <MarketStatusFilter

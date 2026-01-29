@@ -4,6 +4,7 @@ import { isMarketEndingSoon } from "@/utils/marketFilters";
 import Card from "@/components/shared/Card";
 import OutcomeButtons from "@/components/Trading/Markets/OutcomeButtons";
 import PercentageGauge from "@/components/shared/PercentageGauge";
+import RecommendationBadge from "@/components/Trading/Markets/RecommendationBadge";
 
 import { formatVolume } from "@/utils/formatting";
 
@@ -118,7 +119,14 @@ export default function MarketCard({
         </div>
 
         {/* Outcome Buttons */}
-        <div className="mt-auto pt-2">
+        <div className="mt-auto pt-2 space-y-3">
+          {/* AI Recommendation Display */}
+          <RecommendationBadge 
+            conditionId={market.conditionId}
+            size="md"
+            showDetails={true}
+          />
+          
           <OutcomeButtons
             outcomes={outcomes}
             outcomePrices={outcomePrices}
