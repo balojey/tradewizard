@@ -6,6 +6,7 @@ import Card from "@/components/shared/Card";
 import OutcomeButtons from "@/components/Trading/Markets/OutcomeButtons";
 import PercentageGauge from "@/components/shared/PercentageGauge";
 import RecommendationBadge from "@/components/Trading/Markets/RecommendationBadge";
+import AIInsightsBadge from "@/components/Trading/Markets/AIInsightsBadge";
 
 import { formatVolume } from "@/utils/formatting";
 
@@ -106,12 +107,19 @@ export default function MarketCard({
                 </h4>
               </Link>
 
-              {/* Status Badge */}
-              {statusBadge && (
-                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${statusBadge.color}`}>
-                  {statusBadge.text}
-                </span>
-              )}
+              {/* Status and AI Badges */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {statusBadge && (
+                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${statusBadge.color}`}>
+                    {statusBadge.text}
+                  </span>
+                )}
+                <AIInsightsBadge 
+                  conditionId={market.conditionId} 
+                  size="sm"
+                  showDetails={false}
+                />
+              </div>
             </div>
           </div>
 
