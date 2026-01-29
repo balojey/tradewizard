@@ -58,6 +58,12 @@ export interface PolymarketMarket {
   competitive?: number;
   eventId?: string;
   eventTitle?: string;
+  eventSlug?: string;
+  eventIcon?: string;
+  // Frontend-style fields for consistency
+  acceptingOrders?: boolean;
+  clobTokenIds?: string;
+  tags?: Array<{ id: string; label: string }>;
   // Legacy snake_case fields for backward compatibility
   condition_id?: string;
   end_date_iso?: string;
@@ -161,77 +167,114 @@ export class PolymarketDiscoveryEngine implements MarketDiscoveryEngine {
   }
 
   /**
-   * Discover and select top trending markets using event-based approach
+   * Discover and select top trending markets using frontend-matching approach
+   * Enhanced to use the same trending logic as frontend for consistency
    * Implements Requirements 1.1, 1.2, 1.3 with backward compatibility
    */
   async discoverMarkets(limit: number): Promise<RankedMarket[]> {
-    logger.info({ limit }, '[PolymarketDiscoveryEngine] Starting enhanced event-based market discovery');
+    logger.info({ limit }, '[PolymarketDiscoveryEngine] Starting trending market discovery (frontend-matching approach)');
 
     try {
-      // Use enhanced event-based discovery
-      const rankedEvents = await this.eventClient.discoverTrendingPoliticalEvents(
-        Math.ceil(limit * 1.5) // Fetch more events to ensure enough markets after filtering
-      );
-
-      // Convert events to markets while preserving event context
-      const marketsWithEventContext = await this.convertEventsToMarkets(rankedEvents);
+      // Use the same trending markets approach as frontend
+      const trendingMarkets = await this.fetchTrendingMarketsFromEvents(limit * 2); // Fetch more for better selection
 
       // Rank markets using enhanced algorithm with event context
-      const rankedMarkets = this.rankMarketsWithEventContext(marketsWithEventContext);
+      const rankedMarkets = this.rankMarkets(trendingMarkets);
 
       // Select top N markets
       const selectedMarkets = rankedMarkets.slice(0, limit);
 
       logger.info({
-        eventsProcessed: rankedEvents.length,
-        marketsGenerated: marketsWithEventContext.length,
+        marketsProcessed: trendingMarkets.length,
         finalSelection: selectedMarkets.length,
-      }, '[PolymarketDiscoveryEngine] Enhanced event-based discovery completed');
+      }, '[PolymarketDiscoveryEngine] Trending market discovery completed (frontend-matching approach)');
 
       return selectedMarkets;
     } catch (error) {
       logger.error({ error: (error as Error).message }, 
-        '[PolymarketDiscoveryEngine] Enhanced discovery failed, falling back to legacy approach');
+        '[PolymarketDiscoveryEngine] Trending approach failed, falling back to enhanced event-based discovery');
       
-      // Fallback to legacy approach for backward compatibility
-      return this.discoverMarketsLegacy(limit);
+      try {
+        // Fallback to enhanced event-based discovery
+        const rankedEvents = await this.eventClient.discoverTrendingPoliticalEvents(
+          Math.ceil(limit * 1.5) // Fetch more events to ensure enough markets after filtering
+        );
+
+        // Convert events to markets while preserving event context
+        const marketsWithEventContext = await this.convertEventsToMarkets(rankedEvents);
+
+        // Rank markets using enhanced algorithm with event context
+        const rankedMarkets = this.rankMarketsWithEventContext(marketsWithEventContext);
+
+        // Select top N markets
+        const selectedMarkets = rankedMarkets.slice(0, limit);
+
+        logger.info({
+          eventsProcessed: rankedEvents.length,
+          marketsGenerated: marketsWithEventContext.length,
+          finalSelection: selectedMarkets.length,
+        }, '[PolymarketDiscoveryEngine] Enhanced event-based discovery completed');
+
+        return selectedMarkets;
+      } catch (enhancedError) {
+        logger.error({ error: (enhancedError as Error).message }, 
+          '[PolymarketDiscoveryEngine] Enhanced discovery failed, falling back to legacy approach');
+        
+        // Final fallback to legacy approach for backward compatibility
+        return this.discoverMarketsLegacy(limit);
+      }
     }
   }
 
   /**
-   * Fetch all active political markets using event-based discovery
+   * Fetch all active political markets using trending events approach
+   * Enhanced to use the same approach as frontend for consistency
    * Implements Requirements 1.1, 1.2, 1.3 while maintaining interface compatibility
    */
   async fetchPoliticalMarkets(): Promise<PolymarketMarket[]> {
-    logger.info('[PolymarketDiscoveryEngine] Fetching political markets using enhanced event-based approach');
+    logger.info('[PolymarketDiscoveryEngine] Fetching political markets using trending events approach');
 
     try {
-      // Discover political events with comprehensive options
-      const events = await this.eventClient.discoverPoliticalEvents({
-        tagId: this.config.politicsTagId,
-        relatedTags: this.config.includeRelatedTags,
-        active: true,
-        closed: false,
-        limit: this.config.maxEventsPerDiscovery,
-        sortBy: this.config.defaultSortBy,
-        sortOrder: 'desc',
-      });
-
-      // Extract all markets from events
-      const markets = this.extractMarketsFromEvents(events);
+      // Use the new trending markets approach (matching frontend)
+      const markets = await this.fetchTrendingMarketsFromEvents(this.config.maxEventsPerDiscovery || 100);
 
       logger.info({
-        eventsFound: events.length,
-        marketsExtracted: markets.length,
-      }, '[PolymarketDiscoveryEngine] Political markets fetched using event-based discovery');
+        marketsFound: markets.length,
+      }, '[PolymarketDiscoveryEngine] Political markets fetched using trending events approach');
 
       return markets;
     } catch (error) {
       logger.error({ error: (error as Error).message }, 
-        '[PolymarketDiscoveryEngine] Event-based fetch failed, falling back to legacy approach');
+        '[PolymarketDiscoveryEngine] Trending events approach failed, falling back to enhanced event-based approach');
       
-      // Fallback to legacy approach for backward compatibility
-      return this.fetchPoliticalMarketsLegacy();
+      try {
+        // Fallback to enhanced event-based discovery
+        const events = await this.eventClient.discoverPoliticalEvents({
+          tagId: this.config.politicsTagId,
+          relatedTags: this.config.includeRelatedTags,
+          active: true,
+          closed: false,
+          limit: this.config.maxEventsPerDiscovery,
+          sortBy: this.config.defaultSortBy,
+          sortOrder: 'desc',
+        });
+
+        // Extract all markets from events
+        const markets = this.extractMarketsFromEvents(events);
+
+        logger.info({
+          eventsFound: events.length,
+          marketsExtracted: markets.length,
+        }, '[PolymarketDiscoveryEngine] Political markets fetched using enhanced event-based discovery');
+
+        return markets;
+      } catch (enhancedError) {
+        logger.error({ error: (enhancedError as Error).message }, 
+          '[PolymarketDiscoveryEngine] Enhanced event-based fetch failed, falling back to legacy approach');
+        
+        // Final fallback to legacy approach for backward compatibility
+        return this.fetchPoliticalMarketsLegacy();
+      }
     }
   }
 
@@ -594,29 +637,47 @@ export class PolymarketDiscoveryEngine implements MarketDiscoveryEngine {
 
   /**
    * Legacy market discovery fallback for backward compatibility
+   * Now uses the same trending markets approach as frontend
    */
   private async discoverMarketsLegacy(limit: number): Promise<RankedMarket[]> {
-    logger.warn('[PolymarketDiscoveryEngine] Using legacy market discovery fallback');
+    logger.warn('[PolymarketDiscoveryEngine] Using legacy market discovery fallback with trending approach');
     
-    // Fetch all political markets using legacy approach
-    const markets = await this.fetchPoliticalMarketsLegacy();
+    try {
+      // Use the new trending markets approach
+      const markets = await this.fetchTrendingMarketsFromEvents(limit * 2); // Fetch more for ranking
+      
+      // Rank markets by trending score using enhanced algorithm
+      const rankedMarkets = this.rankMarkets(markets);
 
-    // Rank markets by trending score using legacy algorithm
-    const rankedMarkets = this.rankMarketsLegacy(markets);
-
-    // Select top N markets
-    return rankedMarkets.slice(0, limit);
+      // Select top N markets
+      return rankedMarkets.slice(0, limit);
+    } catch (error) {
+      logger.error({ error: (error as Error).message }, 
+        '[PolymarketDiscoveryEngine] Trending markets approach failed, falling back to legacy keywords');
+      
+      // Final fallback to legacy keyword-based approach
+      const markets = await this.fetchPoliticalMarketsLegacy();
+      const rankedMarkets = this.rankMarketsLegacy(markets);
+      return rankedMarkets.slice(0, limit);
+    }
   }
 
   /**
    * Legacy political markets fetch for backward compatibility
+   * Now uses trending markets approach first, then falls back to keyword filtering
    */
   private async fetchPoliticalMarketsLegacy(): Promise<PolymarketMarket[]> {
-    // Fetch all active markets with retry logic
-    const allMarkets = await this.fetchMarketsWithRetry();
-
-    // Filter for political markets using legacy keywords
-    return this.filterPoliticalMarketsLegacy(allMarkets);
+    try {
+      // Try the new trending markets approach first
+      return await this.fetchTrendingMarketsFromEvents(100);
+    } catch (error) {
+      logger.warn({ error: (error as Error).message }, 
+        '[PolymarketDiscoveryEngine] Trending markets failed, using legacy keyword filtering');
+      
+      // Fallback to legacy keyword-based filtering
+      const allMarkets = await this.fetchMarketsWithRetry();
+      return this.filterPoliticalMarketsLegacy(allMarkets);
+    }
   }
 
   /**
@@ -645,6 +706,167 @@ export class PolymarketDiscoveryEngine implements MarketDiscoveryEngine {
 
     // Sort by trending score (descending)
     return rankedMarkets.sort((a, b) => b.trendingScore - a.trendingScore);
+  }
+
+  /**
+   * Fetch trending markets from Polymarket events API (matching frontend approach)
+   * Uses the same filtering and sorting logic as the frontend for consistency
+   */
+  private async fetchTrendingMarketsFromEvents(limit: number = 100): Promise<PolymarketMarket[]> {
+    const maxRetries = 3;
+    let lastError: Error | null = null;
+
+    // Constants matching frontend implementation
+    const MIN_LIQUIDITY_USD = 1000;
+    const MIN_LIQUIDITY_NON_EVERGREEN_USD = 5000;
+    const EVERGREEN_TAG_IDS = [2, 21, 120, 596, 1401, 100265, 100639];
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        // Fetch more than requested to account for filtering (matching frontend logic)
+        const fetchLimit = Math.max(limit * 3, 100);
+        
+        // Use events endpoint with politics tag and volume-based sorting (matching frontend)
+        let url = `${this.config.gammaApiUrl}/events?closed=false&order=volume24hr&ascending=false&limit=${fetchLimit}&offset=0`;
+        url += `&tag_id=${this.config.politicsTagId}&related_tags=true`;
+
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          signal: AbortSignal.timeout(15000), // 15 second timeout
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const events = await response.json();
+
+        if (!Array.isArray(events)) {
+          throw new Error('Invalid API response: expected array of events');
+        }
+
+        // Extract markets from events (matching frontend logic)
+        const allMarkets: PolymarketMarket[] = [];
+
+        for (const event of events) {
+          if (event.ended || event.closed || !event.active) continue;
+
+          const markets = event.markets || [];
+
+          for (const market of markets) {
+            // Add event context to market (matching frontend)
+            const enhancedMarket: PolymarketMarket = {
+              ...market,
+              eventTitle: event.title,
+              eventSlug: event.slug,
+              eventId: event.id,
+              eventIcon: event.image || event.icon,
+              // Map frontend fields to backend expected fields
+              conditionId: market.conditionId || market.id,
+              condition_id: market.conditionId || market.id,
+              slug: market.slug,
+              market_slug: market.slug,
+              volume24hr: market.volume24hr,
+              volume_24h: market.volume24hr,
+              liquidity: market.liquidity || '0',
+              active: market.active !== false,
+              closed: market.closed === true,
+              endDate: market.endDate,
+              end_date_iso: market.endDate,
+              createdAt: market.createdAt,
+              created_at: market.createdAt,
+              outcomes: market.outcomes,
+              outcomePrices: market.outcomePrices,
+              outcome_prices: market.outcomePrices,
+            };
+
+            allMarkets.push(enhancedMarket);
+          }
+        }
+
+        // Apply same filtering logic as frontend
+        const validMarkets = allMarkets.filter((market: PolymarketMarket) => {
+          if (market.acceptingOrders === false) return false;
+          if (market.closed === true) return false;
+          if (!market.clobTokenIds) return false;
+
+          // Check tradeable prices
+          if (market.outcomePrices || market.outcome_prices) {
+            try {
+              const pricesStr = market.outcomePrices || market.outcome_prices;
+              const prices = typeof pricesStr === 'string' ? JSON.parse(pricesStr) : pricesStr;
+              const hasTradeablePrice = prices.some((price: string) => {
+                const priceNum = parseFloat(price);
+                return priceNum >= 0.05 && priceNum <= 0.95;
+              });
+              if (!hasTradeablePrice) return false;
+            } catch {
+              return false;
+            }
+          }
+
+          // Apply liquidity filtering (matching frontend logic)
+          const marketTagIds = market.tags?.map((t: any) => parseInt(t.id)) || [];
+          const hasEvergreenTag = EVERGREEN_TAG_IDS.some((id) =>
+            marketTagIds.includes(id)
+          );
+
+          const liquidity = parseFloat(market.liquidity || '0');
+
+          if (!hasEvergreenTag && liquidity < MIN_LIQUIDITY_NON_EVERGREEN_USD) {
+            return false;
+          }
+          if (liquidity < MIN_LIQUIDITY_USD) return false;
+
+          return true;
+        });
+
+        // Sort by combined liquidity + volume score (matching frontend)
+        const sortedMarkets = validMarkets.sort((a: PolymarketMarket, b: PolymarketMarket) => {
+          const aScore =
+            parseFloat(a.liquidity || '0') +
+            parseFloat(a.volume24hr?.toString() || a.volume_24h?.toString() || a.volume || '0');
+          const bScore =
+            parseFloat(b.liquidity || '0') +
+            parseFloat(b.volume24hr?.toString() || b.volume_24h?.toString() || b.volume || '0');
+          return bScore - aScore;
+        });
+
+        logger.info({
+          eventsProcessed: events.length,
+          marketsExtracted: allMarkets.length,
+          validMarkets: validMarkets.length,
+          finalSorted: sortedMarkets.length,
+        }, '[PolymarketDiscoveryEngine] Trending markets fetched from events API');
+
+        return sortedMarkets;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error('Unknown error');
+
+        // Don't retry on 404 or 400 errors
+        if (lastError.message.includes('404') || lastError.message.includes('400')) {
+          throw lastError;
+        }
+
+        // If this was the last attempt, throw the error
+        if (attempt === maxRetries) {
+          throw lastError;
+        }
+
+        // Calculate backoff with jitter
+        const baseDelay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+        const jitter = Math.random() * 1000; // 0-1s random jitter
+        const delay = baseDelay + jitter;
+
+        // Wait before retrying
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+
+    throw lastError || new Error('Max retries exceeded');
   }
 
   /**
