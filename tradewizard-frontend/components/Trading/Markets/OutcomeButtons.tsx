@@ -1,5 +1,6 @@
 import { convertPriceToCents } from "@/utils/order";
 import { cn } from "@/utils/classNames";
+import { TrendingUp, TrendingDown } from "lucide-react";
 
 interface OutcomeButtonsProps {
   outcomes: string[];
@@ -34,44 +35,51 @@ export default function OutcomeButtons({
 
   const isDisabled = isClosed || disabled;
 
-  const isBinary = outcomes.length === 2 &&
-    outcomes[0].toLowerCase() === "yes" &&
-    outcomes[1].toLowerCase() === "no";
-
   return (
     <div className={cn(
-      "grid gap-2 w-full",
+      "grid gap-3 w-full",
       layout === "vertical" ? "grid-cols-1" : "grid-cols-2"
     )}>
       {outcomes.map((outcome: string, idx: number) => {
         const tokenId = tokenIds[idx] || "";
         const price = outcomePrices[idx] || 0;
         const priceInCents = convertPriceToCents(price);
+        const percentage = Math.round(price * 100);
 
         // Determine colors based on outcome name
         const isYes = outcome.toLowerCase() === "yes";
         const isNo = outcome.toLowerCase() === "no";
 
-        let colors = "bg-white/5 border-white/10 hover:bg-blue-500/20 hover:border-blue-500/40";
-        let tempTextColor = "text-blue-400";
+        let baseClasses = "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20";
+        let textClasses = "text-gray-300";
+        let progressBarColor = "bg-gray-500";
 
         if (isYes) {
-          colors = isDisabled || !tokenId
+          baseClasses = isDisabled || !tokenId
             ? "bg-green-500/5 border-green-500/10"
-            : "bg-green-500/10 border-green-500/20 hover:bg-green-500/20 hover:border-green-500/40";
-          tempTextColor = "text-green-500";
+            : "bg-gradient-to-r from-emerald-500/10 to-green-500/10 border-green-500/20 hover:border-green-400/40 hover:from-emerald-500/20 hover:to-green-500/20 active:scale-[0.98]";
+          textClasses = "text-green-400 group-hover:text-green-300";
+          progressBarColor = "bg-green-500";
         } else if (isNo) {
-          colors = isDisabled || !tokenId
+          baseClasses = isDisabled || !tokenId
             ? "bg-red-500/5 border-red-500/10"
-            : "bg-red-500/10 border-red-500/20 hover:bg-red-500/20 hover:border-red-500/40";
-          tempTextColor = "text-red-500";
+            : "bg-gradient-to-r from-red-500/10 to-orange-500/10 border-red-500/20 hover:border-red-400/40 hover:from-red-500/20 hover:to-orange-500/20 active:scale-[0.98]";
+          textClasses = "text-red-400 group-hover:text-red-300";
+          progressBarColor = "bg-red-500";
+        } else {
+          // styles for other outcomes (non-binary)
+          baseClasses = isDisabled || !tokenId
+            ? "bg-blue-500/5 border-blue-500/10"
+            : "bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border-blue-500/20 hover:border-blue-400/40 hover:from-blue-500/20 hover:to-indigo-500/20 active:scale-[0.98]";
+          textClasses = "text-blue-400 group-hover:text-blue-300";
+          progressBarColor = "bg-blue-500";
         }
 
         return (
           <button
             key={`outcome-${idx}`}
             onClick={(e) => {
-              e.stopPropagation(); // Prevent card click
+              e.stopPropagation();
               if (!isDisabled && tokenId) {
                 onOutcomeClick(
                   marketQuestion,
@@ -84,15 +92,40 @@ export default function OutcomeButtons({
             }}
             disabled={isDisabled || !tokenId}
             className={cn(
-              "flex-1 min-w-[100px] px-3 py-3 rounded-md border transition-all duration-200 flex flex-col items-center justify-center",
+              "group relative flex items-center justify-between p-3 rounded-xl border transition-all duration-300 shadow-sm overflow-hidden",
               isDisabled || !tokenId
                 ? "cursor-not-allowed opacity-50"
-                : "cursor-pointer",
-              colors
+                : "cursor-pointer hover:shadow-md hover:shadow-black/20",
+              baseClasses
             )}
           >
-            <p className="text-sm font-medium mb-1">{outcome}</p>
-            <p className={cn("font-bold text-lg", tempTextColor)}>{priceInCents}¢</p>
+            {/* Progress Bar Background */}
+            {!isDisabled && tokenId && (
+              <div
+                className={cn("absolute bottom-0 left-0 h-0.5 transition-all duration-500 ease-out opacity-50", progressBarColor)}
+                style={{ width: `${percentage}%` }}
+              />
+            )}
+
+            <div className="flex flex-col items-start gap-0.5 z-10">
+              <span className={cn("text-sm font-medium transition-colors", textClasses)}>
+                {outcome}
+              </span>
+              <span className="text-xs text-gray-500 font-medium tracking-wide">
+                Probability
+              </span>
+            </div>
+
+            <div className="flex flex-col items-end z-10">
+              <div className={cn("text-xl font-bold tracking-tight flex items-center gap-1.5 transition-colors", textClasses)}>
+                {priceInCents}¢
+                {isYes && <TrendingUp className="w-4 h-4 opacity-50" />}
+                {isNo && <TrendingDown className="w-4 h-4 opacity-50" />}
+              </div>
+              <span className="text-xs text-gray-400 font-mono">
+                {percentage}%
+              </span>
+            </div>
           </button>
         );
       })}
