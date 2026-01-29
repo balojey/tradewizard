@@ -16,6 +16,7 @@ interface OutcomeButtonsProps {
     tokenId: string,
     negRisk: boolean
   ) => void;
+  layout?: "horizontal" | "vertical";
 }
 
 export default function OutcomeButtons({
@@ -27,13 +28,21 @@ export default function OutcomeButtons({
   marketQuestion,
   disabled = false,
   onOutcomeClick,
+  layout = "horizontal",
 }: OutcomeButtonsProps) {
   if (outcomes.length === 0) return null;
 
   const isDisabled = isClosed || disabled;
 
+  const isBinary = outcomes.length === 2 &&
+    outcomes[0].toLowerCase() === "yes" &&
+    outcomes[1].toLowerCase() === "no";
+
   return (
-    <div className="flex gap-2 flex-wrap w-full">
+    <div className={cn(
+      "grid gap-2 w-full",
+      layout === "vertical" ? "grid-cols-1" : "grid-cols-2"
+    )}>
       {outcomes.map((outcome: string, idx: number) => {
         const tokenId = tokenIds[idx] || "";
         const price = outcomePrices[idx] || 0;

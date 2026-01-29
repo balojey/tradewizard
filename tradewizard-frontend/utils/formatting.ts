@@ -24,3 +24,10 @@ export const formatPercentage = (value: number, decimals = 1) =>
 
 export const formatShares = (shares: number, decimals = 2) =>
   shares.toFixed(decimals);
+
+export const formatNumber = (num: number | string) => {
+  return Number(num).toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+};
