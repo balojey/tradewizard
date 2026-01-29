@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import useClobOrder from "@/hooks/useClobOrder";
 import { useTrading } from "@/providers/TradingProvider";
 import useRedeemPosition from "@/hooks/useRedeemPosition";
 import useUserPositions, { PolymarketPosition } from "@/hooks/useUserPositions";
@@ -12,10 +11,9 @@ import EmptyState from "@/components/shared/EmptyState";
 import LoadingState from "@/components/shared/LoadingState";
 import PositionCard from "@/components/Trading/Positions/PositionCard";
 import PositionFilters from "@/components/Trading/Positions/PositionFilters";
+import OrderPlacementModal from "@/components/Trading/OrderModal";
 
-import { createPollingInterval } from "@/utils/polling";
 import { DUST_THRESHOLD } from "@/constants/validation";
-import { POLLING_DURATION, POLLING_INTERVAL } from "@/constants/query";
 
 export default function UserPositions() {
   const { clobClient, relayClient, eoaAddress, safeAddress } = useTrading();
@@ -28,74 +26,20 @@ export default function UserPositions() {
 
   const [hideDust, setHideDust] = useState(true);
   const [redeemingAsset, setRedeemingAsset] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedPosition, setSelectedPosition] = useState<PolymarketPosition | null>(null);
 
   const { redeemPosition, isRedeeming } = useRedeemPosition();
-  const { submitOrder, isSubmitting } = useClobOrder(clobClient, eoaAddress);
-  const [sellingAsset, setSellingAsset] = useState<string | null>(null);
-
-  const [pendingVerification, setPendingVerification] = useState<
-    Map<string, number>
-  >(new Map());
   const queryClient = useQueryClient();
 
-  useEffect(() => {
-    if (!positions || pendingVerification.size === 0) return;
+  const handleMarketSell = (position: PolymarketPosition) => {
+    setSelectedPosition(position);
+    setIsModalOpen(true);
+  };
 
-    const stillPending = new Map<string, number>();
-
-    pendingVerification.forEach((originalSize, asset) => {
-      const currentPosition = positions.find((p) => p.asset === asset);
-      const currentSize = currentPosition?.size || 0;
-      const sizeChanged = currentSize < originalSize;
-
-      if (!sizeChanged) {
-        stillPending.set(asset, originalSize);
-      }
-    });
-
-    if (stillPending.size !== pendingVerification.size) {
-      setPendingVerification(stillPending);
-    }
-  }, [positions, pendingVerification]);
-
-  const handleMarketSell = async (position: PolymarketPosition) => {
-    setSellingAsset(position.asset);
-    try {
-      await submitOrder({
-        tokenId: position.asset,
-        size: position.size,
-        side: "SELL",
-        negRisk: position.negativeRisk,
-        isMarketOrder: true,
-      });
-
-      setPendingVerification((prev) =>
-        new Map(prev).set(position.asset, position.size)
-      );
-
-      queryClient.invalidateQueries({ queryKey: ["polymarket-positions"] });
-
-      createPollingInterval(
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["polymarket-positions"] });
-        },
-        POLLING_INTERVAL,
-        POLLING_DURATION
-      );
-
-      setTimeout(() => {
-        setPendingVerification((prev) => {
-          const next = new Map(prev);
-          next.delete(position.asset);
-          return next;
-        });
-      }, POLLING_DURATION);
-    } catch (err) {
-      console.error("Failed to sell position:", err);
-      alert("Failed to sell position. Please try again.");
-    } finally {
-      setSellingAsset(null);
-    }
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedPosition(null);
   };
 
   const handleRedeem = async (position: PolymarketPosition) => {
@@ -188,15 +132,34 @@ export default function UserPositions() {
             position={position}
             onRedeem={handleRedeem}
             onSell={handleMarketSell}
-            isSelling={sellingAsset === position.asset}
+            isSelling={false}
             isRedeeming={redeemingAsset === position.asset}
-            isPendingVerification={pendingVerification.has(position.asset)}
-            isSubmitting={isSubmitting}
+            isPendingVerification={false}
+            isSubmitting={false}
             canSell={!!clobClient}
             canRedeem={!!relayClient}
           />
         ))}
       </div>
+
+      {/* Sell Order Modal */}
+      {selectedPosition && (
+        <OrderPlacementModal
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          marketTitle={selectedPosition.title}
+          outcome={selectedPosition.outcome}
+          currentPrice={selectedPosition.curPrice}
+          tokenId={selectedPosition.asset}
+          negRisk={selectedPosition.negativeRisk}
+          clobClient={clobClient}
+          orderSide="SELL"
+          userPosition={{
+            size: selectedPosition.size,
+            avgPrice: selectedPosition.avgPrice
+          }}
+        />
+      )}
     </div>
   );
 }

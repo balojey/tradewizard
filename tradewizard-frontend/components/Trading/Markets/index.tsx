@@ -3,6 +3,8 @@
 import { useState, useMemo, useCallback } from "react";
 import { useTrading } from "@/providers/TradingProvider";
 import useMarkets from "@/hooks/useMarkets";
+import useUserPositions from "@/hooks/useUserPositions";
+import { findUserPosition } from "@/utils/positionHelpers";
 import usePoliticalCategories from "@/hooks/usePoliticalCategories";
 import useInfiniteScroll from "@/hooks/useInfiniteScroll";
 import useMarketRecommendations from "@/hooks/useMarketRecommendations";
@@ -29,7 +31,8 @@ export default function PoliticalMarkets() {
     negRisk: boolean;
   } | null>(null);
 
-  const { clobClient, isGeoblocked } = useTrading();
+  const { clobClient, isGeoblocked, safeAddress } = useTrading();
+  const { data: positions } = useUserPositions(safeAddress as string | undefined);
 
   // Fetch dynamic political categories
   const {
@@ -238,6 +241,8 @@ export default function PoliticalMarkets() {
           tokenId={selectedOutcome.tokenId}
           negRisk={selectedOutcome.negRisk}
           clobClient={clobClient}
+          orderSide="BUY"
+          userPosition={findUserPosition(positions, selectedOutcome.tokenId)}
         />
       )}
     </>

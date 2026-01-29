@@ -40,6 +40,11 @@ type OrderPlacementModalProps = {
   tokenId: string;
   negRisk?: boolean;
   clobClient: ClobClient | null;
+  orderSide?: "BUY" | "SELL";
+  userPosition?: {
+    size: number;
+    avgPrice: number;
+  } | null;
 };
 
 export default function OrderPlacementModal({
@@ -51,12 +56,15 @@ export default function OrderPlacementModal({
   tokenId,
   negRisk = false,
   clobClient,
+  orderSide = "BUY",
+  userPosition = null,
 }: OrderPlacementModalProps) {
   const [size, setSize] = useState<string>("");
   const [orderType, setOrderType] = useState<"market" | "limit">("market");
   const [limitPrice, setLimitPrice] = useState<string>("");
   const [localError, setLocalError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [currentOrderSide, setCurrentOrderSide] = useState<"BUY" | "SELL">(orderSide);
 
   const { eoaAddress } = useWallet();
 
@@ -82,8 +90,9 @@ export default function OrderPlacementModal({
       setLimitPrice("");
       setLocalError(null);
       setShowSuccess(false);
+      setCurrentOrderSide(orderSide);
     }
-  }, [isOpen]);
+  }, [isOpen, orderSide]);
 
   useEffect(() => {
     if (orderId && isOpen) {
@@ -124,16 +133,39 @@ export default function OrderPlacementModal({
   const limitPriceNum = parseFloat(limitPrice) || 0;
   const effectivePrice = orderType === "limit" ? limitPriceNum : currentPrice;
 
-  // Determine colors based on outcome
+  // Determine colors based on outcome and order side
   const isYes = outcome.toLowerCase() === "yes";
   const isNo = outcome.toLowerCase() === "no";
-  const accentColor = isYes ? "text-green-400" : isNo ? "text-red-400" : "text-blue-400";
-  const bgAccent = isYes ? "bg-green-500" : isNo ? "bg-red-500" : "bg-blue-500";
+  const isBuying = currentOrderSide === "BUY";
+  
+  // Color logic: Green for Yes/Buy, Red for No/Sell, Blue for other outcomes
+  const accentColor = isYes 
+    ? (isBuying ? "text-green-400" : "text-green-400") 
+    : isNo 
+    ? (isBuying ? "text-red-400" : "text-red-400") 
+    : "text-blue-400";
+  
+  const bgAccent = isBuying
+    ? (isYes ? "bg-green-500" : isNo ? "bg-red-500" : "bg-blue-500")
+    : (isYes ? "bg-orange-500" : isNo ? "bg-purple-500" : "bg-indigo-500");
 
   const handlePlaceOrder = async () => {
     if (!isValidSize(sizeNum)) {
       setLocalError(`Size must be greater than ${MIN_ORDER_SIZE}`);
       return;
+    }
+
+    // Validate sell orders against user position
+    if (currentOrderSide === "SELL") {
+      if (!userPosition || userPosition.size <= 0) {
+        setLocalError("You don't have any shares to sell");
+        return;
+      }
+      
+      if (sizeNum > userPosition.size) {
+        setLocalError(`Cannot sell ${sizeNum} shares. You only own ${userPosition.size} shares.`);
+        return;
+      }
     }
 
     if (orderType === "limit") {
@@ -160,7 +192,7 @@ export default function OrderPlacementModal({
         tokenId,
         size: sizeNum,
         price: orderType === "limit" ? limitPriceNum : undefined,
-        side: "BUY",
+        side: currentOrderSide,
         negRisk,
         isMarketOrder: orderType === "market",
       });
@@ -189,11 +221,16 @@ export default function OrderPlacementModal({
           <div className="flex items-start justify-between p-6 border-b border-white/5 bg-white/[0.02]">
             <div className="space-y-1 pr-4">
               <div className="flex items-center gap-2 text-sm text-gray-400 mb-1">
-                <span>Buying</span>
+                <span>{currentOrderSide === "BUY" ? "Buying" : "Selling"}</span>
                 <ArrowRight className="w-3 h-3" />
                 <span className={cn("font-bold uppercase tracking-wide px-1.5 py-0.5 rounded text-[10px] bg-white/5", accentColor)}>
                   {outcome}
                 </span>
+                {currentOrderSide === "SELL" && userPosition && (
+                  <span className="text-xs text-gray-500">
+                    ({userPosition.size} owned)
+                  </span>
+                )}
               </div>
               <h3 className="text-base font-medium leading-snug line-clamp-2 text-gray-100">
                 {marketTitle}
@@ -232,6 +269,53 @@ export default function OrderPlacementModal({
               </div>
             )}
 
+            {/* Buy/Sell Toggle */}
+            {userPosition && userPosition.size > 0 && (
+              <div className="mb-6">
+                <div className="flex bg-white/5 p-1 rounded-xl border border-white/5 relative">
+                  {/* Sliding Background Indicator */}
+                  <div
+                    className={cn(
+                      "absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-lg shadow-lg transition-all duration-300 ease-out",
+                      currentOrderSide === "SELL" ? "translate-x-full left-1 bg-orange-600 shadow-orange-500/20" : "left-1 bg-green-600 shadow-green-500/20"
+                    )}
+                  />
+
+                  <button
+                    onClick={() => {
+                      setCurrentOrderSide("BUY");
+                      setLocalError(null);
+                    }}
+                    className={cn(
+                      "flex-1 relative z-10 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors duration-200",
+                      currentOrderSide === "BUY" ? "text-white" : "text-gray-400 hover:text-gray-200"
+                    )}
+                  >
+                    Buy More
+                  </button>
+                  <button
+                    onClick={() => {
+                      setCurrentOrderSide("SELL");
+                      setLocalError(null);
+                    }}
+                    className={cn(
+                      "flex-1 relative z-10 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors duration-200",
+                      currentOrderSide === "SELL" ? "text-white" : "text-gray-400 hover:text-gray-200"
+                    )}
+                  >
+                    Sell Position
+                  </button>
+                </div>
+
+                {/* Helper Text */}
+                <p className="mt-2 text-xs text-center text-gray-500">
+                  {currentOrderSide === "BUY"
+                    ? "Purchase additional shares of this outcome"
+                    : `Sell up to ${userPosition.size} shares you currently own`}
+                </p>
+              </div>
+            )}
+
             {/* Controls */}
             <OrderTypeToggle
               orderType={orderType}
@@ -258,9 +342,16 @@ export default function OrderPlacementModal({
               tickSize={tickSize}
               decimalPlaces={decimalPlaces}
               isLoadingTickSize={isLoadingTickSize}
+              orderSide={currentOrderSide}
+              userPosition={userPosition}
             />
 
-            <OrderSummary size={sizeNum} price={effectivePrice} />
+            <OrderSummary 
+              size={sizeNum} 
+              price={effectivePrice} 
+              orderSide={currentOrderSide}
+              userPosition={userPosition}
+            />
 
             {/* Submit Button */}
             <button
@@ -278,7 +369,7 @@ export default function OrderPlacementModal({
                   <>Processing Order...</>
                 ) : (
                   <>
-                    Place Buy Order
+                    Place {currentOrderSide === "BUY" ? "Buy" : "Sell"} Order
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </>
                 )}

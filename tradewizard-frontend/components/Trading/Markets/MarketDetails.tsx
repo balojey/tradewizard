@@ -7,6 +7,8 @@ import { ChevronLeft, Brain, Activity, Users, TrendingUp, BarChart3, Clock, Doll
 import { useTrading } from "@/providers/TradingProvider";
 import { formatVolume, formatNumber } from "@/utils/formatting";
 import type { PolymarketMarket } from "@/hooks/useMarkets";
+import useUserPositions from "@/hooks/useUserPositions";
+import { findUserPosition } from "@/utils/positionHelpers";
 import { isMarketEndingSoon } from "@/utils/marketFilters";
 import { useTradeRecommendation } from "@/hooks/useTradeRecommendation";
 
@@ -31,7 +33,8 @@ interface MarketDetailsProps {
 type TabType = 'overview' | 'ai-insights' | 'debate' | 'data-flow' | 'sentiment' | 'chart';
 
 export default function MarketDetails({ market }: MarketDetailsProps) {
-    const { clobClient, isGeoblocked } = useTrading();
+    const { clobClient, isGeoblocked, safeAddress } = useTrading();
+    const { data: positions } = useUserPositions(safeAddress as string | undefined);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [activeTab, setActiveTab] = useState<TabType>('ai-insights');
     const [selectedOutcome, setSelectedOutcome] = useState<{
@@ -442,6 +445,8 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                     tokenId={selectedOutcome.tokenId}
                     negRisk={selectedOutcome.negRisk}
                     clobClient={clobClient}
+                    orderSide="BUY"
+                    userPosition={findUserPosition(positions, selectedOutcome.tokenId)}
                 />
             )}
         </div>

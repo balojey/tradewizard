@@ -13,6 +13,11 @@ interface OrderFormProps {
   tickSize: number;
   decimalPlaces: number;
   isLoadingTickSize: boolean;
+  orderSide: "BUY" | "SELL";
+  userPosition?: {
+    size: number;
+    avgPrice: number;
+  } | null;
 }
 
 const isValidPriceInput = (value: string, maxDecimals: number): boolean => {
@@ -34,6 +39,8 @@ export default function OrderForm({
   tickSize,
   decimalPlaces,
   isLoadingTickSize,
+  orderSide,
+  userPosition,
 }: OrderFormProps) {
   const handleSizeChange = (value: string) => {
     if (isValidDecimalInput(value)) {
@@ -81,8 +88,10 @@ export default function OrderForm({
       {/* Size Input */}
       <div className="mb-6 space-y-3">
         <label className="text-sm font-medium text-gray-300 flex justify-between">
-          <span>Shares to Buy</span>
-          <span className="text-xs text-gray-500">How many outcomes?</span>
+          <span>Shares to {orderSide === "BUY" ? "Buy" : "Sell"}</span>
+          <span className="text-xs text-gray-500">
+            {orderSide === "BUY" ? "How many outcomes?" : `Max: ${userPosition?.size || 0}`}
+          </span>
         </label>
 
         <div className="relative group">
@@ -99,19 +108,39 @@ export default function OrderForm({
           />
         </div>
 
-        {/* Quick Amount Buttons */}
-        <div className="flex gap-2">
-          {QUICK_AMOUNTS.map((amt) => (
-            <button
-              key={amt}
-              onClick={() => handleQuickAmount(amt)}
-              disabled={currentPrice <= 0 || isSubmitting}
-              className="flex-1 py-1.5 text-xs font-medium bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg text-gray-400 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              ${amt}
-            </button>
-          ))}
-        </div>
+        {/* Quick Amount Buttons - Different for Buy vs Sell */}
+        {orderSide === "BUY" ? (
+          <div className="flex gap-2">
+            {QUICK_AMOUNTS.map((amt) => (
+              <button
+                key={amt}
+                onClick={() => handleQuickAmount(amt)}
+                disabled={currentPrice <= 0 || isSubmitting}
+                className="flex-1 py-1.5 text-xs font-medium bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg text-gray-400 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                ${amt}
+              </button>
+            ))}
+          </div>
+        ) : (
+          userPosition && userPosition.size > 0 && (
+            <div className="flex gap-2">
+              {[25, 50, 75, 100].map((percentage) => {
+                const shares = Math.floor((userPosition.size * percentage) / 100);
+                return (
+                  <button
+                    key={percentage}
+                    onClick={() => handleSizeChange(shares.toString())}
+                    disabled={isSubmitting || shares <= 0}
+                    className="flex-1 py-1.5 text-xs font-medium bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg text-gray-400 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {percentage}%
+                  </button>
+                );
+              })}
+            </div>
+          )
+        )}
       </div>
 
       {/* Limit Price Input */}
