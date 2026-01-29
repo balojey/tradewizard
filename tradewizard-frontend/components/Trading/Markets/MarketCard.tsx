@@ -9,6 +9,7 @@ import RecommendationBadge from "@/components/Trading/Markets/RecommendationBadg
 import AIInsightsBadge from "@/components/Trading/Markets/AIInsightsBadge";
 
 import { formatVolume } from "@/utils/formatting";
+import { TrendingUp, BarChart2, Bookmark } from "lucide-react";
 
 interface MarketCardProps {
   market: PolymarketMarket;
@@ -38,13 +39,13 @@ export default function MarketCard({
   // Determine status badge
   const getStatusBadge = () => {
     if (isClosed) {
-      return { text: "Closed", color: "bg-red-500/20 text-red-400 border-red-500/30" };
+      return { text: "Closed", color: "bg-red-500/10 text-red-500 border-red-500/20" };
     }
     if (isEndingSoon) {
-      return { text: "Ending Soon", color: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" };
+      return { text: "Ending Soon", color: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20" };
     }
     if (isActive) {
-      return { text: "Active", color: "bg-green-500/20 text-green-400 border-green-500/30" };
+      return { text: "Active", color: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" };
     }
     return null;
   };
@@ -83,26 +84,37 @@ export default function MarketCard({
   const yesChance = Math.round(yesPrice * 100);
 
   return (
-    <Card hover className="flex flex-col h-full bg-[#1C1C1E] border-white/5 hover:border-white/10 transition-colors group">
-      <div className="p-4 flex-1 flex flex-col gap-4">
+    <Card hover className="group relative flex flex-col h-full bg-[#1C1C1E] border-white/5 hover:border-indigo-500/30 transition-all duration-300 hover:shadow-[0_0_30px_-10px_rgba(79,70,229,0.2)] overflow-hidden">
+      {/* Hover Gradient Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/0 via-transparent to-purple-500/0 group-hover:from-indigo-500/5 group-hover:to-purple-500/5 transition-colors duration-500 pointer-events-none" />
+
+      <div className="p-5 flex-1 flex flex-col gap-5 relative z-10">
         {/* Header: Icon + Title + Gauge */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex gap-3">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex gap-4 min-w-0">
             {/* Market Icon */}
-            {market.icon ? (
-              <img
-                src={market.icon}
-                alt=""
-                className="w-10 h-10 rounded-md object-cover flex-shrink-0"
-              />
-            ) : (
-              <div className="w-10 h-10 rounded-md bg-white/10 flex-shrink-0" />
-            )}
+            <div className="relative flex-shrink-0">
+              {market.icon ? (
+                <img
+                  src={market.icon}
+                  alt=""
+                  className="w-12 h-12 rounded-xl object-cover ring-1 ring-white/10 shadow-lg group-hover:scale-105 transition-transform duration-300"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-gray-800 to-gray-900 ring-1 ring-white/10 shadow-lg flex items-center justify-center">
+                  <BarChart2 className="w-6 h-6 text-gray-600" />
+                </div>
+              )}
+              {/* Active Indicator Dot */}
+              {isActive && (
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-[#1C1C1E]" />
+              )}
+            </div>
 
             {/* Title and Status - Only this area is clickable */}
             <div className="flex-1 min-w-0">
-              <Link href={`/market/${market.slug || market.id}`} className="block">
-                <h4 className="font-semibold text-base line-clamp-3 leading-snug mb-2 hover:text-blue-400 transition-colors cursor-pointer">
+              <Link href={`/market/${market.slug || market.id}`} className="block group/title">
+                <h4 className="font-semibold text-[15px] leading-snug mb-2 text-gray-100 group-hover/title:text-indigo-400 transition-colors line-clamp-2">
                   {market.question}
                 </h4>
               </Link>
@@ -110,12 +122,12 @@ export default function MarketCard({
               {/* Status and AI Badges */}
               <div className="flex items-center gap-2 flex-wrap">
                 {statusBadge && (
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${statusBadge.color}`}>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-bold border ${statusBadge.color}`}>
                     {statusBadge.text}
                   </span>
                 )}
-                <AIInsightsBadge 
-                  conditionId={market.conditionId || null} 
+                <AIInsightsBadge
+                  conditionId={market.conditionId || null}
                   size="sm"
                   showDetails={false}
                 />
@@ -125,18 +137,20 @@ export default function MarketCard({
 
           {/* Probability Gauge (Visual only, based on 'Yes' price) */}
           <div className="flex-shrink-0 ml-1">
-            <PercentageGauge value={yesChance} />
+            <PercentageGauge value={yesChance} size={48} />
           </div>
         </div>
 
         {/* Outcome Buttons */}
         <div className="mt-auto pt-2 space-y-3">
           {/* AI Recommendation Display */}
-          <RecommendationBadge
-            conditionId={market.conditionId || null}
-            size="md"
-            showDetails={true}
-          />
+          <div className="transform transition-transform duration-300 origin-left">
+            <RecommendationBadge
+              conditionId={market.conditionId || null}
+              size="md"
+              showDetails={true}
+            />
+          </div>
 
           <OutcomeButtons
             outcomes={outcomes}
@@ -152,16 +166,28 @@ export default function MarketCard({
       </div>
 
       {/* Footer: Volume + Bookmark */}
-      <div className="px-4 py-3 border-t border-white/5 flex items-center justify-between text-xs text-gray-400">
-        <span className="font-medium">{formatVolume(volumeUSD)} Vol.</span>
-        <button className="hover:text-white transition-colors" onClick={(e) => {
-          e.stopPropagation();
-          // TODO: Implement bookmarking
-        }}>
-          {/* Simple bookmark icon */}
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
-          </svg>
+      <div className="relative z-10 px-5 py-3 border-t border-white/5 bg-white/[0.02] flex items-center justify-between text-xs text-gray-500 group-hover:text-gray-400 transition-colors">
+        <div className="flex items-center gap-4">
+          <span className="flex items-center gap-1.5 font-medium">
+            <BarChart2 className="w-3.5 h-3.5 opacity-70" />
+            ${formatVolume(volumeUSD)} Vol.
+          </span>
+          {market.active && (
+            <span className="flex items-center gap-1.5 font-medium text-emerald-500/80">
+              <TrendingUp className="w-3.5 h-3.5" />
+              Live
+            </span>
+          )}
+        </div>
+
+        <button
+          className="p-1.5 -mr-1.5 rounded-lg hover:bg-white/10 text-gray-600 hover:text-white transition-all active:scale-95"
+          onClick={(e) => {
+            e.stopPropagation();
+            // TODO: Implement bookmarking
+          }}
+        >
+          <Bookmark className="w-4 h-4" />
         </button>
       </div>
     </Card>
