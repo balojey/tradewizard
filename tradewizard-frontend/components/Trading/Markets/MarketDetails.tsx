@@ -375,7 +375,7 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                                 </div>
                                 <button className="w-full mt-6 py-3.5 bg-white/5 border border-white/10 rounded-xl text-sm font-semibold text-gray-400 hover:text-white hover:bg-white/10 transition-all flex items-center justify-center gap-2">
                                     <Wallet className="w-4 h-4" />
-                                    Connect Wallet to Trade
+                                    Log in to Trade
                                 </button>
                             </div>
                         </Card>

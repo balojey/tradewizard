@@ -79,7 +79,7 @@ export default function Header({
               )}
               onClick={connect}
             >
-              Connect Wallet
+              Login / Sign Up
             </button>
           )}
         </div>
