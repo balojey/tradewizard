@@ -12,12 +12,17 @@ export interface PoliticalSubcategory {
   count: number;
 }
 
-// Base political categories - Trending is always first
+// Base political categories - All is first, Trending is default
 export const BASE_CATEGORIES: Category[] = [
+  {
+    id: "all",
+    label: "All",
+    tagId: 2, // Politics tag ID - shows all political markets
+  },
   {
     id: "trending",
     label: "Trending",
-    tagId: 2, // Politics tag ID - shows all political markets
+    tagId: 2, // Politics tag ID - shows all political markets (same as All but with trending logic)
   },
 ];
 

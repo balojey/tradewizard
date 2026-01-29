@@ -72,6 +72,15 @@ export default function useMarkets(options: UseMarketsOptions = {}) {
         url += `&tag_id=2`; // Default to politics
       }
 
+      // Add category-specific parameters
+      if (categoryId === "trending") {
+        // Trending uses volume-based sorting (default behavior)
+        url += `&order=volume24hr&ascending=false`;
+      } else if (categoryId === "all") {
+        // All category uses liquidity-based sorting for better market discovery
+        url += `&order=liquidity&ascending=false`;
+      }
+
       const response = await fetch(url);
 
       if (!response.ok) {
