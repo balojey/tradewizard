@@ -156,9 +156,9 @@ export default function Header({
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="fixed inset-0 z-40 bg-black/95 backdrop-blur-2xl md:hidden pt-24 px-6"
+            className="fixed inset-0 z-40 bg-black/95 backdrop-blur-2xl md:hidden pt-24 px-6 overflow-y-auto"
           >
-            <nav className="flex flex-col gap-2">
+            <nav className="flex flex-col gap-2 pb-10">
               {navItems.map((item, idx) => {
                 const isActive = pathname === item.href;
                 return (
