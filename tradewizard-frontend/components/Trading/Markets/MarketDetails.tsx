@@ -11,6 +11,7 @@ import useUserPositions from "@/hooks/useUserPositions";
 import { findUserPosition } from "@/utils/positionHelpers";
 import { isMarketEndingSoon } from "@/utils/marketFilters";
 import { useTradeRecommendation } from "@/hooks/useTradeRecommendation";
+import { useShowTimeTravel } from "@/hooks/useRecommendationCount";
 
 import Card from "@/components/shared/Card";
 import OutcomeButtons from "@/components/Trading/Markets/OutcomeButtons";
@@ -23,12 +24,14 @@ import AgentInteractionNetwork from "@/components/Trading/Markets/AgentInteracti
 import ConsensusFormationTimeline from "@/components/Trading/Markets/ConsensusFormationTimeline";
 import AgentOutputComparison from "@/components/Trading/Markets/AgentOutputComparison";
 import QuickTradeService from "@/components/Trading/QuickTradeService";
+import RecommendationHistory from "@/components/Trading/Markets/RecommendationHistory";
+import RecommendationTimeTravel from "@/components/Trading/Markets/RecommendationTimeTravel";
 
 interface MarketDetailsProps {
     market: PolymarketMarket;
 }
 
-type TabType = 'overview' | 'ai-insights' | 'debate' | 'data-flow' | 'sentiment' | 'chart';
+type TabType = 'overview' | 'ai-insights' | 'debate' | 'data-flow' | 'sentiment' | 'chart' | 'time-travel';
 
 export default function MarketDetails({ market }: MarketDetailsProps) {
     const { clobClient, isGeoblocked, safeAddress } = useTrading();
@@ -46,6 +49,8 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
     const { data: recommendation } = useTradeRecommendation(market.conditionId || null, {
         enabled: !!market.conditionId,
     });
+
+    const { shouldShow: shouldShowTimeTravel, recommendationCount } = useShowTimeTravel(market.conditionId || null);
 
     const volumeUSD = parseFloat(
         String(market.volume24hr || market.volume || "0")
@@ -92,6 +97,7 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
         { id: 'ai-insights' as TabType, label: 'AI Insights', icon: Brain },
         { id: 'debate' as TabType, label: 'Agent Debate', icon: Users },
         { id: 'data-flow' as TabType, label: 'Data Flow', icon: Activity },
+        ...(shouldShowTimeTravel ? [{ id: 'time-travel' as TabType, label: `Time Travel (${recommendationCount})`, icon: Clock }] : []),
     ];
 
     const handleOutcomeClick = (
@@ -333,6 +339,15 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                                     />
                                 </div>
                             )}
+
+                            {activeTab === 'time-travel' && (
+                                <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                    <RecommendationTimeTravel
+                                        conditionId={market.conditionId || null}
+                                        currentMarketPrice={yesPrice}
+                                    />
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -360,6 +375,14 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                                 />
                             );
                         })()}
+
+                        {/* Recommendation History - Only show if there are recommendations */}
+                        {shouldShowTimeTravel && (
+                            <RecommendationHistory
+                                conditionId={market.conditionId || null}
+                                currentMarketPrice={yesPrice}
+                            />
+                        )}
 
                         <Card className="p-6 border-indigo-500/20 shadow-[0_0_50px_-12px_rgba(79,70,229,0.1)]">
                             <div className="flex items-center justify-between mb-8">
