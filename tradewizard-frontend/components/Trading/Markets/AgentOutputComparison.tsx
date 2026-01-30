@@ -311,13 +311,13 @@ export default function AgentOutputComparison({
 
       <div className="p-6">
         {/* Agent Selection */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
           {[0, 1].map(position => (
             <div key={position}>
-              <h4 className="font-medium text-gray-300 mb-3">
+              <h4 className="font-medium text-gray-300 mb-3 text-sm sm:text-base">
                 Select Agent {position + 1}
               </h4>
-              <div className="space-y-2 max-h-32 overflow-y-auto">
+              <div className="space-y-2 max-h-32 sm:max-h-40 overflow-y-auto">
                 {comparisonAgents.map(agent => {
                   const AgentIcon = getAgentIcon(agent.type);
                   const isSelected = selectedAgents[position] === agent.id;
@@ -326,18 +326,18 @@ export default function AgentOutputComparison({
                     <button
                       key={agent.id}
                       onClick={() => selectAgent(agent.id, position as 0 | 1)}
-                      className={`w-full p-3 rounded-lg border text-left transition-all duration-200 ${
+                      className={`w-full p-2 sm:p-3 rounded-lg border text-left transition-all duration-200 ${
                         isSelected 
                           ? getAgentColor(agent.type)
                           : 'border-white/10 bg-white/5 hover:border-white/20'
                       }`}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="p-1 rounded bg-black/20">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="p-1 rounded bg-black/20 flex-shrink-0">
                           <AgentIcon className="w-3 h-3" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-white text-sm truncate">
+                          <div className="font-medium text-white text-xs sm:text-sm truncate">
                             {agent.name}
                           </div>
                           <div className="text-xs text-gray-400">
@@ -357,33 +357,33 @@ export default function AgentOutputComparison({
         {selectedAgent1 && selectedAgent2 ? (
           <div className="space-y-6">
             {comparisonMode === 'side-by-side' && (
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                 {[selectedAgent1, selectedAgent2].map((agent, index) => {
                   const AgentIcon = getAgentIcon(agent.type);
                   
                   return (
-                    <div key={agent.id} className={`p-4 rounded-lg border ${getAgentColor(agent.type)}`}>
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="p-2 rounded-lg bg-black/20">
-                          <AgentIcon className="w-4 h-4" />
+                    <div key={agent.id} className={`p-3 sm:p-4 rounded-lg border ${getAgentColor(agent.type)}`}>
+                      <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                        <div className="p-1.5 sm:p-2 rounded-lg bg-black/20 flex-shrink-0">
+                          <AgentIcon className="w-3 h-3 sm:w-4 sm:h-4" />
                         </div>
-                        <div>
-                          <h4 className="font-semibold text-white">{agent.name}</h4>
-                          <p className="text-sm text-gray-400 capitalize">{agent.type} Agent</p>
+                        <div className="min-w-0">
+                          <h4 className="font-semibold text-white text-sm sm:text-base truncate">{agent.name}</h4>
+                          <p className="text-xs sm:text-sm text-gray-400 capitalize">{agent.type} Agent</p>
                         </div>
                       </div>
 
-                      <div className="space-y-4">
+                      <div className="space-y-3 sm:space-y-4">
                         {/* Key Metrics */}
-                        <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div className="grid grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm">
                           <div>
-                            <span className="text-gray-400">Fair Price:</span>
+                            <span className="text-gray-400 block">Fair Price:</span>
                             <div className="font-medium text-white">
                               {(agent.fairProbability * 100).toFixed(1)}%
                             </div>
                           </div>
                           <div>
-                            <span className="text-gray-400">Confidence:</span>
+                            <span className="text-gray-400 block">Confidence:</span>
                             <div className="font-medium text-white">
                               {(agent.confidence * 100).toFixed(0)}%
                             </div>
@@ -392,20 +392,20 @@ export default function AgentOutputComparison({
 
                         {/* Position */}
                         <div>
-                          <span className="text-gray-400 text-sm">Position:</span>
-                          <div className={`inline-block px-2 py-1 rounded text-xs font-medium ml-2 ${getPositionColor(agent.direction)}`}>
+                          <span className="text-gray-400 text-xs sm:text-sm block mb-1">Position:</span>
+                          <div className={`inline-block px-2 py-1 rounded text-xs font-medium ${getPositionColor(agent.direction)}`}>
                             {agent.direction.replace('_', ' ')}
                           </div>
                         </div>
 
                         {/* Key Drivers */}
                         <div>
-                          <h5 className="font-medium text-sm text-gray-300 mb-2">Key Drivers</h5>
+                          <h5 className="font-medium text-xs sm:text-sm text-gray-300 mb-2">Key Drivers</h5>
                           <ul className="space-y-1">
                             {agent.keyDrivers.slice(0, 4).map((driver, driverIndex) => (
-                              <li key={driverIndex} className="text-sm text-gray-300 flex items-start gap-2">
-                                <span className="w-1.5 h-1.5 bg-current rounded-full mt-2 flex-shrink-0" />
-                                {driver}
+                              <li key={driverIndex} className="text-xs sm:text-sm text-gray-300 flex items-start gap-2">
+                                <span className="w-1.5 h-1.5 bg-current rounded-full mt-1.5 sm:mt-2 flex-shrink-0" />
+                                <span className="break-words">{driver}</span>
                               </li>
                             ))}
                           </ul>
@@ -414,12 +414,12 @@ export default function AgentOutputComparison({
                         {/* Reasoning Strengths */}
                         {agent.reasoning.strengths.length > 0 && (
                           <div>
-                            <h5 className="font-medium text-sm text-gray-300 mb-2">Core Strengths</h5>
+                            <h5 className="font-medium text-xs sm:text-sm text-gray-300 mb-2">Core Strengths</h5>
                             <ul className="space-y-1">
                               {agent.reasoning.strengths.map((strength, strengthIndex) => (
-                                <li key={strengthIndex} className="text-sm text-gray-300 flex items-start gap-2">
+                                <li key={strengthIndex} className="text-xs sm:text-sm text-gray-300 flex items-start gap-2">
                                   <CheckCircle className="w-3 h-3 text-green-400 mt-0.5 flex-shrink-0" />
-                                  {strength}
+                                  <span className="break-words">{strength}</span>
                                 </li>
                               ))}
                             </ul>
@@ -435,15 +435,15 @@ export default function AgentOutputComparison({
             {comparisonMode === 'differences' && differences && (
               <div className="space-y-4">
                 {/* Difference Summary */}
-                <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                  <h4 className="font-medium text-white mb-3 flex items-center gap-2">
+                <div className="p-3 sm:p-4 bg-white/5 rounded-lg border border-white/10">
+                  <h4 className="font-medium text-white mb-3 flex items-center gap-2 text-sm sm:text-base">
                     <ArrowRight className="w-4 h-4 text-indigo-400" />
                     Key Differences
                   </h4>
                   
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-400">Probability Difference:</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
+                    <div className="p-2 sm:p-3 bg-white/5 rounded border border-white/10">
+                      <span className="text-gray-400 block mb-1">Probability Difference:</span>
                       <div className={`font-medium ${
                         differences.probabilityDifference < 0.1 ? 'text-green-400' :
                         differences.probabilityDifference < 0.2 ? 'text-yellow-400' : 'text-red-400'
@@ -451,16 +451,16 @@ export default function AgentOutputComparison({
                         {(differences.probabilityDifference * 100).toFixed(1)}%
                       </div>
                     </div>
-                    <div>
-                      <span className="text-gray-400">Position Agreement:</span>
+                    <div className="p-2 sm:p-3 bg-white/5 rounded border border-white/10">
+                      <span className="text-gray-400 block mb-1">Position Agreement:</span>
                       <div className={`font-medium ${
                         differences.positionAgreement ? 'text-green-400' : 'text-red-400'
                       }`}>
                         {differences.positionAgreement ? 'Yes' : 'No'}
                       </div>
                     </div>
-                    <div>
-                      <span className="text-gray-400">Confidence Difference:</span>
+                    <div className="p-2 sm:p-3 bg-white/5 rounded border border-white/10">
+                      <span className="text-gray-400 block mb-1">Confidence Difference:</span>
                       <div className={`font-medium ${
                         differences.confidenceDifference < 0.1 ? 'text-green-400' :
                         differences.confidenceDifference < 0.2 ? 'text-yellow-400' : 'text-red-400'
@@ -468,8 +468,8 @@ export default function AgentOutputComparison({
                         {(differences.confidenceDifference * 100).toFixed(0)}%
                       </div>
                     </div>
-                    <div>
-                      <span className="text-gray-400">Overall Agreement:</span>
+                    <div className="p-2 sm:p-3 bg-white/5 rounded border border-white/10">
+                      <span className="text-gray-400 block mb-1">Overall Agreement:</span>
                       <div className={`font-medium capitalize ${
                         differences.overallAgreement === 'high' ? 'text-green-400' :
                         differences.overallAgreement === 'medium' ? 'text-yellow-400' : 'text-red-400'
@@ -481,9 +481,11 @@ export default function AgentOutputComparison({
                 </div>
 
                 {/* Detailed Comparison */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                    <h5 className="font-medium text-white mb-3">{selectedAgent1.name} Unique Points</h5>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="p-3 sm:p-4 bg-white/5 rounded-lg border border-white/10">
+                    <h5 className="font-medium text-white mb-3 text-sm sm:text-base break-words">
+                      {selectedAgent1.name} Unique Points
+                    </h5>
                     <ul className="space-y-2">
                       {selectedAgent1.keyDrivers
                         .filter(driver => !selectedAgent2.keyDrivers.some(d2 => 
@@ -491,16 +493,18 @@ export default function AgentOutputComparison({
                           driver.toLowerCase().includes(d2.toLowerCase())
                         ))
                         .map((driver, index) => (
-                          <li key={index} className="text-sm text-gray-300 flex items-start gap-2">
-                            <span className="w-1.5 h-1.5 bg-green-400 rounded-full mt-2 flex-shrink-0" />
-                            {driver}
+                          <li key={index} className="text-xs sm:text-sm text-gray-300 flex items-start gap-2">
+                            <span className="w-1.5 h-1.5 bg-green-400 rounded-full mt-1.5 sm:mt-2 flex-shrink-0" />
+                            <span className="break-words">{driver}</span>
                           </li>
                         ))}
                     </ul>
                   </div>
                   
-                  <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                    <h5 className="font-medium text-white mb-3">{selectedAgent2.name} Unique Points</h5>
+                  <div className="p-3 sm:p-4 bg-white/5 rounded-lg border border-white/10">
+                    <h5 className="font-medium text-white mb-3 text-sm sm:text-base break-words">
+                      {selectedAgent2.name} Unique Points
+                    </h5>
                     <ul className="space-y-2">
                       {selectedAgent2.keyDrivers
                         .filter(driver => !selectedAgent1.keyDrivers.some(d1 => 
@@ -508,9 +512,9 @@ export default function AgentOutputComparison({
                           driver.toLowerCase().includes(d1.toLowerCase())
                         ))
                         .map((driver, index) => (
-                          <li key={index} className="text-sm text-gray-300 flex items-start gap-2">
-                            <span className="w-1.5 h-1.5 bg-red-400 rounded-full mt-2 flex-shrink-0" />
-                            {driver}
+                          <li key={index} className="text-xs sm:text-sm text-gray-300 flex items-start gap-2">
+                            <span className="w-1.5 h-1.5 bg-red-400 rounded-full mt-1.5 sm:mt-2 flex-shrink-0" />
+                            <span className="break-words">{driver}</span>
                           </li>
                         ))}
                     </ul>
@@ -520,50 +524,50 @@ export default function AgentOutputComparison({
             )}
 
             {comparisonMode === 'consensus' && (
-              <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                <h4 className="font-medium text-white mb-3 flex items-center gap-2">
+              <div className="p-3 sm:p-4 bg-white/5 rounded-lg border border-white/10">
+                <h4 className="font-medium text-white mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
                   <Target className="w-4 h-4 text-indigo-400" />
                   Consensus Analysis
                 </h4>
                 
                 <div className="space-y-4">
-                  <div className="grid grid-cols-3 gap-4 text-center">
-                    <div>
-                      <div className="text-lg font-bold text-white">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-center">
+                    <div className="p-3 bg-white/5 rounded border border-white/10">
+                      <div className="text-base sm:text-lg font-bold text-white">
                         {((selectedAgent1.fairProbability + selectedAgent2.fairProbability) / 2 * 100).toFixed(1)}%
                       </div>
-                      <div className="text-sm text-gray-400">Average Probability</div>
+                      <div className="text-xs sm:text-sm text-gray-400 mt-1">Average Probability</div>
                     </div>
-                    <div>
-                      <div className="text-lg font-bold text-white">
+                    <div className="p-3 bg-white/5 rounded border border-white/10">
+                      <div className="text-base sm:text-lg font-bold text-white">
                         {((selectedAgent1.confidence + selectedAgent2.confidence) / 2 * 100).toFixed(0)}%
                       </div>
-                      <div className="text-sm text-gray-400">Average Confidence</div>
+                      <div className="text-xs sm:text-sm text-gray-400 mt-1">Average Confidence</div>
                     </div>
-                    <div>
-                      <div className={`text-lg font-bold ${
+                    <div className="p-3 bg-white/5 rounded border border-white/10">
+                      <div className={`text-base sm:text-lg font-bold ${
                         differences && differences.overallAgreement === 'high' ? 'text-green-400' :
                         differences && differences.overallAgreement === 'medium' ? 'text-yellow-400' : 'text-red-400'
                       }`}>
                         {differences?.overallAgreement.toUpperCase()}
                       </div>
-                      <div className="text-sm text-gray-400">Agreement Level</div>
+                      <div className="text-xs sm:text-sm text-gray-400 mt-1">Agreement Level</div>
                     </div>
                   </div>
 
                   {/* Common Ground */}
                   <div>
-                    <h5 className="font-medium text-gray-300 mb-2">Common Ground</h5>
-                    <ul className="space-y-1">
+                    <h5 className="font-medium text-gray-300 mb-2 sm:mb-3 text-sm sm:text-base">Common Ground</h5>
+                    <ul className="space-y-1 sm:space-y-2">
                       {selectedAgent1.keyDrivers
                         .filter(driver => selectedAgent2.keyDrivers.some(d2 => 
                           d2.toLowerCase().includes(driver.toLowerCase()) || 
                           driver.toLowerCase().includes(d2.toLowerCase())
                         ))
                         .map((driver, index) => (
-                          <li key={index} className="text-sm text-gray-300 flex items-start gap-2">
+                          <li key={index} className="text-xs sm:text-sm text-gray-300 flex items-start gap-2">
                             <CheckCircle className="w-3 h-3 text-green-400 mt-0.5 flex-shrink-0" />
-                            {driver}
+                            <span className="break-words">{driver}</span>
                           </li>
                         ))}
                     </ul>
@@ -573,10 +577,10 @@ export default function AgentOutputComparison({
             )}
           </div>
         ) : (
-          <div className="text-center text-gray-400 py-12">
-            <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p className="font-medium text-white">Select Two Agents to Compare</p>
-            <p className="text-sm mt-1">Choose agents from the selection panels above</p>
+          <div className="text-center text-gray-400 py-8 sm:py-12">
+            <Users className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-3 opacity-50" />
+            <p className="font-medium text-white text-sm sm:text-base">Select Two Agents to Compare</p>
+            <p className="text-xs sm:text-sm mt-1">Choose agents from the selection panels above</p>
           </div>
         )}
       </div>
