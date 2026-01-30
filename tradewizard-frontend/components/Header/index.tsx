@@ -132,7 +132,7 @@ export default function Header({
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 opacity-0 group-hover:opacity-10 transition-opacity duration-300" />
                 <span className="relative z-10 flex items-center gap-2">
-                  Connect Wallet
+                  Log In / Sign Up
                   <svg className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                   </svg>
@@ -204,7 +204,7 @@ export default function Header({
                     onClick={connect}
                     className="w-full bg-white text-black font-bold py-4 rounded-xl active:scale-[0.98] transition-transform"
                   >
-                    Connect Wallet
+                    Log In / Sign Up
                   </button>
                 )}
               </motion.div>

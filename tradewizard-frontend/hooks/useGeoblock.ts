@@ -18,6 +18,7 @@ type UseGeoblockReturn = {
 
 // This hook checks if the user is geoblocked from using Polymarket
 // Integrators should use this to enforce the same geoblocking rules as Polymarket.com
+// Can be disabled via NEXT_PUBLIC_ENABLE_GEOBLOCK environment variable
 
 export default function useGeoblock(): UseGeoblockReturn {
   const [isBlocked, setIsBlocked] = useState(false);
@@ -27,9 +28,26 @@ export default function useGeoblock(): UseGeoblockReturn {
     null
   );
 
+  // Check if geoblock is enabled via environment variable
+  const isGeoblockEnabled = process.env.NEXT_PUBLIC_ENABLE_GEOBLOCK !== 'false';
+
   const checkGeoblock = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+
+    // If geoblock is disabled via environment variable, skip the check
+    if (!isGeoblockEnabled) {
+      console.log("Geoblock disabled via NEXT_PUBLIC_ENABLE_GEOBLOCK environment variable");
+      setIsBlocked(false);
+      setGeoblockStatus({
+        blocked: false,
+        ip: "disabled",
+        country: "disabled",
+        region: "disabled",
+      });
+      setIsLoading(false);
+      return;
+    }
 
     try {
       // Create abort controller for timeout
@@ -72,7 +90,7 @@ export default function useGeoblock(): UseGeoblockReturn {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isGeoblockEnabled]);
 
   // Check geoblock on mount
   useEffect(() => {
