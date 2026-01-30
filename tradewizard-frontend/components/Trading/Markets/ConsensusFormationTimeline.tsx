@@ -470,10 +470,17 @@ export default function ConsensusFormationTimeline({
             </div>
             <div className="text-center">
               <div className="text-lg font-bold text-white">
-                {timelineEvents.length > 1 ? formatDuration(
-                  timelineEvents[0].timestamp, 
-                  timelineEvents[timelineEvents.length - 1].timestamp
-                ) : '0s'}
+                {(() => {
+                  const totalDurationMs = analysisHistory?.reduce((sum, analysis) => 
+                    sum + (analysis.durationMs || 0), 0
+                  ) || 0;
+                  
+                  if (totalDurationMs === 0) return '0s';
+                  if (totalDurationMs < 1000) return `${totalDurationMs}ms`;
+                  if (totalDurationMs < 60000) return `${(totalDurationMs / 1000).toFixed(1)}s`;
+                  if (totalDurationMs < 3600000) return `${(totalDurationMs / 60000).toFixed(1)}m`;
+                  return `${(totalDurationMs / 3600000).toFixed(1)}h`;
+                })()}
               </div>
               <div className="text-gray-400">Total Duration</div>
             </div>
