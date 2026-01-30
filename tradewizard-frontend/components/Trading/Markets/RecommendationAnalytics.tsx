@@ -164,10 +164,10 @@ export default function RecommendationAnalytics({
 
   if (isLoading) {
     return (
-      <Card className={`p-6 ${className}`}>
+      <Card className={`p-4 sm:p-6 ${className}`}>
         <div className="flex items-center gap-3 mb-4">
           <BarChart3 className="w-5 h-5 text-indigo-400" />
-          <h3 className="font-semibold text-white">Recommendation Analytics</h3>
+          <h3 className="font-semibold text-white text-sm sm:text-base">Recommendation Analytics</h3>
         </div>
         <LoadingState message="Analyzing recommendation performance..." />
       </Card>
@@ -176,10 +176,10 @@ export default function RecommendationAnalytics({
 
   if (error) {
     return (
-      <Card className={`p-6 ${className}`}>
+      <Card className={`p-4 sm:p-6 ${className}`}>
         <div className="flex items-center gap-3 mb-4">
           <BarChart3 className="w-5 h-5 text-indigo-400" />
-          <h3 className="font-semibold text-white">Recommendation Analytics</h3>
+          <h3 className="font-semibold text-white text-sm sm:text-base">Recommendation Analytics</h3>
         </div>
         <ErrorState error={error instanceof Error ? error.message : 'Failed to load analytics'} />
       </Card>
@@ -188,14 +188,14 @@ export default function RecommendationAnalytics({
 
   if (!analytics || !recommendations || recommendations.length === 0) {
     return (
-      <Card className={`p-6 ${className}`}>
+      <Card className={`p-4 sm:p-6 ${className}`}>
         <div className="flex items-center gap-3 mb-4">
           <BarChart3 className="w-5 h-5 text-indigo-400" />
-          <h3 className="font-semibold text-white">Recommendation Analytics</h3>
+          <h3 className="font-semibold text-white text-sm sm:text-base">Recommendation Analytics</h3>
         </div>
         <div className="text-center py-8 text-gray-400">
           <BarChart3 className="w-8 h-8 mx-auto mb-3 opacity-50" />
-          <p>No recommendation data available for analysis</p>
+          <p className="text-sm">No recommendation data available for analysis</p>
         </div>
       </Card>
     );
@@ -204,17 +204,17 @@ export default function RecommendationAnalytics({
   const { performanceMetrics, quality } = analytics;
 
   return (
-    <div className={`space-y-6 ${className}`}>
+    <div className={`space-y-4 sm:space-y-6 ${className}`}>
       {/* Performance Overview */}
-      <Card className="p-6 border-indigo-500/20 bg-gradient-to-br from-indigo-500/5 to-purple-500/5">
-        <div className="flex items-center justify-between mb-6">
+      <Card className="p-4 sm:p-6 border-indigo-500/20 bg-gradient-to-br from-indigo-500/5 to-purple-500/5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 sm:mb-6">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
-              <BarChart3 className="w-5 h-5 text-indigo-400" />
+              <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-400" />
             </div>
             <div>
-              <h3 className="font-semibold text-white">Performance Overview</h3>
-              <p className="text-sm text-gray-400">
+              <h3 className="font-semibold text-white text-sm sm:text-base">Performance Overview</h3>
+              <p className="text-xs sm:text-sm text-gray-400">
                 {analytics.totalRecommendations} recommendations analyzed
               </p>
             </div>
@@ -222,20 +222,20 @@ export default function RecommendationAnalytics({
 
           <Badge 
             variant="default" 
-            className={`${quality.colorClass} border-current/30 bg-current/10`}
+            className={`${quality.colorClass} border-current/30 bg-current/10 self-start sm:self-center`}
           >
             {quality.quality.toUpperCase()}
           </Badge>
         </div>
 
         {/* Key Metrics Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-          <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
+          <div className="p-3 sm:p-4 bg-white/5 rounded-lg border border-white/10">
             <div className="flex items-center gap-2 text-gray-400 text-xs mb-2">
               <Target className="w-3 h-3" />
               Win Rate
             </div>
-            <div className="text-2xl font-bold text-white mb-1">
+            <div className="text-lg sm:text-2xl font-bold text-white mb-1">
               {performanceMetrics.winRate.toFixed(0)}%
             </div>
             {analytics.winRateTrend !== 0 && (
@@ -247,32 +247,32 @@ export default function RecommendationAnalytics({
                 ) : (
                   <TrendingDown className="w-3 h-3" />
                 )}
-                {Math.abs(analytics.winRateTrend).toFixed(0)}% vs older
+                <span className="break-words">{Math.abs(analytics.winRateTrend).toFixed(0)}% vs older</span>
               </div>
             )}
           </div>
 
-          <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+          <div className="p-3 sm:p-4 bg-white/5 rounded-lg border border-white/10">
             <div className="flex items-center gap-2 text-gray-400 text-xs mb-2">
               <DollarSign className="w-3 h-3" />
               Avg Return
             </div>
-            <div className={`text-2xl font-bold mb-1 ${
+            <div className={`text-lg sm:text-2xl font-bold mb-1 ${
               performanceMetrics.averageReturn >= 0 ? 'text-green-400' : 'text-red-400'
             }`}>
               {formatPercentageWithSign(performanceMetrics.averageReturn).text}
             </div>
-            <div className="text-xs text-gray-400">
+            <div className="text-xs text-gray-400 break-words">
               Best: {formatPercentageWithSign(performanceMetrics.bestReturn).text}
             </div>
           </div>
 
-          <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+          <div className="p-3 sm:p-4 bg-white/5 rounded-lg border border-white/10">
             <div className="flex items-center gap-2 text-gray-400 text-xs mb-2">
               <Shield className="w-3 h-3" />
               Risk Score
             </div>
-            <div className="text-2xl font-bold text-white mb-1">
+            <div className="text-lg sm:text-2xl font-bold text-white mb-1">
               {analytics.riskAdjustedReturn.toFixed(1)}
             </div>
             <div className="text-xs text-gray-400">
@@ -280,12 +280,12 @@ export default function RecommendationAnalytics({
             </div>
           </div>
 
-          <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+          <div className="p-3 sm:p-4 bg-white/5 rounded-lg border border-white/10">
             <div className="flex items-center gap-2 text-gray-400 text-xs mb-2">
               <Calendar className="w-3 h-3" />
               Avg Hold
             </div>
-            <div className="text-2xl font-bold text-white mb-1">
+            <div className="text-lg sm:text-2xl font-bold text-white mb-1">
               {performanceMetrics.averageDaysHeld.toFixed(0)}d
             </div>
             <div className="text-xs text-gray-400">
@@ -295,21 +295,21 @@ export default function RecommendationAnalytics({
         </div>
 
         {/* Quality Assessment */}
-        <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+        <div className="p-3 sm:p-4 bg-white/5 rounded-lg border border-white/10">
           <div className="flex items-center gap-2 mb-2">
             <Award className={`w-4 h-4 ${quality.colorClass}`} />
             <span className="text-sm font-medium text-white">Quality Assessment</span>
           </div>
-          <p className="text-sm text-gray-300">{quality.description}</p>
+          <p className="text-xs sm:text-sm text-gray-300 break-words">{quality.description}</p>
         </div>
       </Card>
 
       {/* Action & Confidence Distribution */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="p-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        <Card className="p-4 sm:p-6">
           <div className="flex items-center gap-2 text-white font-medium mb-4">
             <Activity className="w-4 h-4" />
-            Action Distribution
+            <span className="text-sm sm:text-base">Action Distribution</span>
           </div>
           
           <div className="space-y-3">
@@ -325,19 +325,19 @@ export default function RecommendationAnalytics({
               };
 
               return (
-                <div key={action} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${getActionColor(action)}`} />
-                    <span className="text-sm text-gray-300">{action.replace('_', ' ')}</span>
+                <div key={action} className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className={`w-3 h-3 rounded-full ${getActionColor(action)} flex-shrink-0`} />
+                    <span className="text-xs sm:text-sm text-gray-300 break-words">{action.replace('_', ' ')}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-20 h-2 bg-gray-700 rounded-full overflow-hidden">
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="w-16 sm:w-20 h-2 bg-gray-700 rounded-full overflow-hidden">
                       <div 
                         className={`h-full ${getActionColor(action)}`}
                         style={{ width: `${percentage}%` }}
                       />
                     </div>
-                    <span className="text-xs text-gray-400 w-8">{count}</span>
+                    <span className="text-xs text-gray-400 w-6 sm:w-8 text-right">{count}</span>
                   </div>
                 </div>
               );
@@ -345,10 +345,10 @@ export default function RecommendationAnalytics({
           </div>
         </Card>
 
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <div className="flex items-center gap-2 text-white font-medium mb-4">
             <Zap className="w-4 h-4" />
-            Confidence Levels
+            <span className="text-sm sm:text-base">Confidence Levels</span>
           </div>
           
           <div className="space-y-3">
@@ -364,19 +364,19 @@ export default function RecommendationAnalytics({
               };
 
               return (
-                <div key={confidence} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${getConfidenceColor(confidence)}`} />
-                    <span className="text-sm text-gray-300 capitalize">{confidence} Risk</span>
+                <div key={confidence} className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className={`w-3 h-3 rounded-full ${getConfidenceColor(confidence)} flex-shrink-0`} />
+                    <span className="text-xs sm:text-sm text-gray-300 capitalize break-words">{confidence} Risk</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-20 h-2 bg-gray-700 rounded-full overflow-hidden">
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="w-16 sm:w-20 h-2 bg-gray-700 rounded-full overflow-hidden">
                       <div 
                         className={`h-full ${getConfidenceColor(confidence)}`}
                         style={{ width: `${percentage}%` }}
                       />
                     </div>
-                    <span className="text-xs text-gray-400 w-8">{count}</span>
+                    <span className="text-xs text-gray-400 w-6 sm:w-8 text-right">{count}</span>
                   </div>
                 </div>
               );
@@ -384,13 +384,13 @@ export default function RecommendationAnalytics({
           </div>
 
           <div className="mt-4 pt-3 border-t border-white/10">
-            <div className="flex justify-between text-sm">
+            <div className="flex justify-between text-xs sm:text-sm">
               <span className="text-gray-400">Avg Confidence:</span>
               <span className="text-white font-medium">
                 {analytics.avgConfidence.toFixed(1)}/3.0
               </span>
             </div>
-            <div className="flex justify-between text-sm mt-1">
+            <div className="flex justify-between text-xs sm:text-sm mt-1">
               <span className="text-gray-400">Avg Edge:</span>
               <span className="text-white font-medium">
                 {(analytics.avgEdge * 100).toFixed(1)}%
@@ -402,16 +402,16 @@ export default function RecommendationAnalytics({
 
       {/* Recent Performance Trend */}
       {analytics.totalRecommendations >= 10 && (
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <div className="flex items-center gap-2 text-white font-medium mb-4">
             <TrendingUp className="w-4 h-4" />
-            Performance Trend
+            <span className="text-sm sm:text-base">Performance Trend</span>
           </div>
           
-          <div className="grid grid-cols-2 gap-6">
-            <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-              <div className="text-sm text-gray-400 mb-2">Recent Performance (Last 5)</div>
-              <div className="text-xl font-bold text-white mb-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+            <div className="p-3 sm:p-4 bg-white/5 rounded-lg border border-white/10">
+              <div className="text-xs sm:text-sm text-gray-400 mb-2">Recent Performance (Last 5)</div>
+              <div className="text-lg sm:text-xl font-bold text-white mb-1">
                 {analytics.recentWinRate.toFixed(0)}% Win Rate
               </div>
               <div className="text-xs text-gray-400">
@@ -419,9 +419,9 @@ export default function RecommendationAnalytics({
               </div>
             </div>
 
-            <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-              <div className="text-sm text-gray-400 mb-2">Consistency Score</div>
-              <div className="text-xl font-bold text-white mb-1">
+            <div className="p-3 sm:p-4 bg-white/5 rounded-lg border border-white/10">
+              <div className="text-xs sm:text-sm text-gray-400 mb-2">Consistency Score</div>
+              <div className="text-lg sm:text-xl font-bold text-white mb-1">
                 {analytics.consistencyScore.toFixed(0)}%
               </div>
               <div className="text-xs text-gray-400">
@@ -436,19 +436,19 @@ export default function RecommendationAnalytics({
                 ? 'bg-green-500/10 border-green-500/20' 
                 : 'bg-red-500/10 border-red-500/20'
             }`}>
-              <div className={`flex items-center gap-2 text-sm ${
+              <div className={`flex items-center gap-2 text-xs sm:text-sm ${
                 analytics.winRateTrend > 0 ? 'text-green-400' : 'text-red-400'
               }`}>
                 {analytics.winRateTrend > 0 ? (
-                  <TrendingUp className="w-4 h-4" />
+                  <TrendingUp className="w-4 h-4 flex-shrink-0" />
                 ) : (
-                  <TrendingDown className="w-4 h-4" />
+                  <TrendingDown className="w-4 h-4 flex-shrink-0" />
                 )}
-                <span className="font-medium">
+                <span className="font-medium break-words">
                   {analytics.winRateTrend > 0 ? 'Improving' : 'Declining'} Performance Trend
                 </span>
               </div>
-              <p className="text-xs text-gray-300 mt-1">
+              <p className="text-xs text-gray-300 mt-1 break-words">
                 Recent recommendations are performing {Math.abs(analytics.winRateTrend).toFixed(0)}% 
                 {analytics.winRateTrend > 0 ? ' better' : ' worse'} than historical average
               </p>
