@@ -14,7 +14,8 @@ import {
   Zap,
   AlertTriangle,
   CheckCircle,
-  Scale
+  Scale,
+  MoreHorizontal
 } from "lucide-react";
 import Card from "@/components/shared/Card";
 
@@ -47,6 +48,7 @@ export default function AgentOutputComparison({
 }: AgentOutputComparisonProps) {
   const [selectedAgents, setSelectedAgents] = useState<[string | null, string | null]>([null, null]);
   const [comparisonMode, setComparisonMode] = useState<'side-by-side' | 'differences' | 'consensus'>('side-by-side');
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   
   const { 
     data: signals, 
@@ -191,8 +193,8 @@ export default function AgentOutputComparison({
 
   return (
     <Card className="overflow-hidden">
-      <div className="p-4 border-b border-white/10 bg-white/5">
-        <div className="flex items-center justify-between">
+      <div className="p-4 border-b border-white/10 bg-white/5 relative">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Scale className="w-5 h-5 text-indigo-400" />
             <div>
@@ -203,29 +205,106 @@ export default function AgentOutputComparison({
             </div>
           </div>
           
-          {/* Comparison Mode Toggle */}
-          <div className="flex gap-1 bg-white/10 rounded-lg p-1">
+          {/* Desktop Comparison Mode Toggle */}
+          <div className="hidden sm:flex items-center gap-1 p-1 bg-white/5 rounded-lg border border-white/10">
             {[
-              { id: 'side-by-side', label: 'Side by Side', icon: Users },
-              { id: 'differences', label: 'Differences', icon: ArrowRight },
-              { id: 'consensus', label: 'Consensus', icon: Target }
+              { id: 'side-by-side', label: 'Side by Side', icon: Users, shortLabel: 'Side' },
+              { id: 'differences', label: 'Differences', icon: ArrowRight, shortLabel: 'Diff' },
+              { id: 'consensus', label: 'Consensus', icon: Target, shortLabel: 'Cons' }
             ].map(mode => {
               const Icon = mode.icon;
               return (
                 <button
                   key={mode.id}
                   onClick={() => setComparisonMode(mode.id as any)}
-                  className={`flex items-center gap-1 px-3 py-1 text-xs font-medium rounded transition-colors ${
-                    comparisonMode === mode.id
-                      ? 'bg-indigo-600 text-white'
-                      : 'text-gray-400 hover:text-white hover:bg-white/10'
-                  }`}
+                  className={`
+                    flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all
+                    ${comparisonMode === mode.id 
+                      ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' 
+                      : 'text-gray-400 hover:text-gray-300 hover:bg-white/5'
+                    }
+                  `}
                 >
-                  <Icon className="w-3 h-3" />
-                  {mode.label}
+                  <Icon className="w-3.5 h-3.5" />
+                  <span className="hidden lg:inline">{mode.label}</span>
+                  <span className="lg:hidden">{mode.shortLabel}</span>
                 </button>
               );
             })}
+          </div>
+
+          {/* Mobile Comparison Mode Toggle */}
+          <div className="sm:hidden absolute top-4 right-4">
+            <button
+              onClick={() => setShowMobileMenu(!showMobileMenu)}
+              className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-lg border border-white/10 text-gray-300 hover:bg-white/10 transition-all"
+            >
+              {(() => {
+                const modes = [
+                  { id: 'side-by-side', label: 'Side by Side', icon: Users, shortLabel: 'Side' },
+                  { id: 'differences', label: 'Differences', icon: ArrowRight, shortLabel: 'Diff' },
+                  { id: 'consensus', label: 'Consensus', icon: Target, shortLabel: 'Cons' }
+                ];
+                const selectedOption = modes.find(v => v.id === comparisonMode);
+                const IconComponent = selectedOption?.icon;
+                return IconComponent ? <IconComponent className="w-4 h-4" /> : null;
+              })()}
+              <span className="text-sm">
+                {(() => {
+                  const modes = [
+                    { id: 'side-by-side', label: 'Side by Side', icon: Users, shortLabel: 'Side' },
+                    { id: 'differences', label: 'Differences', icon: ArrowRight, shortLabel: 'Diff' },
+                    { id: 'consensus', label: 'Consensus', icon: Target, shortLabel: 'Cons' }
+                  ];
+                  return modes.find(v => v.id === comparisonMode)?.shortLabel;
+                })()}
+              </span>
+              <MoreHorizontal className={`w-4 h-4 transition-transform ${showMobileMenu ? 'rotate-90' : ''}`} />
+            </button>
+
+            {showMobileMenu && (
+              <>
+                {/* Backdrop */}
+                <div 
+                  className="fixed inset-0 z-40 bg-black/20"
+                  onClick={() => setShowMobileMenu(false)}
+                />
+                
+                {/* Dropdown Menu */}
+                <div className="absolute top-full right-0 mt-2 w-48 bg-gray-800/95 backdrop-blur-sm border border-white/20 rounded-lg shadow-2xl z-50 overflow-hidden">
+                  {[
+                    { id: 'side-by-side', label: 'Side by Side', icon: Users },
+                    { id: 'differences', label: 'Differences', icon: ArrowRight },
+                    { id: 'consensus', label: 'Consensus', icon: Target }
+                  ].map((mode, index) => {
+                    const Icon = mode.icon;
+                    return (
+                      <button
+                        key={mode.id}
+                        onClick={() => {
+                          setComparisonMode(mode.id as any);
+                          setShowMobileMenu(false);
+                        }}
+                        className={`
+                          w-full flex items-center gap-3 px-4 py-3 text-sm transition-all text-left
+                          ${comparisonMode === mode.id 
+                            ? 'bg-indigo-500/20 text-indigo-300 border-l-2 border-indigo-400' 
+                            : 'text-gray-300 hover:bg-white/10 hover:text-white'
+                          }
+                          ${index !== 2 ? 'border-b border-white/10' : ''}
+                        `}
+                      >
+                        <Icon className="w-4 h-4 flex-shrink-0" />
+                        <span className="flex-1">{mode.label}</span>
+                        {comparisonMode === mode.id && (
+                          <div className="w-2 h-2 rounded-full bg-indigo-400 flex-shrink-0" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
