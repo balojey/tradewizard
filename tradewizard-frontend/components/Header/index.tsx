@@ -47,6 +47,8 @@ export default function Header({
 
   const navItems = [
     { label: "Markets", href: "/" },
+    { label: "Positions", href: "/positions" },
+    { label: "Orders", href: "/orders" },
     { label: "Wallet", href: "/wallet" },
     { label: "Account", href: "/account" },
   ];

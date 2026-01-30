@@ -2,11 +2,11 @@
 
 import { useTrading } from "@/providers/TradingProvider";
 import Header from "@/components/Header";
-import MarketTabs from "@/components/Trading/MarketTabs";
+import UserPositions from "@/components/Trading/Positions";
 import GeoBlockedBanner from "@/components/GeoBlockedBanner";
-import FeaturedQuickTrade from "@/components/Home/FeaturedQuickTrade";
+import Card from "@/components/shared/Card";
 
-export default function Home() {
+export default function PositionsPage() {
   const {
     endTradingSession,
     isGeoblocked,
@@ -25,11 +25,18 @@ export default function Home() {
         )}
 
         <div className="flex flex-col gap-6">
+          <div className="flex items-end justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-white mb-1">My Positions</h1>
+              <p className="text-gray-400 text-sm">
+                View and manage your active prediction market positions.
+              </p>
+            </div>
+          </div>
 
-          {/* Featured Trade Widget */}
-          <FeaturedQuickTrade />
-
-          <MarketTabs />
+          <Card className="p-6">
+            <UserPositions />
+          </Card>
         </div>
       </main>
     </div>
