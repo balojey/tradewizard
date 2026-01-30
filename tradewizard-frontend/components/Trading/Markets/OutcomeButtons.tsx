@@ -37,8 +37,11 @@ export default function OutcomeButtons({
 
   return (
     <div className={cn(
-      "grid gap-3 w-full",
-      layout === "vertical" ? "grid-cols-1" : "grid-cols-2"
+      "grid w-full",
+      // Optimized grid layout - maintain horizontal for better visual balance
+      layout === "vertical" 
+        ? "grid-cols-1 gap-2 sm:gap-3" 
+        : "grid-cols-2 gap-2 lg:gap-3"
     )}>
       {outcomes.map((outcome: string, idx: number) => {
         const tokenId = tokenIds[idx] || "";
@@ -92,7 +95,11 @@ export default function OutcomeButtons({
             }}
             disabled={isDisabled || !tokenId}
             className={cn(
-              "group relative flex items-center justify-between p-3 rounded-xl border transition-all duration-300 shadow-sm overflow-hidden",
+              "group relative flex items-center justify-between rounded-lg lg:rounded-xl border transition-all duration-300 shadow-sm overflow-hidden",
+              // Optimized padding for better proportions
+              "p-2.5 lg:p-3",
+              // Touch-friendly minimum height on mobile
+              "min-h-[44px]",
               isDisabled || !tokenId
                 ? "cursor-not-allowed opacity-50"
                 : "cursor-pointer hover:shadow-md",
@@ -107,22 +114,32 @@ export default function OutcomeButtons({
               />
             )}
 
-            <div className="flex flex-col items-start gap-0.5 z-10">
-              <span className={cn("text-sm font-bold transition-colors uppercase tracking-wider text-[11px]", textClasses)}>
+            <div className="flex flex-col items-start gap-0.5 z-10 min-w-0">
+              <span className={cn(
+                "font-bold transition-colors uppercase tracking-wider",
+                // Responsive text sizing
+                "text-[10px] lg:text-[11px]",
+                textClasses
+              )}>
                 {outcome}
               </span>
-              <span className="text-xs text-gray-500 font-medium tracking-wide group-hover:text-gray-400 transition-colors">
+              <span className="text-[9px] lg:text-xs text-gray-500 font-medium tracking-wide group-hover:text-gray-400 transition-colors">
                 Probability
               </span>
             </div>
 
-            <div className="flex flex-col items-end z-10">
-              <div className={cn("text-xl font-bold tracking-tight flex items-center gap-1.5 transition-colors", textClasses)}>
+            <div className="flex flex-col items-end z-10 flex-shrink-0">
+              <div className={cn(
+                "font-bold tracking-tight flex items-center gap-1 transition-colors",
+                // Responsive text sizing
+                "text-base lg:text-xl",
+                textClasses
+              )}>
                 {priceInCents}¢
-                {isYes && <TrendingUp className="w-4 h-4 opacity-50 group-hover:opacity-100 transition-opacity" />}
-                {isNo && <TrendingDown className="w-4 h-4 opacity-50 group-hover:opacity-100 transition-opacity" />}
+                {isYes && <TrendingUp className="w-3 h-3 lg:w-4 lg:h-4 opacity-50 group-hover:opacity-100 transition-opacity" />}
+                {isNo && <TrendingDown className="w-3 h-3 lg:w-4 lg:h-4 opacity-50 group-hover:opacity-100 transition-opacity" />}
               </div>
-              <span className="text-xs text-gray-400 font-mono group-hover:text-gray-300 transition-colors">
+              <span className="text-[9px] lg:text-xs text-gray-400 font-mono group-hover:text-gray-300 transition-colors">
                 {percentage}%
               </span>
             </div>

@@ -117,9 +117,9 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
     };
 
     return (
-        <div className="max-w-7xl mx-auto pb-12">
+        <div className="max-w-7xl mx-auto pb-8 sm:pb-12">
             {/* Back Navigation */}
-            <div className="mb-8 pt-4">
+            <div className="mb-6 sm:mb-8 pt-4">
                 <Link
                     href="/"
                     className="inline-flex items-center gap-2 text-gray-500 hover:text-white transition-colors group"
@@ -131,19 +131,19 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                 </Link>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-8">
                 {/* Main Content */}
-                <div className="lg:col-span-8 space-y-8">
-                    {/* Market Header Card */}
+                <div className="xl:col-span-8 space-y-6 sm:space-y-8">
+                    {/* Market Header Card - Responsive */}
                     <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#0A0A0A]">
                         {/* Background gradient effect */}
-                        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-b from-indigo-500/10 via-purple-500/5 to-transparent blur-3xl opacity-50 -z-10" />
+                        <div className="absolute top-0 right-0 w-[300px] sm:w-[500px] h-[300px] sm:h-[500px] bg-gradient-to-b from-indigo-500/10 via-purple-500/5 to-transparent blur-3xl opacity-50 -z-10" />
 
-                        <div className="p-8">
-                            <div className="flex gap-6 items-start">
+                        <div className="p-4 sm:p-6 lg:p-8">
+                            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-start">
                                 {(market.icon || market.image || market.eventIcon) && (
-                                    <div className="relative">
-                                        <div className="w-16 h-16 rounded-xl overflow-hidden ring-1 ring-white/10 shadow-2xl">
+                                    <div className="relative order-1 sm:order-none">
+                                        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl overflow-hidden ring-1 ring-white/10 shadow-2xl">
                                             <img
                                                 src={market.icon || market.image || market.eventIcon}
                                                 alt=""
@@ -151,17 +151,17 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                                             />
                                         </div>
                                         {isActive && (
-                                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-[3px] border-[#0A0A0A]" />
+                                            <div className="absolute -bottom-1 -right-1 w-3 h-3 sm:w-4 sm:h-4 bg-green-500 rounded-full border-[3px] border-[#0A0A0A]" />
                                         )}
                                     </div>
                                 )}
 
-                                <div className="flex-1 min-w-0 pt-1">
-                                    <h1 className="text-3xl font-bold text-white mb-3 leading-tight tracking-tight">
+                                <div className="flex-1 min-w-0 pt-0 sm:pt-1 order-2 sm:order-none">
+                                    <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mb-3 leading-tight tracking-tight">
                                         {market.question}
                                     </h1>
 
-                                    <div className="flex flex-wrap items-center gap-3">
+                                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                                         <RecommendationBadge
                                             conditionId={market.conditionId || null}
                                             size="md"
@@ -169,20 +169,20 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                                         />
 
                                         {isEndingSoon && (
-                                            <div className="flex items-center gap-1.5 px-3 py-1 bg-yellow-500/10 text-yellow-400 text-xs font-semibold rounded-full border border-yellow-500/20">
+                                            <div className="flex items-center gap-1.5 px-2 sm:px-3 py-1 bg-yellow-500/10 text-yellow-400 text-xs font-semibold rounded-full border border-yellow-500/20">
                                                 <Clock className="w-3 h-3" />
                                                 Ending Soon
                                             </div>
                                         )}
 
                                         {isClosed && (
-                                            <div className="px-3 py-1 bg-gray-800 text-gray-400 text-xs font-semibold rounded-full border border-gray-700">
+                                            <div className="px-2 sm:px-3 py-1 bg-gray-800 text-gray-400 text-xs font-semibold rounded-full border border-gray-700">
                                                 Market Closed
                                             </div>
                                         )}
 
                                         {negRisk && (
-                                            <div className="px-3 py-1 bg-blue-500/10 text-blue-400 text-xs font-semibold rounded-full border border-blue-500/20">
+                                            <div className="px-2 sm:px-3 py-1 bg-blue-500/10 text-blue-400 text-xs font-semibold rounded-full border border-blue-500/20">
                                                 Neg Risk
                                             </div>
                                         )}
@@ -190,7 +190,7 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                                         {market.events?.[0]?.tags?.slice(0, 3).map((tag: any) => (
                                             <span
                                                 key={tag.id}
-                                                className="px-2.5 py-1 bg-white/5 text-gray-400 text-xs font-medium rounded-full border border-white/5 hover:bg-white/10 hover:text-gray-200 transition-colors cursor-default"
+                                                className="px-2 sm:px-2.5 py-1 bg-white/5 text-gray-400 text-xs font-medium rounded-full border border-white/5 hover:bg-white/10 hover:text-gray-200 transition-colors cursor-default"
                                             >
                                                 {tag.label}
                                             </span>
@@ -199,44 +199,44 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                                 </div>
                             </div>
 
-                            {/* Key Metrics Grid */}
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8 pt-8 border-t border-white/5">
-                                <div className="p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/[0.07] transition-colors">
-                                    <div className="flex items-center gap-2 text-gray-400 text-xs font-medium mb-1.5">
-                                        <TrendingUp className="w-3.5 h-3.5" />
+                            {/* Key Metrics Grid - Responsive */}
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-6 sm:mt-8 pt-6 sm:pt-8 border-t border-white/5">
+                                <div className="p-3 sm:p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/[0.07] transition-colors">
+                                    <div className="flex items-center gap-1.5 sm:gap-2 text-gray-400 text-xs font-medium mb-1.5">
+                                        <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                                         <span>Yes Price</span>
                                     </div>
-                                    <div className="text-2xl font-bold text-white tracking-tight">
+                                    <div className="text-xl sm:text-2xl font-bold text-white tracking-tight">
                                         {yesChance}%
                                     </div>
                                 </div>
 
-                                <div className="p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/[0.07] transition-colors">
-                                    <div className="flex items-center gap-2 text-gray-400 text-xs font-medium mb-1.5">
-                                        <Activity className="w-3.5 h-3.5" />
+                                <div className="p-3 sm:p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/[0.07] transition-colors">
+                                    <div className="flex items-center gap-1.5 sm:gap-2 text-gray-400 text-xs font-medium mb-1.5">
+                                        <Activity className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                                         <span>24h Volume</span>
                                     </div>
-                                    <div className="text-2xl font-bold text-white tracking-tight">
+                                    <div className="text-xl sm:text-2xl font-bold text-white tracking-tight">
                                         ${formatVolume(volumeUSD)}
                                     </div>
                                 </div>
 
-                                <div className="p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/[0.07] transition-colors">
-                                    <div className="flex items-center gap-2 text-gray-400 text-xs font-medium mb-1.5">
-                                        <Wallet className="w-3.5 h-3.5" />
+                                <div className="p-3 sm:p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/[0.07] transition-colors">
+                                    <div className="flex items-center gap-1.5 sm:gap-2 text-gray-400 text-xs font-medium mb-1.5">
+                                        <Wallet className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                                         <span>Liquidity</span>
                                     </div>
-                                    <div className="text-2xl font-bold text-white tracking-tight">
+                                    <div className="text-xl sm:text-2xl font-bold text-white tracking-tight">
                                         ${formatVolume(liquidityUSD)}
                                     </div>
                                 </div>
 
-                                <div className="p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/[0.07] transition-colors">
-                                    <div className="flex items-center gap-2 text-gray-400 text-xs font-medium mb-1.5">
-                                        <Clock className="w-3.5 h-3.5" />
+                                <div className="p-3 sm:p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/[0.07] transition-colors">
+                                    <div className="flex items-center gap-1.5 sm:gap-2 text-gray-400 text-xs font-medium mb-1.5">
+                                        <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                                         <span>End Date</span>
                                     </div>
-                                    <div className="text-xl font-bold text-white tracking-tight truncate">
+                                    <div className="text-lg sm:text-xl font-bold text-white tracking-tight truncate">
                                         {market.endDate ? format(new Date(market.endDate), "MMM d") : "TBD"}
                                     </div>
                                 </div>
@@ -244,10 +244,10 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                         </div>
                     </div>
 
-                    {/* Content Tabs */}
-                    <div className="space-y-6">
+                    {/* Content Tabs - Responsive */}
+                    <div className="space-y-4 sm:space-y-6">
                         <div className="border-b border-white/10">
-                            <div className="flex overflow-x-auto no-scrollbar gap-6">
+                            <div className="flex overflow-x-auto no-scrollbar gap-4 sm:gap-6 pb-1">
                                 {tabs.map((tab) => {
                                     const Icon = tab.icon;
                                     const isActive = activeTab === tab.id;
@@ -256,17 +256,17 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                                             key={tab.id}
                                             onClick={() => setActiveTab(tab.id)}
                                             className={`
-                                                group relative flex items-center gap-2 pb-4 text-sm font-medium transition-all
+                                                group relative flex items-center gap-2 pb-3 sm:pb-4 text-sm font-medium transition-all whitespace-nowrap
                                                 ${isActive ? 'text-white' : 'text-gray-500 hover:text-gray-300'}
                                             `}
                                         >
                                             <div className={`
-                                                p-1.5 rounded-lg transition-colors
+                                                p-1 sm:p-1.5 rounded-lg transition-colors
                                                 ${isActive ? 'bg-white/10 text-indigo-400' : 'bg-transparent group-hover:bg-white/5'}
                                             `}>
-                                                <Icon className="w-4 h-4" />
+                                                <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                             </div>
-                                            {tab.label}
+                                            <span className="text-xs sm:text-sm">{tab.label}</span>
 
                                             {isActive && (
                                                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
@@ -277,7 +277,7 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                             </div>
                         </div>
 
-                        <div className="min-h-[400px]">
+                        <div className="min-h-[300px] sm:min-h-[400px]">
                             {activeTab === 'overview' && (
                                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
                                     {market.description ? (
@@ -286,12 +286,12 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                                                 <Info className="w-4 h-4 text-indigo-400" />
                                                 About This Market
                                             </h3>
-                                            <div className="p-6 rounded-2xl bg-white/5 border border-white/5 text-gray-300 leading-relaxed text-base">
+                                            <div className="p-4 sm:p-6 rounded-2xl bg-white/5 border border-white/5 text-gray-300 leading-relaxed text-sm sm:text-base">
                                                 {market.description}
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="flex flex-col items-center justify-center py-20 text-gray-500 bg-white/5 rounded-2xl border border-dashed border-white/10">
+                                        <div className="flex flex-col items-center justify-center py-16 sm:py-20 text-gray-500 bg-white/5 rounded-2xl border border-dashed border-white/10">
                                             <Info className="w-8 h-8 mb-3 opacity-50" />
                                             <p>No description available for this market.</p>
                                         </div>
@@ -320,7 +320,7 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                             )}
 
                             {activeTab === 'data-flow' && (
-                                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                <div className="space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
                                     <AgentWorkflowDiagram
                                         conditionId={market.conditionId || null}
                                         marketQuestion={market.question}
@@ -352,9 +352,9 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                     </div>
                 </div>
 
-                {/* Sidebar: Trading Panel */}
-                <div className="lg:col-span-4 space-y-6">
-                    <div className="sticky top-6 space-y-6">
+                {/* Sidebar: Trading Panel - Responsive */}
+                <div className="xl:col-span-4 space-y-4 sm:space-y-6">
+                    <div className="xl:sticky xl:top-6 space-y-4 sm:space-y-6">
                         {/* Quick Trade Service - Prioritized */}
                         {recommendation && recommendation.action !== 'NO_TRADE' && (() => {
                             // Determine the correct outcome index and price based on recommendation
@@ -384,11 +384,11 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                             />
                         )}
 
-                        <Card className="p-6 border-indigo-500/20 shadow-[0_0_50px_-12px_rgba(79,70,229,0.1)]">
-                            <div className="flex items-center justify-between mb-8">
-                                <h3 className="font-bold text-xl text-white">Place Order</h3>
+                        <Card className="p-4 sm:p-6 border-indigo-500/20 shadow-[0_0_50px_-12px_rgba(79,70,229,0.1)]">
+                            <div className="flex items-center justify-between mb-6 sm:mb-8">
+                                <h3 className="font-bold text-lg sm:text-xl text-white">Place Order</h3>
                                 {yesIndex !== -1 && (
-                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-full border border-white/10">
+                                    <div className="flex items-center gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 bg-white/5 rounded-full border border-white/10">
                                         <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} />
                                         <span className="text-xs font-medium text-gray-400">Live</span>
                                     </div>
@@ -407,7 +407,7 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                                 layout="vertical"
                             />
 
-                            <div className="mt-8 pt-6 border-t border-white/10">
+                            <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-white/10">
                                 <div className="space-y-3">
                                     <div className="flex justify-between items-center text-sm">
                                         <span className="text-gray-400">Your Balance</span>
@@ -419,17 +419,13 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                                     </div>
                                 </div>
                                 {!safeAddress && (
-                                    <button className="w-full mt-6 py-3.5 bg-white/5 border border-white/10 rounded-xl text-sm font-semibold text-gray-400 hover:text-white hover:bg-white/10 transition-all flex items-center justify-center gap-2">
+                                    <button className="w-full mt-4 sm:mt-6 py-3 sm:py-3.5 bg-white/5 border border-white/10 rounded-xl text-sm font-semibold text-gray-400 hover:text-white hover:bg-white/10 transition-all flex items-center justify-center gap-2">
                                         <Wallet className="w-4 h-4" />
                                         Log in to Trade
                                     </button>
                                 )}
                             </div>
                         </Card>
-
-
-
-
                     </div>
                 </div>
             </div>

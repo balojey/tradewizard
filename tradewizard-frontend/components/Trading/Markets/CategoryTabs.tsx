@@ -44,7 +44,7 @@ export default function CategoryTabs({
       <div
         ref={scrollContainerRef}
         onScroll={checkScroll}
-        className="overflow-x-auto flex items-center gap-1 sm:gap-1.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']"
+        className="overflow-x-auto flex items-center gap-1 sm:gap-1.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] pb-1"
       >
         {categories.map((category) => {
           const isActive = activeCategory === category.id;
@@ -53,7 +53,11 @@ export default function CategoryTabs({
               key={category.id}
               onClick={() => onCategoryChange(category.id)}
               className={cn(
-                "relative px-4 py-2 text-sm font-medium transition-colors duration-200 rounded-full whitespace-nowrap outline-none select-none",
+                "relative transition-colors duration-200 rounded-full whitespace-nowrap outline-none select-none",
+                // Responsive padding and text sizing
+                "px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium",
+                // Touch-friendly minimum size on mobile
+                "min-h-[36px] sm:min-h-[auto]",
                 isActive ? "text-white" : "text-gray-400 hover:text-gray-200"
               )}
               style={{ WebkitTapHighlightColor: "transparent" }}
@@ -70,15 +74,15 @@ export default function CategoryTabs({
           );
         })}
         {/* Spacer to prevent cut-off on the right */}
-        <div className="w-8 shrink-0" />
+        <div className="w-6 sm:w-8 shrink-0" />
       </div>
 
-      {/* Right Fade & Chevron Indicator */}
+      {/* Right Fade & Chevron Indicator - Responsive */}
       {showRightFade && (
-        <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-[#0A0A0B] via-[#0A0A0B]/80 to-transparent pointer-events-none flex items-center justify-end pr-0">
+        <div className="absolute right-0 top-0 bottom-0 w-16 sm:w-24 bg-gradient-to-l from-[#0A0A0B] via-[#0A0A0B]/80 to-transparent pointer-events-none flex items-center justify-end pr-0">
           <button
             onClick={handleScrollRight}
-            className="bg-white/5 border border-white/5 rounded-full p-1.5 shadow-lg backdrop-blur-md pointer-events-auto hidden sm:flex items-center justify-center mr-1 hover:bg-white/10 transition-colors"
+            className="bg-white/5 border border-white/5 rounded-full shadow-lg backdrop-blur-md pointer-events-auto hidden sm:flex items-center justify-center hover:bg-white/10 transition-colors p-1.5 mr-1"
           >
             <ChevronRight className="w-4 h-4 text-gray-400" />
           </button>

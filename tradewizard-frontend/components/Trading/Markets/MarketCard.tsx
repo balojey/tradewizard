@@ -88,70 +88,68 @@ export default function MarketCard({
       {/* Hover Gradient Overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/0 via-transparent to-purple-500/0 group-hover:from-indigo-500/5 group-hover:to-purple-500/5 transition-colors duration-500 pointer-events-none" />
 
-      <div className="p-5 flex-1 flex flex-col gap-5 relative z-10">
-        {/* Header: Icon + Title + Gauge */}
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex gap-4 min-w-0">
-            {/* Market Icon */}
-            <div className="relative flex-shrink-0">
-              {market.icon ? (
-                <img
-                  src={market.icon}
-                  alt=""
-                  className="w-12 h-12 rounded-xl object-cover ring-1 ring-white/10 shadow-lg group-hover:scale-105 transition-transform duration-300"
-                />
-              ) : (
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-gray-800 to-gray-900 ring-1 ring-white/10 shadow-lg flex items-center justify-center">
-                  <BarChart2 className="w-6 h-6 text-gray-600" />
-                </div>
-              )}
-              {/* Active Indicator Dot */}
-              {isActive && (
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-[#1C1C1E]" />
-              )}
-            </div>
-
-            {/* Title and Status - Only this area is clickable */}
-            <div className="flex-1 min-w-0">
-              <Link href={`/market/${market.slug || market.id}`} className="block group/title">
-                <h4 className="font-semibold text-[15px] leading-snug mb-2 text-gray-100 group-hover/title:text-indigo-400 transition-colors line-clamp-2">
-                  {market.question}
-                </h4>
-              </Link>
-
-              {/* Status and AI Badges */}
-              <div className="flex items-center gap-2 flex-wrap">
-                {statusBadge && (
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-bold border ${statusBadge.color}`}>
-                    {statusBadge.text}
-                  </span>
-                )}
-                <AIInsightsBadge
-                  conditionId={market.conditionId || null}
-                  size="sm"
-                  showDetails={false}
-                />
+      <div className="p-4 lg:p-5 flex-1 flex flex-col gap-4 relative z-10">
+        {/* Header: Icon + Title + Gauge - Compact Layout */}
+        <div className="flex items-start gap-3 lg:gap-4">
+          {/* Market Icon - Consistent sizing */}
+          <div className="relative flex-shrink-0">
+            {market.icon ? (
+              <img
+                src={market.icon}
+                alt=""
+                className="w-11 h-11 lg:w-12 lg:h-12 rounded-xl object-cover ring-1 ring-white/10 shadow-lg group-hover:scale-105 transition-transform duration-300"
+              />
+            ) : (
+              <div className="w-11 h-11 lg:w-12 lg:h-12 rounded-xl bg-gradient-to-br from-gray-800 to-gray-900 ring-1 ring-white/10 shadow-lg flex items-center justify-center">
+                <BarChart2 className="w-5 h-5 lg:w-6 lg:h-6 text-gray-600" />
               </div>
+            )}
+            {/* Active Indicator Dot */}
+            {isActive && (
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-[#1C1C1E]" />
+            )}
+          </div>
+
+          {/* Title and Status - More space for text */}
+          <div className="flex-1 min-w-0">
+            <Link href={`/market/${market.slug || market.id}`} className="block group/title">
+              <h4 className="font-semibold text-[15px] lg:text-base leading-snug mb-2 text-gray-100 group-hover/title:text-indigo-400 transition-colors line-clamp-3">
+                {market.question}
+              </h4>
+            </Link>
+
+            {/* Status and AI Badges - Compact layout */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {statusBadge && (
+                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-bold border ${statusBadge.color}`}>
+                  {statusBadge.text}
+                </span>
+              )}
+              <AIInsightsBadge
+                conditionId={market.conditionId || null}
+                size="sm"
+                showDetails={false}
+              />
             </div>
           </div>
 
-          {/* Probability Gauge (Visual only, based on 'Yes' price) */}
-          <div className="flex-shrink-0 ml-1">
-            <PercentageGauge value={yesChance} size={48} />
+          {/* Probability Gauge - Consistent sizing */}
+          <div className="flex-shrink-0">
+            <PercentageGauge value={yesChance} size={46} />
           </div>
         </div>
 
-        {/* Outcome Buttons */}
-        <div className="mt-auto pt-2 space-y-3">
-          {/* AI Recommendation Display */}
-          <div className="transform transition-transform duration-300 origin-left">
-            <RecommendationBadge
-              conditionId={market.conditionId || null}
-              size="md"
-              showDetails={true}
-            />
-          </div>
+        {/* AI Recommendation Display - Compact */}
+        <div className="transform transition-transform duration-300 origin-left">
+          <RecommendationBadge
+            conditionId={market.conditionId || null}
+            size="md"
+            showDetails={true}
+          />
+        </div>
 
+        {/* Outcome Buttons - Maintain horizontal layout */}
+        <div className="mt-auto">
           <OutcomeButtons
             outcomes={outcomes}
             outcomePrices={outcomePrices}
@@ -161,19 +159,20 @@ export default function MarketCard({
             marketQuestion={market.question}
             disabled={disabled}
             onOutcomeClick={onOutcomeClick}
+            layout="horizontal"
           />
         </div>
       </div>
 
-      {/* Footer: Volume + Bookmark */}
-      <div className="relative z-10 px-5 py-3 border-t border-white/5 bg-white/[0.02] flex items-center justify-between text-xs text-gray-500 group-hover:text-gray-400 transition-colors">
-        <div className="flex items-center gap-4">
-          <span className="flex items-center gap-1.5 font-medium">
-            <BarChart2 className="w-3.5 h-3.5 opacity-70" />
-            ${formatVolume(volumeUSD)} Vol.
+      {/* Footer: Volume + Bookmark - Compact */}
+      <div className="relative z-10 px-4 lg:px-5 py-2.5 border-t border-white/5 bg-white/[0.02] flex items-center justify-between text-xs text-gray-500 group-hover:text-gray-400 transition-colors">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="flex items-center gap-1.5 font-medium truncate">
+            <BarChart2 className="w-3.5 h-3.5 opacity-70 flex-shrink-0" />
+            <span className="truncate">${formatVolume(volumeUSD)} Vol.</span>
           </span>
           {market.active && (
-            <span className="flex items-center gap-1.5 font-medium text-emerald-500/80">
+            <span className="hidden sm:flex items-center gap-1.5 font-medium text-emerald-500/80">
               <TrendingUp className="w-3.5 h-3.5" />
               Live
             </span>
@@ -181,7 +180,7 @@ export default function MarketCard({
         </div>
 
         <button
-          className="p-1.5 -mr-1.5 rounded-lg hover:bg-white/10 text-gray-600 hover:text-white transition-all active:scale-95"
+          className="p-1.5 -mr-1.5 rounded-lg hover:bg-white/10 text-gray-600 hover:text-white transition-all active:scale-95 flex-shrink-0"
           onClick={(e) => {
             e.stopPropagation();
             // TODO: Implement bookmarking

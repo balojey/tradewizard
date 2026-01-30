@@ -131,13 +131,13 @@ export default function PoliticalMarkets() {
 
   return (
     <>
-      <div className="space-y-4">
-        {/* Main Toolbar */}
-        <div className="flex flex-col gap-6 md:gap-8">
-          <div className="flex items-center justify-between gap-3 w-full">
-            {/* Scrollable Tabs */}
+      <div className="space-y-4 sm:space-y-6">
+        {/* Main Toolbar - Responsive Layout */}
+        <div className="flex flex-col gap-4 sm:gap-6 md:gap-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 w-full">
+            {/* Scrollable Tabs - Full width on mobile */}
             {categories.length > 0 && (
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0 order-1 sm:order-none">
                 <CategoryTabs
                   categories={categories}
                   activeCategory={activeCategory}
@@ -146,14 +146,15 @@ export default function PoliticalMarkets() {
               </div>
             )}
 
-            {/* Right Actions */}
-            <div className="flex items-center gap-3 shrink-0 pl-2">
-              {/* AI Badge (Compact) */}
+            {/* Right Actions - Responsive positioning */}
+            <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 order-2 sm:order-none sm:pl-2">
+              {/* AI Badge - Show on mobile with different styling */}
               {getRecommendationCount() > 0 && (
-                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 rounded-full border border-indigo-500/20">
+                <div className="flex items-center gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 bg-indigo-500/10 rounded-full border border-indigo-500/20">
                   <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(129,140,248,0.5)]" />
                   <span className="text-xs font-semibold text-indigo-300">
-                    {getRecommendationCount()} Picks
+                    <span className="sm:hidden">{getRecommendationCount()}</span>
+                    <span className="hidden sm:inline">{getRecommendationCount()} Picks</span>
                   </span>
                 </div>
               )}
@@ -165,16 +166,6 @@ export default function PoliticalMarkets() {
               />
             </div>
           </div>
-
-          {/* Mobile Recommendations (if any, shown below toolbar on small screens) */}
-          {getRecommendationCount() > 0 && (
-            <div className="md:hidden flex items-center justify-center gap-2 px-3 py-2 bg-indigo-500/5 rounded-xl border border-indigo-500/10 w-full">
-              <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-pulse" />
-              <span className="text-sm font-medium text-indigo-300">
-                {getRecommendationCount()} AI Recommended Markets
-              </span>
-            </div>
-          )}
         </div>
 
         {/* Loading State - Initial Load */}
@@ -203,9 +194,9 @@ export default function PoliticalMarkets() {
           />
         )}
 
-        {/* Market Cards */}
+        {/* Market Cards - Optimized Responsive Grid */}
         {markets.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
             {markets.map((market, index) => (
               <MarketCard
                 key={`${market.id}-${index}`} // Include index to handle potential duplicates
@@ -217,11 +208,11 @@ export default function PoliticalMarkets() {
 
             {/* Infinite Scroll Trigger */}
             {hasNextPage && (
-              <div ref={targetRef} className="py-4 flex justify-center">
+              <div ref={targetRef} className="col-span-full py-4 flex justify-center">
                 {isFetchingNextPage ? (
                   <LoadingState message="Loading more markets..." />
                 ) : (
-                  <div className="text-gray-400 text-sm">
+                  <div className="text-gray-400 text-sm text-center">
                     Scroll down to load more markets
                   </div>
                 )}
@@ -230,7 +221,7 @@ export default function PoliticalMarkets() {
 
             {/* End of Results Indicator */}
             {!hasNextPage && markets.length > 20 && (
-              <div className="py-4 text-center text-gray-400 text-sm">
+              <div className="col-span-full py-4 text-center text-gray-400 text-sm">
                 You've reached the end of available markets
               </div>
             )}
