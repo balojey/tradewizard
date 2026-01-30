@@ -125,7 +125,7 @@ export default function RecommendationHistory({
           <div className="flex items-center gap-2">
             <History className="w-4 h-4 text-indigo-400" />
             <h4 className="font-medium text-white">Recommendation History</h4>
-            <Badge variant="outline" className="text-xs">
+            <Badge variant="default" className="text-xs">
               {recommendations.length}
             </Badge>
           </div>
@@ -183,7 +183,7 @@ export default function RecommendationHistory({
                         {recommendation.action.replace('_', ' ')}
                       </span>
                       {isLatest && (
-                        <Badge variant="outline" className="text-xs text-green-400 border-green-500/30">
+                        <Badge variant="default" className="text-xs text-green-400 border-green-500/30">
                           Latest
                         </Badge>
                       )}

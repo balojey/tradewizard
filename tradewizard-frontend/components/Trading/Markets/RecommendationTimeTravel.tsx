@@ -306,7 +306,7 @@ function TimelineView({
         
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-2">
-            <Badge variant="outline" className={getActionColor(recommendation.action)}>
+            <Badge variant="default" className={getActionColor(recommendation.action)}>
               {recommendation.action.replace('_', ' ')}
             </Badge>
             <span className="text-sm text-gray-400">

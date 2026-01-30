@@ -221,7 +221,7 @@ export default function RecommendationAnalytics({
           </div>
 
           <Badge 
-            variant="outline" 
+            variant="default" 
             className={`${quality.colorClass} border-current/30 bg-current/10`}
           >
             {quality.quality.toUpperCase()}

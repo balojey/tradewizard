@@ -267,9 +267,9 @@ function transformHistoricalRecommendation(
 
   // Calculate disagreement index from agent signals
   const agentProbs = agentSignals.map((s: AgentSignalRow) => s.fair_probability || 0);
-  const avgProb = agentProbs.reduce((sum, p) => sum + p, 0) / agentProbs.length;
+  const avgProb = agentProbs.reduce((sum: number, p: number) => sum + p, 0) / agentProbs.length;
   const disagreementIndex = agentProbs.length > 1 ? 
-    Math.sqrt(agentProbs.reduce((sum, p) => sum + Math.pow(p - avgProb, 2), 0) / agentProbs.length) : 0;
+    Math.sqrt(agentProbs.reduce((sum: number, p: number) => sum + Math.pow(p - avgProb, 2), 0) / agentProbs.length) : 0;
 
   return {
     id: rec.id,
