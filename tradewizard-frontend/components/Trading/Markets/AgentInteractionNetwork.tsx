@@ -18,6 +18,7 @@ import Card from "@/components/shared/Card";
 interface AgentInteractionNetworkProps {
   conditionId: string | null;
   marketQuestion: string;
+  recommendationId?: string | null;
 }
 
 interface AgentNode {
@@ -41,7 +42,8 @@ interface AgentConnection {
 
 export default function AgentInteractionNetwork({ 
   conditionId, 
-  marketQuestion 
+  marketQuestion,
+  recommendationId
 }: AgentInteractionNetworkProps) {
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [hoveredConnection, setHoveredConnection] = useState<string | null>(null);
@@ -51,7 +53,7 @@ export default function AgentInteractionNetwork({
     groupedSignals, 
     isLoading, 
     error 
-  } = useAgentSignalsGrouped(conditionId);
+  } = useAgentSignalsGrouped(conditionId, recommendationId);
 
   // Transform agent signals into network nodes and connections
   const { nodes, connections } = useMemo(() => {
@@ -164,6 +166,18 @@ export default function AgentInteractionNetwork({
     );
   }
 
+  if (!recommendationId) {
+    return (
+      <Card className="p-6">
+        <div className="text-center text-gray-400">
+          <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
+          <p className="font-medium text-white">No Current Recommendation</p>
+          <p className="text-sm mt-1">Agent network will appear when a recommendation is generated</p>
+        </div>
+      </Card>
+    );
+  }
+
   if (isLoading) {
     return (
       <Card className="p-6">
@@ -200,7 +214,7 @@ export default function AgentInteractionNetwork({
           <div>
             <h3 className="font-semibold text-white">Agent Interaction Network</h3>
             <p className="text-sm text-gray-400">
-              How agents influence each other's analysis
+              Agent interactions for current recommendation
             </p>
           </div>
         </div>

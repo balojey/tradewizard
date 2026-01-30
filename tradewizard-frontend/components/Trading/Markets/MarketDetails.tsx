@@ -328,6 +328,7 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                                     <AgentInteractionNetwork
                                         conditionId={market.conditionId || null}
                                         marketQuestion={market.question}
+                                        recommendationId={recommendation?.id || null}
                                     />
                                     <ConsensusFormationTimeline
                                         conditionId={market.conditionId || null}
