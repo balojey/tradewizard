@@ -21,6 +21,7 @@ import Card from "@/components/shared/Card";
 interface AgentOutputComparisonProps {
   conditionId: string | null;
   marketQuestion: string;
+  recommendationId?: string | null;
 }
 
 interface ComparisonAgent {
@@ -41,7 +42,8 @@ interface ComparisonAgent {
 
 export default function AgentOutputComparison({ 
   conditionId, 
-  marketQuestion 
+  marketQuestion,
+  recommendationId
 }: AgentOutputComparisonProps) {
   const [selectedAgents, setSelectedAgents] = useState<[string | null, string | null]>([null, null]);
   const [comparisonMode, setComparisonMode] = useState<'side-by-side' | 'differences' | 'consensus'>('side-by-side');
@@ -53,7 +55,7 @@ export default function AgentOutputComparison({
     neutralSignals,
     isLoading, 
     error 
-  } = useAgentSignalsGrouped(conditionId);
+  } = useAgentSignalsGrouped(conditionId, recommendationId);
 
   // Transform signals into comparison format
   const comparisonAgents: ComparisonAgent[] = useMemo(() => {
@@ -137,6 +139,18 @@ export default function AgentOutputComparison({
     );
   }
 
+  if (!recommendationId) {
+    return (
+      <Card className="p-6">
+        <div className="text-center text-gray-400">
+          <Scale className="w-12 h-12 mx-auto mb-3 opacity-50" />
+          <p className="font-medium text-white">No Current Recommendation</p>
+          <p className="text-sm mt-1">Agent comparison will appear when a recommendation is generated</p>
+        </div>
+      </Card>
+    );
+  }
+
   if (isLoading) {
     return (
       <Card className="p-6">
@@ -184,7 +198,7 @@ export default function AgentOutputComparison({
             <div>
               <h3 className="font-semibold text-white">Agent Output Comparison</h3>
               <p className="text-sm text-gray-400">
-                Compare reasoning between different agents
+                Compare agent outputs for current recommendation
               </p>
             </div>
           </div>

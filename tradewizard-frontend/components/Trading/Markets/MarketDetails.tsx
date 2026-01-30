@@ -333,10 +333,12 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                                     <ConsensusFormationTimeline
                                         conditionId={market.conditionId || null}
                                         marketQuestion={market.question}
+                                        recommendationId={recommendation?.id || null}
                                     />
                                     <AgentOutputComparison
                                         conditionId={market.conditionId || null}
                                         marketQuestion={market.question}
+                                        recommendationId={recommendation?.id || null}
                                     />
                                 </div>
                             )}

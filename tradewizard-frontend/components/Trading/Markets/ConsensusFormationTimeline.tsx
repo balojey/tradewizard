@@ -20,6 +20,7 @@ import Card from "@/components/shared/Card";
 interface ConsensusFormationTimelineProps {
   conditionId: string | null;
   marketQuestion: string;
+  recommendationId?: string | null;
 }
 
 interface TimelineEvent {
@@ -43,7 +44,8 @@ interface TimelineEvent {
 
 export default function ConsensusFormationTimeline({ 
   conditionId, 
-  marketQuestion 
+  marketQuestion,
+  recommendationId
 }: ConsensusFormationTimelineProps) {
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
@@ -51,7 +53,7 @@ export default function ConsensusFormationTimeline({
   const { 
     data: signals, 
     isLoading: signalsLoading 
-  } = useAgentSignalsGrouped(conditionId);
+  } = useAgentSignalsGrouped(conditionId, recommendationId);
   
   const { 
     data: analysisHistory, 
@@ -210,6 +212,18 @@ export default function ConsensusFormationTimeline({
     );
   }
 
+  if (!recommendationId) {
+    return (
+      <Card className="p-6">
+        <div className="text-center text-gray-400">
+          <Clock className="w-12 h-12 mx-auto mb-3 opacity-50" />
+          <p className="font-medium text-white">No Current Recommendation</p>
+          <p className="text-sm mt-1">Timeline will appear when a recommendation is generated</p>
+        </div>
+      </Card>
+    );
+  }
+
   if (isLoading) {
     return (
       <Card className="p-6">
@@ -256,7 +270,7 @@ export default function ConsensusFormationTimeline({
           <div>
             <h3 className="font-semibold text-white">Consensus Formation Timeline</h3>
             <p className="text-sm text-gray-400">
-              Step-by-step multi-agent consensus building
+              Timeline for current recommendation consensus
             </p>
           </div>
         </div>
