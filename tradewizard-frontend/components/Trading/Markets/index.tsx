@@ -132,41 +132,49 @@ export default function PoliticalMarkets() {
   return (
     <>
       <div className="space-y-4">
-        {/* Category Tabs */}
-        {categories.length > 0 && (
-          <CategoryTabs
-            categories={categories}
-            activeCategory={activeCategory}
-            onCategoryChange={handleCategoryChange}
-          />
-        )}
-
-        {/* Header with Status Filter */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h3 className="text-xl font-bold">
-              {categoryLabel} Markets {markets.length > 0 ? `(${markets.length}${hasNextPage ? '+' : ''})` : ""}
-            </h3>
-            
-            {/* AI Recommendations Count */}
-            {getRecommendationCount() > 0 && (
-              <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-200 rounded-full">
-                <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse" />
-                <span className="text-sm font-medium text-blue-700">
-                  {getRecommendationCount()} AI Analysis
-                </span>
+        {/* Main Toolbar */}
+        <div className="flex flex-col gap-6 md:gap-8">
+          <div className="flex items-center justify-between gap-3 w-full">
+            {/* Scrollable Tabs */}
+            {categories.length > 0 && (
+              <div className="flex-1 min-w-0">
+                <CategoryTabs
+                  categories={categories}
+                  activeCategory={activeCategory}
+                  onCategoryChange={handleCategoryChange}
+                />
               </div>
             )}
-            
-            {/* Market Status Filter */}
-            <MarketStatusFilter
-              currentStatus={marketStatus}
-              onStatusChange={handleStatusChange}
-              marketCounts={marketCounts}
-            />
+
+            {/* Right Actions */}
+            <div className="flex items-center gap-3 shrink-0 pl-2">
+              {/* AI Badge (Compact) */}
+              {getRecommendationCount() > 0 && (
+                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 rounded-full border border-indigo-500/20">
+                  <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(129,140,248,0.5)]" />
+                  <span className="text-xs font-semibold text-indigo-300">
+                    {getRecommendationCount()} Picks
+                  </span>
+                </div>
+              )}
+
+              <MarketStatusFilter
+                currentStatus={marketStatus}
+                onStatusChange={handleStatusChange}
+                marketCounts={marketCounts}
+              />
+            </div>
           </div>
-          
-          <p className="text-xs text-gray-400">Political prediction markets only</p>
+
+          {/* Mobile Recommendations (if any, shown below toolbar on small screens) */}
+          {getRecommendationCount() > 0 && (
+            <div className="md:hidden flex items-center justify-center gap-2 px-3 py-2 bg-indigo-500/5 rounded-xl border border-indigo-500/10 w-full">
+              <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-pulse" />
+              <span className="text-sm font-medium text-indigo-300">
+                {getRecommendationCount()} AI Recommended Markets
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Loading State - Initial Load */}
