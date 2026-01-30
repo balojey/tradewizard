@@ -8,8 +8,10 @@ import { formatAddress } from "@/utils/formatting";
 
 export default function WalletInfo({
   onDisconnect,
+  mode = "dropdown"
 }: {
   onDisconnect: () => void;
+  mode?: "dropdown" | "inline";
 }) {
   const { eoaAddress } = useWallet();
   const { derivedSafeAddressFromEoa } = useSafeDeployment(eoaAddress);
@@ -24,7 +26,8 @@ export default function WalletInfo({
     function handleClickOutside(event: MouseEvent) {
       if (
         dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
+        !dropdownRef.current.contains(event.target as Node) &&
+        mode === "dropdown"
       ) {
         setIsOpen(false);
       }
@@ -34,40 +37,54 @@ export default function WalletInfo({
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, []);
+  }, [mode]);
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className={`relative ${mode === "inline" ? "w-full" : ""}`} ref={dropdownRef}>
       {/* Trigger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={`group flex items-center gap-3 pl-1 pr-4 py-1 rounded-full border transition-all duration-300 ${isOpen
             ? "bg-white/10 border-white/20 text-white shadow-[0_0_20px_rgba(255,255,255,0.1)]"
             : "bg-white/5 border-white/10 text-gray-300 hover:bg-white/10 hover:text-white"
-          }`}
+          } ${mode === "inline" ? "w-full justify-between py-2" : ""}`}
       >
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-[10px] font-bold text-white shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition-transform duration-300">
-          {eoaAddress?.slice(2, 4)}
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-[10px] font-bold text-white shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition-transform duration-300">
+            {eoaAddress?.slice(2, 4)}
+          </div>
+          <span className="font-mono text-sm font-medium tracking-wide">
+            {eoaAddress && formatAddress(eoaAddress)}
+          </span>
         </div>
-        <span className="font-mono text-sm font-medium tracking-wide">
-          {eoaAddress && formatAddress(eoaAddress)}
-        </span>
         <ChevronDown
           className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${isOpen ? "rotate-180 text-white" : "group-hover:text-white"}`}
         />
       </button>
 
-      {/* Dropdown Content */}
+      {/* Dropdown/Inline Content */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 10, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            initial={mode === "dropdown"
+              ? { opacity: 0, y: 10, scale: 0.95 }
+              : { opacity: 0, height: 0 }
+            }
+            animate={mode === "dropdown"
+              ? { opacity: 1, y: 0, scale: 1 }
+              : { opacity: 1, height: "auto" }
+            }
+            exit={mode === "dropdown"
+              ? { opacity: 0, y: 10, scale: 0.95 }
+              : { opacity: 0, height: 0 }
+            }
             transition={{ duration: 0.2 }}
-            className="absolute right-0 mt-3 w-80 bg-[#0F0F0F] rounded-2xl border border-white/10 shadow-2xl p-5 z-50 ring-1 ring-white/5"
+            className={mode === "dropdown"
+              ? "absolute right-0 mt-3 w-80 bg-[#0F0F0F] rounded-2xl border border-white/10 shadow-2xl p-5 z-50 ring-1 ring-white/5"
+              : "w-full bg-white/5 rounded-2xl mt-2 overflow-hidden"
+            }
           >
-            <div className="flex flex-col gap-5">
+            <div className={`flex flex-col gap-5 ${mode === "inline" ? "p-4" : ""}`}>
               {/* EOA Wallet */}
               <div>
                 <div className="flex items-center gap-2 mb-3">

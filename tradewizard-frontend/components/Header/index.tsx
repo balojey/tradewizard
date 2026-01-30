@@ -195,7 +195,7 @@ export default function Header({
                 {eoaAddress ? (
                   <div className="flex flex-col gap-4">
                     <div className="text-sm text-gray-400 font-medium px-2">Connected Wallet</div>
-                    <WalletInfo onDisconnect={handleDisconnect} />
+                    <WalletInfo onDisconnect={handleDisconnect} mode="inline" />
                   </div>
                 ) : (
                   <button
