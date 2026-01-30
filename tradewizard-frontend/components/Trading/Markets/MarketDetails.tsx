@@ -26,12 +26,13 @@ import AgentOutputComparison from "@/components/Trading/Markets/AgentOutputCompa
 import QuickTradeService from "@/components/Trading/QuickTradeService";
 import RecommendationHistory from "@/components/Trading/Markets/RecommendationHistory";
 import RecommendationTimeTravel from "@/components/Trading/Markets/RecommendationTimeTravel";
+import PriceHistoryChart from "@/components/Trading/Markets/PriceHistoryChart";
 
 interface MarketDetailsProps {
     market: PolymarketMarket;
 }
 
-type TabType = 'overview' | 'ai-insights' | 'debate' | 'data-flow' | 'sentiment' | 'chart' | 'time-travel';
+type TabType = 'overview' | 'ai-insights' | 'debate' | 'data-flow' | 'chart' | 'time-travel';
 
 export default function MarketDetails({ market }: MarketDetailsProps) {
     const { clobClient, isGeoblocked, safeAddress } = useTrading();
@@ -95,6 +96,7 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
     const tabs = [
         { id: 'overview' as TabType, label: 'Overview', icon: BarChart3 },
         { id: 'ai-insights' as TabType, label: 'AI Insights', icon: Brain },
+        { id: 'chart' as TabType, label: 'Price Chart', icon: TrendingUp },
         { id: 'debate' as TabType, label: 'Agent Debate', icon: Users },
         { id: 'data-flow' as TabType, label: 'Data Flow', icon: Activity },
         ...(shouldShowTimeTravel ? [{ id: 'time-travel' as TabType, label: `Time Travel (${recommendationCount})`, icon: Clock }] : []),
@@ -310,6 +312,43 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                                 </div>
                             )}
 
+                            {activeTab === 'chart' && (
+                                <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                    <PriceHistoryChart
+                                        conditionId={market.conditionId || null}
+                                        tokenId={yesIndex !== -1 ? tokenIds[yesIndex] : tokenIds[0] || null}
+                                        currentPrice={yesPrice}
+                                        outcomes={outcomes}
+                                        tokenIds={tokenIds}
+                                        outcomePrices={outcomePrices}
+                                        recommendedTokenId={
+                                            recommendation?.action === 'LONG_YES' 
+                                                ? (yesIndex !== -1 ? tokenIds[yesIndex] : null)
+                                                : recommendation?.action === 'LONG_NO'
+                                                ? (outcomes.findIndex((o: string) => o.toLowerCase() === 'no') !== -1 
+                                                    ? tokenIds[outcomes.findIndex((o: string) => o.toLowerCase() === 'no')] 
+                                                    : null)
+                                                : null
+                                        }
+                                        aiRecommendation={recommendation ? {
+                                            entryZone: [
+                                                Math.max(0.01, yesPrice * 0.95), // 5% below current price
+                                                Math.min(0.99, yesPrice * 1.05)  // 5% above current price
+                                            ],
+                                            targetZone: [
+                                                recommendation.action === 'LONG_YES' 
+                                                    ? Math.min(0.99, yesPrice * 1.1)  // 10% above for long
+                                                    : Math.max(0.01, yesPrice * 0.9), // 10% below for short
+                                                recommendation.action === 'LONG_YES'
+                                                    ? Math.min(0.99, yesPrice * 1.2)  // 20% above for long
+                                                    : Math.max(0.01, yesPrice * 0.8)  // 20% below for short
+                                            ],
+                                            consensusProbability: recommendation.metadata.consensusProbability || yesPrice
+                                        } : undefined}
+                                    />
+                                </div>
+                            )}
+
                             {activeTab === 'debate' && (
                                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
                                     <RealAgentDebatePanel
@@ -332,7 +371,6 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                                     />
                                     <ConsensusFormationTimeline
                                         conditionId={market.conditionId || null}
-                                        marketQuestion={market.question}
                                         recommendationId={recommendation?.id || null}
                                     />
                                     <AgentOutputComparison

@@ -2,7 +2,10 @@
   "mcpServers": {
     "Railway": {
       "command": "npx",
-      "args": ["-y", "@railway/mcp-server"]
+      "args": [
+        "-y",
+        "@railway/mcp-server"
+      ]
     },
     "magic-link-docs": {
       "url": "https://docs.magic.link/mcp",
@@ -10,7 +13,10 @@
     },
     "polymarket-docs": {
       "url": "https://docs.polymarket.com/mcp",
-      "disabled": false
+      "disabled": false,
+      "autoApprove": [
+        "SearchPolymarketDocumentation"
+      ]
     }
   }
 }

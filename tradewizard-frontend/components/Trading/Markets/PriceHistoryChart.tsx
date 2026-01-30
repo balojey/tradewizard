@@ -1,18 +1,11 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Area, AreaChart } from "recharts";
-import { Calendar, TrendingUp, TrendingDown, Activity, Zap } from "lucide-react";
+import { Calendar, TrendingUp, TrendingDown, Activity, Zap, AlertCircle } from "lucide-react";
 import Card from "@/components/shared/Card";
 import { formatNumber } from "@/utils/formatting";
-
-interface PricePoint {
-  timestamp: string;
-  price: number;
-  volume: number;
-  high: number;
-  low: number;
-}
+import usePriceHistory, { TimeRange, PriceHistoryPoint } from "@/hooks/usePriceHistory";
 
 interface PriceEvent {
   timestamp: string;
@@ -24,7 +17,12 @@ interface PriceEvent {
 
 interface PriceHistoryChartProps {
   conditionId: string | null;
+  tokenId: string | null;
   currentPrice: number;
+  outcomes: string[];
+  tokenIds: string[];
+  outcomePrices: number[];
+  recommendedTokenId?: string | null;
   aiRecommendation?: {
     entryZone: [number, number];
     targetZone: [number, number];
@@ -32,18 +30,27 @@ interface PriceHistoryChartProps {
   };
 }
 
-type TimeRange = '1H' | '4H' | '1D' | '7D' | '30D';
-
 export default function PriceHistoryChart({ 
   conditionId, 
+  tokenId,
   currentPrice,
+  outcomes,
+  tokenIds,
+  outcomePrices,
+  recommendedTokenId,
   aiRecommendation 
 }: PriceHistoryChartProps) {
-  const [priceData, setPriceData] = useState<PricePoint[]>([]);
-  const [events, setEvents] = useState<PriceEvent[]>([]);
   const [selectedRange, setSelectedRange] = useState<TimeRange>('1D');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [selectedTokenId, setSelectedTokenId] = useState<string | null>(
+    recommendedTokenId || tokenId
+  );
+
+  // Update selected token when recommended token changes
+  React.useEffect(() => {
+    if (recommendedTokenId && recommendedTokenId !== selectedTokenId) {
+      setSelectedTokenId(recommendedTokenId);
+    }
+  }, [recommendedTokenId]);
 
   const timeRanges: { label: string; value: TimeRange; hours: number }[] = [
     { label: '1H', value: '1H', hours: 1 },
@@ -53,81 +60,24 @@ export default function PriceHistoryChart({
     { label: '30D', value: '30D', hours: 720 },
   ];
 
-  useEffect(() => {
-    if (!conditionId) return;
+  // Get current price for selected token
+  const selectedTokenIndex = tokenIds.indexOf(selectedTokenId || '');
+  const selectedTokenPrice = selectedTokenIndex !== -1 ? outcomePrices[selectedTokenIndex] : currentPrice;
+  const selectedOutcome = selectedTokenIndex !== -1 ? outcomes[selectedTokenIndex] : 'Unknown';
 
-    const fetchPriceData = async () => {
-      setIsLoading(true);
-      setError(null);
+  // Fetch real price history data for selected token
+  const { 
+    data: priceHistoryResponse, 
+    isLoading, 
+    error,
+    refetch 
+  } = usePriceHistory(conditionId, selectedTokenId, selectedRange, {
+    enabled: !!conditionId && !!selectedTokenId,
+    refetchInterval: selectedRange === '1H' ? 30_000 : 60_000, // More frequent updates for shorter timeframes
+  });
 
-      try {
-        // This would be replaced with actual API call to price history service
-        // For now, we'll simulate realistic price data
-        await new Promise(resolve => setTimeout(resolve, 800));
-
-        const range = timeRanges.find(r => r.value === selectedRange);
-        const hours = range?.hours || 24;
-        const points = Math.min(hours * 4, 200); // 15-minute intervals, max 200 points
-        
-        const basePrice = currentPrice || 0.5;
-        const volatility = 0.02; // 2% volatility
-        
-        const mockData: PricePoint[] = [];
-        let price = basePrice * (0.9 + Math.random() * 0.2); // Start within ±10% of current
-        
-        for (let i = 0; i < points; i++) {
-          const timestamp = new Date(Date.now() - (points - i) * (hours * 60 * 60 * 1000) / points);
-          
-          // Add some trend and mean reversion
-          const trend = (basePrice - price) * 0.001; // Mean reversion
-          const randomWalk = (Math.random() - 0.5) * volatility;
-          price = Math.max(0.01, Math.min(0.99, price + trend + randomWalk));
-          
-          const volume = Math.random() * 10000 + 1000;
-          const high = price * (1 + Math.random() * 0.01);
-          const low = price * (1 - Math.random() * 0.01);
-          
-          mockData.push({
-            timestamp: timestamp.toISOString(),
-            price: Number(price.toFixed(4)),
-            volume: Math.floor(volume),
-            high: Number(high.toFixed(4)),
-            low: Number(low.toFixed(4))
-          });
-        }
-
-        // Generate some price events
-        const mockEvents: PriceEvent[] = [];
-        const eventCount = Math.floor(hours / 12); // Roughly one event per 12 hours
-        
-        for (let i = 0; i < eventCount; i++) {
-          const eventIndex = Math.floor(Math.random() * mockData.length);
-          const eventData = mockData[eventIndex];
-          const impact = Math.random() > 0.5 ? 'positive' : 'negative';
-          
-          mockEvents.push({
-            timestamp: eventData.timestamp,
-            type: ['news', 'trade', 'social'][Math.floor(Math.random() * 3)] as any,
-            title: impact === 'positive' 
-              ? 'Positive market development reported'
-              : 'Market concerns emerge',
-            impact,
-            priceChange: (Math.random() - 0.5) * 0.1 // ±5% change
-          });
-        }
-
-        setPriceData(mockData);
-        setEvents(mockEvents);
-      } catch (err) {
-        setError('Failed to load price history');
-        console.error('Price history error:', err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchPriceData();
-  }, [conditionId, selectedRange, currentPrice]);
+  const priceData = priceHistoryResponse?.data || [];
+  const dataSource = priceHistoryResponse?.dataSource || 'synthetic';
 
   const chartData = useMemo(() => {
     return priceData.map(point => ({
@@ -155,6 +105,14 @@ export default function PriceHistoryChart({
     return { value: change, percentage };
   }, [chartData]);
 
+  // Create token selector options
+  const tokenOptions = outcomes.map((outcome, index) => ({
+    tokenId: tokenIds[index],
+    outcome,
+    price: outcomePrices[index] || 0,
+    isRecommended: tokenIds[index] === recommendedTokenId,
+  }));
+
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
@@ -179,12 +137,13 @@ export default function PriceHistoryChart({
     return null;
   };
 
-  if (!conditionId) {
+  if (!conditionId || !selectedTokenId) {
     return (
       <Card className="p-6">
         <div className="text-center text-gray-400">
           <Activity className="w-12 h-12 mx-auto mb-3 opacity-50" />
           <p>Price history not available</p>
+          <p className="text-sm mt-1">Missing market or token information</p>
         </div>
       </Card>
     );
@@ -203,6 +162,9 @@ export default function PriceHistoryChart({
             </div>
           </div>
           <div className="h-64 bg-white/10 rounded" />
+          <div className="text-center text-sm text-gray-400">
+            Loading real price data...
+          </div>
         </div>
       </Card>
     );
@@ -212,9 +174,15 @@ export default function PriceHistoryChart({
     return (
       <Card className="p-6">
         <div className="text-center text-gray-400">
-          <Activity className="w-12 h-12 mx-auto mb-3 text-red-400" />
+          <AlertCircle className="w-12 h-12 mx-auto mb-3 text-red-400" />
           <p className="font-medium text-white">Price History Unavailable</p>
-          <p className="text-sm mt-1">{error || 'No price data available'}</p>
+          <p className="text-sm mt-1">{error?.message || 'No price data available for this market'}</p>
+          <button
+            onClick={() => refetch()}
+            className="mt-3 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg transition-colors"
+          >
+            Retry
+          </button>
         </div>
       </Card>
     );
@@ -223,37 +191,90 @@ export default function PriceHistoryChart({
   return (
     <Card className="overflow-hidden">
       <div className="p-4 border-b border-white/10 bg-white/5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Activity className="w-5 h-5 text-indigo-400" />
-            <div>
-              <h3 className="font-semibold text-white">Price History</h3>
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-gray-400">Current: ${currentPrice.toFixed(3)}</span>
-                <span className={`font-medium ${
-                  priceChange.percentage > 0 ? 'text-green-400' : 
-                  priceChange.percentage < 0 ? 'text-red-400' : 'text-gray-400'
-                }`}>
-                  {priceChange.percentage > 0 ? '+' : ''}{priceChange.percentage.toFixed(2)}%
-                </span>
+        <div className="flex flex-col gap-4">
+          {/* Header Row */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Activity className="w-5 h-5 text-indigo-400" />
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-white">Price History</h3>
+                  {dataSource === 'synthetic' && (
+                    <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 text-xs rounded-full border border-yellow-500/30">
+                      Simulated
+                    </span>
+                  )}
+                  {dataSource === 'real' && (
+                    <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full border border-green-500/30">
+                      Real Data
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-gray-400">Current: ${selectedTokenPrice.toFixed(3)}</span>
+                  <span className={`font-medium ${
+                    priceChange.percentage > 0 ? 'text-green-400' : 
+                    priceChange.percentage < 0 ? 'text-red-400' : 'text-gray-400'
+                  }`}>
+                    {priceChange.percentage > 0 ? '+' : ''}{priceChange.percentage.toFixed(2)}%
+                  </span>
+                  <span className="text-gray-500">•</span>
+                  <span className="text-gray-400">{priceData.length} points</span>
+                </div>
               </div>
             </div>
+            <div className="flex gap-1">
+              {timeRanges.map(range => (
+                <button
+                  key={range.value}
+                  onClick={() => setSelectedRange(range.value)}
+                  className={`px-3 py-1 text-sm font-medium rounded transition-colors ${
+                    selectedRange === range.value
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white'
+                  }`}
+                >
+                  {range.label}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="flex gap-1">
-            {timeRanges.map(range => (
-              <button
-                key={range.value}
-                onClick={() => setSelectedRange(range.value)}
-                className={`px-3 py-1 text-sm font-medium rounded transition-colors ${
-                  selectedRange === range.value
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white'
-                }`}
-              >
-                {range.label}
-              </button>
-            ))}
-          </div>
+
+          {/* Token Selector Row */}
+          {tokenOptions.length > 1 && (
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-gray-300">Viewing:</span>
+              <div className="flex gap-2">
+                {tokenOptions.map((option) => (
+                  <button
+                    key={option.tokenId}
+                    onClick={() => setSelectedTokenId(option.tokenId)}
+                    className={`
+                      relative px-3 py-1.5 text-sm font-medium rounded-lg transition-all
+                      ${selectedTokenId === option.tokenId
+                        ? 'bg-indigo-600 text-white shadow-lg'
+                        : 'bg-white/10 text-gray-300 hover:bg-white/20 hover:text-white'
+                      }
+                    `}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span>{option.outcome}</span>
+                      <span className="text-xs opacity-75">${option.price.toFixed(3)}</span>
+                      {option.isRecommended && (
+                        <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full border border-white/20" />
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+              {recommendedTokenId && (
+                <div className="flex items-center gap-1 text-xs text-green-400">
+                  <div className="w-2 h-2 bg-green-400 rounded-full" />
+                  <span>AI Recommended</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -331,77 +352,47 @@ export default function PriceHistoryChart({
           </ResponsiveContainer>
         </div>
 
-        {/* Price Events */}
-        {events.length > 0 && (
-          <div className="space-y-3">
-            <h4 className="font-medium text-sm text-gray-300 flex items-center gap-2">
-              <Zap className="w-4 h-4" />
-              Market Events
-            </h4>
-            <div className="space-y-2 max-h-32 overflow-y-auto">
-              {events.slice(0, 5).map((event, index) => (
-                <div
-                  key={index}
-                  className={`flex items-start gap-3 p-2 rounded-lg border-l-4 ${
-                    event.impact === 'positive' ? 'border-l-green-400 bg-green-500/10' :
-                    event.impact === 'negative' ? 'border-l-red-400 bg-red-500/10' :
-                    'border-l-gray-400 bg-white/5'
-                  }`}
-                >
-                  <div className={`p-1 rounded ${
-                    event.type === 'news' ? 'bg-indigo-500/20 text-indigo-400' :
-                    event.type === 'trade' ? 'bg-green-500/20 text-green-400' :
-                    'bg-purple-500/20 text-purple-400'
-                  }`}>
-                    {event.type === 'news' ? <Calendar className="w-3 h-3" /> :
-                     event.type === 'trade' ? <TrendingUp className="w-3 h-3" /> :
-                     <Activity className="w-3 h-3" />}
+        {/* Data source information */}
+        <div className="mt-4 p-3 bg-white/5 rounded-lg border border-white/10">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="font-medium text-sm text-gray-300 mb-1">Data Information</h4>
+              <p className="text-xs text-gray-400">
+                {dataSource === 'real' 
+                  ? `Showing ${priceData.length} real price points from Polymarket CLOB API`
+                  : `Showing ${priceData.length} simulated data points (real data unavailable)`
+                }
+              </p>
+            </div>
+            {aiRecommendation && (
+              <div className="text-right">
+                <h4 className="font-medium text-sm text-gray-300 mb-1">AI Trading Zones</h4>
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-0.5 bg-green-400 border-dashed border-green-400" style={{ borderWidth: '1px 0' }} />
+                      <span className="text-gray-400">Entry Zone</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-0.5 bg-yellow-400 border-dashed border-yellow-400" style={{ borderWidth: '1px 0' }} />
+                      <span className="text-gray-400">Target Zone</span>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate text-white">{event.title}</p>
-                    <div className="flex items-center gap-2 text-xs text-gray-400">
-                      <span>{new Date(event.timestamp).toLocaleTimeString()}</span>
-                      <span className={`font-medium ${
-                        event.priceChange > 0 ? 'text-green-400' : 'text-red-400'
-                      }`}>
-                        {event.priceChange > 0 ? '+' : ''}{(event.priceChange * 100).toFixed(1)}%
-                      </span>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-0.5 bg-purple-400" />
+                      <span className="text-gray-400">AI Fair Price</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-0.5 bg-indigo-400" />
+                      <span className="text-gray-400">Market Price</span>
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Legend for AI zones */}
-        {aiRecommendation && (
-          <div className="mt-4 p-3 bg-white/5 rounded-lg border border-white/10">
-            <h4 className="font-medium text-sm text-gray-300 mb-2">AI Trading Zones</h4>
-            <div className="grid grid-cols-2 gap-4 text-xs">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-0.5 bg-green-400 border-dashed border-green-400" style={{ borderWidth: '1px 0' }} />
-                  <span className="text-gray-400">Entry Zone</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-0.5 bg-yellow-400 border-dashed border-yellow-400" style={{ borderWidth: '1px 0' }} />
-                  <span className="text-gray-400">Target Zone</span>
-                </div>
               </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-0.5 bg-purple-400" />
-                  <span className="text-gray-400">AI Fair Price</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-0.5 bg-indigo-400" />
-                  <span className="text-gray-400">Market Price</span>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </Card>
   );
