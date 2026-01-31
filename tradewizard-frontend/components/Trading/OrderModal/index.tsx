@@ -51,6 +51,7 @@ type OrderPlacementModalProps = {
     entryZone: [number, number];
     targetZone: [number, number];
     autoCreateTarget?: boolean;
+    preferredOrderType?: 'market' | 'limit';
   };
 };
 
@@ -103,16 +104,20 @@ export default function OrderPlacementModal({
       
       // Set default order type based on order side and quick trade mode
       if (quickTradeMode) {
-        // For quick trade mode: market orders for buy, limit for sell (target)
-        if (orderSide === "BUY") {
-          setOrderType("market");
-          // Still pre-fill limit price for easy switching
-          setLimitPrice(quickTradeMode.recommendedPrice.toFixed(4));
+        // Use preferred order type if provided, otherwise use defaults
+        if (quickTradeMode.preferredOrderType) {
+          setOrderType(quickTradeMode.preferredOrderType);
         } else {
-          // Sell orders (targets) should be limit orders
-          setOrderType("limit");
-          setLimitPrice(quickTradeMode.recommendedPrice.toFixed(4));
+          // For quick trade mode: market orders for buy, limit for sell (target)
+          if (orderSide === "BUY") {
+            setOrderType("market");
+          } else {
+            // Sell orders (targets) should be limit orders
+            setOrderType("limit");
+          }
         }
+        // Pre-fill limit price for easy switching
+        setLimitPrice(quickTradeMode.recommendedPrice.toFixed(4));
       } else {
         // For regular orders: market for buy, market for sell (user can change)
         setOrderType(orderSide === "BUY" ? "market" : "market");

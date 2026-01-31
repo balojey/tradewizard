@@ -1,13 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Zap, Target, TrendingUp, AlertTriangle, ArrowRight, Sparkles, ChevronRight, Info } from "lucide-react";
+import { Zap, Target, AlertTriangle, Sparkles } from "lucide-react";
 import { useTrading } from "@/providers/TradingProvider";
 import type { TradeRecommendation } from "@/hooks/useTradeRecommendation";
 import { useQuickTrade } from "@/hooks/useQuickTrade";
 import Card from "@/components/shared/Card";
 import OrderPlacementModal from "@/components/Trading/OrderModal";
-import { motion, AnimatePresence } from "framer-motion";
 
 interface QuickTradeServiceProps {
     recommendation: TradeRecommendation;
@@ -34,6 +33,7 @@ export default function QuickTradeService({
     const { clobClient } = useTrading();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [autoCreateTarget, setAutoCreateTarget] = useState(true);
+    const [preferredOrderType, setPreferredOrderType] = useState<'market' | 'limit'>('market');
 
     const {
         analysis,
@@ -49,9 +49,12 @@ export default function QuickTradeService({
 
     const hasPosition = userPosition && userPosition.size > 0;
 
-    const handleQuickTrade = (zoneType: 'entry' | 'target' | 'current') => {
+    const handleQuickTrade = (zoneType: 'entry' | 'target' | 'current', preferredOrderType?: 'market' | 'limit') => {
         if (!recommendedOutcome || !shouldTrade) return;
         selectZone(zoneType);
+        if (preferredOrderType) {
+            setPreferredOrderType(preferredOrderType);
+        }
         setIsModalOpen(true);
     };
 
@@ -63,6 +66,7 @@ export default function QuickTradeService({
         setIsModalOpen(false);
         clearSelection();
         setAutoCreateTarget(true);
+        setPreferredOrderType('market'); // Reset to default
     };
 
     if (!shouldTrade) {
@@ -83,8 +87,6 @@ export default function QuickTradeService({
 
     const entryZone = getZone('entry')!;
     const targetZone = getZone('target')!;
-    const zoneColor = analysis.isInEntryZone ? "text-green-400" : "text-blue-400";
-    const limitColor = analysis.isInEntryZone ? "bg-green-500" : "bg-blue-500";
 
     // Visualizing the price range
     const rangeMin = Math.min(entryZone.price, currentPrice) * 0.9;
@@ -182,7 +184,7 @@ export default function QuickTradeService({
                     {!hasPosition ? (
                         <div className="space-y-4">
                             <button
-                                onClick={() => handleQuickTrade('current')}
+                                onClick={() => handleQuickTrade('current', 'market')}
                                 disabled={disabled || !clobClient}
                                 className={`w-full group relative overflow-hidden rounded-xl p-4 transition-all duration-300 ${analysis.isInEntryZone
                                     ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:scale-[1.02] shadow-lg shadow-green-500/20'
@@ -209,7 +211,7 @@ export default function QuickTradeService({
 
                             <div className="grid grid-cols-2 gap-3">
                                 <button
-                                    onClick={() => handleQuickTrade('entry')}
+                                    onClick={() => handleQuickTrade('entry', 'limit')}
                                     className="px-3 py-2.5 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 text-xs text-gray-400 hover:text-white transition-colors flex items-center justify-center gap-2 cursor-pointer"
                                 >
                                     <Target className="w-3.5 h-3.5" />
@@ -235,7 +237,7 @@ export default function QuickTradeService({
                             </div>
 
                             <button
-                                onClick={() => handleQuickTrade('target')}
+                                onClick={() => handleQuickTrade('target', 'limit')}
                                 disabled={disabled || !clobClient}
                                 className="w-full relative overflow-hidden rounded-xl p-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:scale-[1.02] transition-all shadow-lg shadow-purple-500/20 group cursor-pointer"
                             >
@@ -301,6 +303,7 @@ export default function QuickTradeService({
                         entryZone: recommendation.entryZone,
                         targetZone: recommendation.targetZone,
                         autoCreateTarget: selectedZone !== 'target' ? autoCreateTarget : false,
+                        preferredOrderType: preferredOrderType,
                     }}
                 />
             )}
