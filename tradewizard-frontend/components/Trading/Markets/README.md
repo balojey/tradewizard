@@ -38,9 +38,11 @@ Interactive price chart with AI overlays:
 - **Market Events**: Price-moving events with impact analysis
 - **Volume Analysis**: Trading volume correlation with price movements
 
-#### `AgentDebatePanel.tsx`
-Multi-agent debate visualization:
-- **Debate Rounds**: Sequential rounds of agent analysis
+#### `RealAgentDebatePanel.tsx`
+Current agent analysis visualization:
+- **Live Agent Positions**: Current recommendation from active agents
+- **Consensus Metrics**: Agreement levels and probability estimates
+- **Agent Signal Details**: Expandable views of individual agent analyses
 - **Agent Positions**: Bull, bear, and neutral agent perspectives
 - **Evidence Tracking**: Data sources and evidence weighting
 - **Consensus Building**: Agreement levels and dissenting opinions

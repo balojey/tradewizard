@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAgentSignalsGrouped } from "@/hooks/useAgentSignals";
-import { useAnalysisHistory, useAnalysisMetrics } from "@/hooks/useAnalysisHistory";
+import { useTradeRecommendation } from "@/hooks/useTradeRecommendation";
 import { 
   Users, 
   MessageSquare, 
@@ -32,7 +32,16 @@ export default function RealAgentDebatePanel({
 }: RealAgentDebatePanelProps) {
   const [expandedAgents, setExpandedAgents] = useState<Set<string>>(new Set());
   
-  // Fetch agent signals grouped by type
+  // First, get the current recommendation
+  const { 
+    data: currentRecommendation, 
+    isLoading: recommendationLoading, 
+    error: recommendationError 
+  } = useTradeRecommendation(conditionId, {
+    enabled: !!conditionId,
+  });
+
+  // Then fetch agent signals ONLY for the current recommendation
   const { 
     data: signals, 
     groupedSignals, 
@@ -41,20 +50,26 @@ export default function RealAgentDebatePanel({
     neutralSignals,
     isLoading: signalsLoading, 
     error: signalsError 
-  } = useAgentSignalsGrouped(conditionId);
+  } = useAgentSignalsGrouped(
+    conditionId, 
+    currentRecommendation?.id || null, // Use recommendation ID to get only current signals
+    {
+      enabled: !!conditionId && !!currentRecommendation?.id,
+    }
+  );
 
-  // Fetch analysis history for context
-  const { 
-    data: analysisHistory, 
-    isLoading: historyLoading, 
-    error: historyError 
-  } = useAnalysisHistory(conditionId, { limit: 5 });
+  // Don't fetch historical analysis - we only want current state
+  // const { 
+  //   data: analysisHistory, 
+  //   isLoading: historyLoading, 
+  //   error: historyError 
+  // } = useAnalysisHistory(conditionId, { limit: 5 });
 
-  // Fetch analysis metrics separately
-  const { metrics } = useAnalysisMetrics(conditionId, { limit: 5 });
+  // Don't fetch historical metrics
+  // const { metrics } = useAnalysisMetrics(conditionId, { limit: 5 });
 
-  const isLoading = signalsLoading || historyLoading;
-  const error = signalsError || historyError;
+  const isLoading = recommendationLoading || signalsLoading;
+  const error = recommendationError || signalsError;
 
   const toggleAgent = (agentId: string) => {
     const newExpanded = new Set(expandedAgents);
@@ -152,14 +167,16 @@ export default function RealAgentDebatePanel({
     );
   }
 
-  if (error || !signals || signals.length === 0) {
+  if (error || !currentRecommendation || !signals || signals.length === 0) {
     return (
       <Card className="p-6">
         <div className="text-center text-gray-400">
           <Users className="w-12 h-12 mx-auto mb-3 text-red-400" />
-          <p className="font-medium text-white">Agent Debate Unavailable</p>
+          <p className="font-medium text-white">Current Agent Analysis Unavailable</p>
           <p className="text-sm mt-1">
-            {error ? 'Failed to load agent signals' : 'No agent analysis available for this market'}
+            {error ? 'Failed to load current recommendation' : 
+             !currentRecommendation ? 'No current recommendation available' :
+             'No agent analysis available for current recommendation'}
           </p>
         </div>
       </Card>
@@ -175,9 +192,9 @@ export default function RealAgentDebatePanel({
           <div className="flex items-center gap-3">
             <Users className="w-5 h-5 text-indigo-400" />
             <div>
-              <h3 className="font-semibold text-white">Agent Debate</h3>
+              <h3 className="font-semibold text-white">Current Agent Analysis</h3>
               <p className="text-sm text-gray-400">
-                {consensusMetrics?.totalAgents || 0} agents analyzed this market
+                Latest recommendation from {consensusMetrics?.totalAgents || 0} agents
               </p>
             </div>
           </div>
@@ -201,7 +218,7 @@ export default function RealAgentDebatePanel({
           <div className="bg-white/5 rounded-lg p-4 border border-white/10">
             <h4 className="font-medium text-white mb-3 flex items-center gap-2">
               <Target className="w-4 h-4 text-indigo-400" />
-              Consensus Summary
+              Current Consensus
             </h4>
             
             <div className="grid grid-cols-2 gap-4 text-sm">
@@ -257,16 +274,16 @@ export default function RealAgentDebatePanel({
           </div>
         )}
 
-        {/* Agent Positions */}
+        {/* Current Agent Positions */}
         <div className="space-y-4">
-          <h4 className="font-medium text-gray-300">Individual Agent Positions</h4>
+          <h4 className="font-medium text-gray-300">Current Agent Positions</h4>
           
           {/* Group agents by type for better organization */}
           {bullSignals.length > 0 && (
             <div className="space-y-2">
               <h5 className="text-sm font-medium text-green-400 flex items-center gap-2">
                 <TrendingUp className="w-4 h-4" />
-                Bullish Agents ({bullSignals.length})
+                Current Bullish Agents ({bullSignals.length})
               </h5>
               {bullSignals.map((signal) => (
                 <AgentSignalCard 
@@ -283,7 +300,7 @@ export default function RealAgentDebatePanel({
             <div className="space-y-2">
               <h5 className="text-sm font-medium text-red-400 flex items-center gap-2">
                 <TrendingDown className="w-4 h-4" />
-                Bearish Agents ({bearSignals.length})
+                Current Bearish Agents ({bearSignals.length})
               </h5>
               {bearSignals.map((signal) => (
                 <AgentSignalCard 
@@ -300,7 +317,7 @@ export default function RealAgentDebatePanel({
             <div className="space-y-2">
               <h5 className="text-sm font-medium text-gray-400 flex items-center gap-2">
                 <Activity className="w-4 h-4" />
-                Neutral Agents ({neutralSignals.length})
+                Current Neutral Agents ({neutralSignals.length})
               </h5>
               {neutralSignals.map((signal) => (
                 <AgentSignalCard 
@@ -314,63 +331,35 @@ export default function RealAgentDebatePanel({
           )}
         </div>
 
-        {/* Analysis History */}
-        {analysisHistory && analysisHistory.length > 0 && (
-          <div className="space-y-3">
-            <h4 className="font-medium text-gray-300 flex items-center gap-2">
+        {/* Last Updated Information */}
+        <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+          <div className="flex items-center justify-between text-sm text-gray-400">
+            <div className="flex items-center gap-2">
               <Clock className="w-4 h-4" />
-              Recent Analysis History
-            </h4>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {analysisHistory.slice(0, 3).map((analysis) => (
-                <div
-                  key={analysis.id}
-                  className={`p-3 rounded-lg border-l-4 ${
-                    analysis.status === 'completed' ? 'border-l-green-400 bg-green-500/10' :
-                    analysis.status === 'failed' ? 'border-l-red-400 bg-red-500/10' :
-                    'border-l-yellow-400 bg-yellow-500/10'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="font-medium text-sm text-white capitalize">
-                        {analysis.analysisType.replace('_', ' ')}
-                      </span>
-                      <div className="text-xs text-gray-400 mt-1">
-                        {analysis.agentsUsed.length > 0 && (
-                          <span>Agents: {analysis.agentsUsed.join(', ')}</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right text-xs text-gray-400">
-                      <div>{new Date(analysis.createdAt).toLocaleTimeString()}</div>
-                      {analysis.durationMs && (
-                        <div>{(analysis.durationMs / 1000).toFixed(1)}s</div>
-                      )}
-                      {analysis.costUsd && (
-                        <div>${analysis.costUsd.toFixed(3)}</div>
-                      )}
-                    </div>
-                  </div>
-                  {analysis.errorMessage && (
-                    <p className="text-xs text-red-300 mt-2">{analysis.errorMessage}</p>
-                  )}
-                </div>
-              ))}
+              <span>Current Recommendation</span>
             </div>
-            
-            {/* Analysis Metrics Summary */}
-            {metrics && (
-              <div className="text-xs text-gray-400 p-2 bg-white/5 rounded border border-white/10">
-                <div className="flex justify-between">
-                  <span>Success Rate: {metrics.completedCount}/{metrics.completedCount + metrics.failedCount}</span>
-                  <span>Avg Duration: {(metrics.avgDuration / 1000).toFixed(1)}s</span>
-                  <span>Total Cost: ${metrics.totalCost.toFixed(3)}</span>
-                </div>
-              </div>
-            )}
+            <div>
+              Generated: {currentRecommendation ? 
+                new Date(currentRecommendation.timestamp).toLocaleString() :
+                'No data'
+              }
+            </div>
           </div>
-        )}
+          {currentRecommendation && (
+            <div className="mt-2 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400">Recommendation:</span>
+                <span className={`font-medium px-2 py-1 rounded text-xs ${
+                  currentRecommendation.action === 'LONG_YES' ? 'text-green-400 bg-green-500/20' :
+                  currentRecommendation.action === 'LONG_NO' ? 'text-red-400 bg-red-500/20' :
+                  'text-gray-400 bg-white/10'
+                }`}>
+                  {currentRecommendation.action.replace('_', ' ')}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </Card>
   );

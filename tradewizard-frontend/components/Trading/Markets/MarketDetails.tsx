@@ -248,7 +248,7 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                                         <span>24h Volume</span>
                                     </div>
                                     <div className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-                                        ${formatVolume(volumeUSD)}
+                                        {formatVolume(volumeUSD)}
                                     </div>
                                 </div>
 
@@ -258,7 +258,7 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                                         <span>Liquidity</span>
                                     </div>
                                     <div className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-                                        ${formatVolume(liquidityUSD)}
+                                        {formatVolume(liquidityUSD)}
                                     </div>
                                 </div>
 
