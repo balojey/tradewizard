@@ -8,6 +8,8 @@ import OutcomeButtons from "@/components/Trading/Markets/OutcomeButtons";
 import PercentageGauge from "@/components/shared/PercentageGauge";
 import OptimizedRecommendationBadge from "@/components/Trading/Markets/OptimizedRecommendationBadge";
 import AIInsightsBadge from "@/components/Trading/Markets/AIInsightsBadge";
+import ResolutionBadge from "@/components/Trading/Markets/ResolutionBadge";
+import RecommendationAccuracy from "@/components/Trading/Markets/RecommendationAccuracy";
 
 import { formatVolume } from "@/utils/formatting";
 import { TrendingUp, BarChart2, Bookmark } from "lucide-react";
@@ -153,10 +155,15 @@ const MarketCard = memo(function MarketCard({
 
             {/* Status and AI Badges - Compact layout */}
             <div className="flex items-center gap-1.5 flex-wrap">
-              {statusBadge && (
-                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-bold border ${statusBadge.color}`}>
-                  {statusBadge.text}
-                </span>
+              {/* Show resolution badge for closed markets, otherwise show regular status badge */}
+              {marketData.isClosed ? (
+                <ResolutionBadge market={market} size="sm" showDetails={false} />
+              ) : (
+                statusBadge && (
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-bold border ${statusBadge.color}`}>
+                    {statusBadge.text}
+                  </span>
+                )
               )}
               <AIInsightsBadge
                 conditionId={market.conditionId || null}
@@ -174,13 +181,21 @@ const MarketCard = memo(function MarketCard({
 
         {/* AI Recommendation Display - Compact */}
         <div className="transform transition-transform duration-300 origin-left">
-          <OptimizedRecommendationBadge
-            conditionId={market.conditionId || null}
-            recommendation={recommendation || null}
-            isLoading={recommendationLoading}
-            size="md"
-            showDetails={true}
-          />
+          {marketData.isClosed ? (
+            <RecommendationAccuracy
+              market={market}
+              recommendation={recommendation}
+              size="md"
+            />
+          ) : (
+            <OptimizedRecommendationBadge
+              conditionId={market.conditionId || null}
+              recommendation={recommendation || null}
+              isLoading={recommendationLoading}
+              size="md"
+              showDetails={true}
+            />
+          )}
         </div>
 
         {/* Outcome Buttons - Maintain horizontal layout */}
@@ -204,7 +219,7 @@ const MarketCard = memo(function MarketCard({
         <div className="flex items-center gap-3 min-w-0">
           <span className="flex items-center gap-1.5 font-medium truncate">
             <BarChart2 className="w-3.5 h-3.5 opacity-70 flex-shrink-0" />
-            <span className="truncate">${formatVolume(marketData.volumeUSD)} Vol.</span>
+            <span className="truncate">{formatVolume(marketData.volumeUSD)} Vol.</span>
           </span>
           {market.active && (
             <span className="hidden sm:flex items-center gap-1.5 font-medium text-emerald-500/80">

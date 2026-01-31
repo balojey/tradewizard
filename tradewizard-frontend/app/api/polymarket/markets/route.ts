@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
   const limit = searchParams.get("limit") || "20";
   const offset = searchParams.get("offset") || "0";
   const tagId = searchParams.get("tag_id");
+  const includeClosed = searchParams.get("include_closed") === "true";
 
   try {
     const requestedLimit = parseInt(limit);
@@ -20,7 +21,8 @@ export async function GET(request: NextRequest) {
     const fetchLimit = Math.max(requestedLimit * 3, 100);
     const fetchOffset = Math.floor(requestedOffset * 1.5); // Approximate offset accounting for filtering
 
-    let url = `${GAMMA_API_URL}/events?closed=false&order=volume24hr&ascending=false&limit=${fetchLimit}&offset=${fetchOffset}`;
+    // Include closed markets if requested, otherwise default to open markets only
+    let url = `${GAMMA_API_URL}/events?closed=${includeClosed ? 'true' : 'false'}&order=volume24hr&ascending=false&limit=${fetchLimit}&offset=${fetchOffset}`;
 
     if (tagId) {
       url += `&tag_id=${tagId}&related_tags=true`;
@@ -49,7 +51,8 @@ export async function GET(request: NextRequest) {
     const allMarkets: any[] = [];
 
     for (const event of events) {
-      if (event.ended || event.closed || !event.active) continue;
+      // For closed markets, we want to include ended/closed events
+      if (!includeClosed && (event.ended || event.closed || !event.active)) continue;
 
       const markets = event.markets || [];
 
@@ -66,9 +69,20 @@ export async function GET(request: NextRequest) {
     }
 
     const validMarkets = allMarkets.filter((market: any) => {
-      if (market.acceptingOrders === false) return false;
-      if (market.closed === true) return false;
+      // Basic validation that applies to all markets
       if (!market.clobTokenIds) return false;
+
+      // For closed markets, we have more relaxed validation criteria
+      if (market.closed === true) {
+        // If we're not including closed markets, filter them out
+        if (!includeClosed) return false;
+        
+        // For closed markets, skip liquidity and price checks
+        return true;
+      }
+
+      // Validation for open markets
+      if (market.acceptingOrders === false) return false;
 
       if (market.outcomePrices) {
         try {
@@ -100,6 +114,24 @@ export async function GET(request: NextRequest) {
     });
 
     const sortedMarkets = validMarkets.sort((a: any, b: any) => {
+      // Sort closed markets by end date (most recent first), then by volume
+      if (a.closed && b.closed) {
+        const aEndDate = new Date(a.endDateIso || a.endDate || 0).getTime();
+        const bEndDate = new Date(b.endDateIso || b.endDate || 0).getTime();
+        if (aEndDate !== bEndDate) {
+          return bEndDate - aEndDate; // Most recent first
+        }
+        // If same end date, sort by volume
+        const aVolume = parseFloat(a.volume24hr || a.volume || "0");
+        const bVolume = parseFloat(b.volume24hr || b.volume || "0");
+        return bVolume - aVolume;
+      }
+
+      // If one is closed and one is open, prioritize open markets
+      if (a.closed && !b.closed) return 1;
+      if (!a.closed && b.closed) return -1;
+
+      // For open markets, use the original scoring logic
       const aScore =
         parseFloat(a.liquidity || "0") +
         parseFloat(a.volume24hr || a.volume || "0");

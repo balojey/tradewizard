@@ -22,7 +22,7 @@ import OrderPlacementModal from "@/components/Trading/OrderModal";
 const PoliticalMarkets = React.memo(function PoliticalMarkets() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<CategoryId>(DEFAULT_CATEGORY);
-  const [marketStatus, setMarketStatus] = useState<MarketStatus>("all");
+  const [marketStatus, setMarketStatus] = useState<MarketStatus>("active");
   const [selectedOutcome, setSelectedOutcome] = useState<{
     marketTitle: string;
     outcome: string;
@@ -62,6 +62,7 @@ const PoliticalMarkets = React.memo(function PoliticalMarkets() {
     categoryId: activeCategory,
     tagId: activeTagId,
     categories,
+    marketStatus,
   });
 
   // Flatten all pages into a single array - properly memoized

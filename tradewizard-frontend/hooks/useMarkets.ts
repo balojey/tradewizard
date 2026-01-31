@@ -2,7 +2,9 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { useTrading } from "@/providers/TradingProvider";
 import { Side } from "@polymarket/clob-client";
 import type { CategoryId, Category } from "@/constants/categories";
+import type { MarketStatus } from "@/components/Trading/Markets/MarketStatusFilter";
 import usePublicMarketPrices from "@/hooks/usePublicMarketPrices";
+import { enhanceMarketsWithResolutionData } from "@/utils/marketResolution";
 
 export type PolymarketMarket = {
   id: string;
@@ -30,6 +32,10 @@ export type PolymarketMarket = {
   eventId?: string;
   eventIcon?: string;
   negRisk?: boolean;
+  // Resolution data for closed markets
+  winningOutcome?: string;
+  winningTokenId?: string;
+  resolvedAt?: string;
   realtimePrices?: Record<
     string,
     {
@@ -47,14 +53,15 @@ interface UseMarketsOptions {
   categoryId?: CategoryId;
   tagId?: number | null;
   categories?: Category[];
+  marketStatus?: MarketStatus;
 }
 
 export default function useMarkets(options: UseMarketsOptions = {}) {
-  const { pageSize = 20, categoryId = "trending", tagId, categories = [] } = options;
+  const { pageSize = 20, categoryId = "trending", tagId, categories = [], marketStatus = "active" } = options;
   const { clobClient, eoaAddress } = useTrading();
 
   const marketsQuery = useInfiniteQuery({
-    queryKey: ["political-markets", pageSize, categoryId, tagId, !!clobClient],
+    queryKey: ["political-markets", pageSize, categoryId, tagId, marketStatus, !!clobClient],
     queryFn: async ({ pageParam = 0 }): Promise<PolymarketMarket[]> => {
       let url = `/api/polymarket/markets?limit=${pageSize}&offset=${pageParam}`;
       let targetTagId = tagId;
@@ -70,6 +77,11 @@ export default function useMarkets(options: UseMarketsOptions = {}) {
         url += `&tag_id=${targetTagId}`;
       } else {
         url += `&tag_id=2`; // Default to politics
+      }
+
+      // Include closed markets when status is "closed" or "all"
+      if (marketStatus === "closed" || marketStatus === "all") {
+        url += `&include_closed=true`;
       }
 
       // Add category-specific parameters
@@ -89,10 +101,13 @@ export default function useMarkets(options: UseMarketsOptions = {}) {
 
       const markets: PolymarketMarket[] = await response.json();
 
+      // Enhance closed markets with resolution data
+      const enhancedMarkets = await enhanceMarketsWithResolutionData(markets);
+
       // Fetch realtime prices from CLOB if client is available (authenticated users)
       if (clobClient) {
         await Promise.all(
-          markets.map(async (market) => {
+          enhancedMarkets.map(async (market) => {
             try {
               const tokenIds = market.clobTokenIds
                 ? JSON.parse(market.clobTokenIds)
@@ -146,7 +161,7 @@ export default function useMarkets(options: UseMarketsOptions = {}) {
         );
       }
 
-      return markets;
+      return enhancedMarkets;
     },
     getNextPageParam: (lastPage, allPages) => {
       // If the last page has fewer markets than pageSize, we've reached the end
