@@ -11,6 +11,7 @@ interface OutcomeButtonsProps {
   negRisk: boolean;
   marketQuestion: string;
   disabled?: boolean;
+  size?: "sm" | "md" | "lg";
   onOutcomeClick: (
     marketTitle: string,
     outcome: string,
@@ -29,6 +30,7 @@ const OutcomeButtons = memo(function OutcomeButtons({
   negRisk,
   marketQuestion,
   disabled = false,
+  size = "md",
   onOutcomeClick,
   layout = "horizontal",
 }: OutcomeButtonsProps) {
@@ -36,13 +38,46 @@ const OutcomeButtons = memo(function OutcomeButtons({
 
   const isDisabled = isClosed || disabled;
 
+  // Size-based styling
+  const sizeClasses = {
+    sm: {
+      container: "gap-1.5",
+      button: "p-2 min-h-[36px] rounded-lg",
+      outcomeText: "text-[9px]",
+      probabilityText: "text-[8px]",
+      priceText: "text-sm",
+      percentageText: "text-[8px]",
+      icon: "w-2.5 h-2.5",
+    },
+    md: {
+      container: "gap-2 lg:gap-3",
+      button: "p-2.5 lg:p-3 min-h-[44px] rounded-lg lg:rounded-xl",
+      outcomeText: "text-[10px] lg:text-[11px]",
+      probabilityText: "text-[9px] lg:text-xs",
+      priceText: "text-base lg:text-xl",
+      percentageText: "text-[9px] lg:text-xs",
+      icon: "w-3 h-3 lg:w-4 lg:h-4",
+    },
+    lg: {
+      container: "gap-3",
+      button: "p-4 min-h-[52px] rounded-xl",
+      outcomeText: "text-xs",
+      probabilityText: "text-xs",
+      priceText: "text-xl",
+      percentageText: "text-xs",
+      icon: "w-4 h-4",
+    },
+  };
+
+  const currentSize = sizeClasses[size];
+
   return (
     <div className={cn(
       "grid w-full",
       // Optimized grid layout - maintain horizontal for better visual balance
       layout === "vertical" 
-        ? "grid-cols-1 gap-2 sm:gap-3" 
-        : "grid-cols-2 gap-2 lg:gap-3"
+        ? `grid-cols-1 ${currentSize.container}` 
+        : `grid-cols-2 ${currentSize.container}`
     )}>
       {outcomes.map((outcome: string, idx: number) => {
         const tokenId = tokenIds[idx] || "";
@@ -96,11 +131,8 @@ const OutcomeButtons = memo(function OutcomeButtons({
             }}
             disabled={isDisabled || !tokenId}
             className={cn(
-              "group relative flex items-center justify-between rounded-lg lg:rounded-xl border transition-all duration-300 shadow-sm overflow-hidden",
-              // Optimized padding for better proportions
-              "p-2.5 lg:p-3",
-              // Touch-friendly minimum height on mobile
-              "min-h-[44px]",
+              "group relative flex items-center justify-between border transition-all duration-300 shadow-sm overflow-hidden",
+              currentSize.button,
               isDisabled || !tokenId
                 ? "cursor-not-allowed opacity-50"
                 : "cursor-pointer hover:shadow-md",
@@ -118,13 +150,15 @@ const OutcomeButtons = memo(function OutcomeButtons({
             <div className="flex flex-col items-start gap-0.5 z-10 min-w-0">
               <span className={cn(
                 "font-bold transition-colors uppercase tracking-wider",
-                // Responsive text sizing
-                "text-[10px] lg:text-[11px]",
+                currentSize.outcomeText,
                 textClasses
               )}>
                 {outcome}
               </span>
-              <span className="text-[9px] lg:text-xs text-gray-500 font-medium tracking-wide group-hover:text-gray-400 transition-colors">
+              <span className={cn(
+                "text-gray-500 font-medium tracking-wide group-hover:text-gray-400 transition-colors",
+                currentSize.probabilityText
+              )}>
                 Probability
               </span>
             </div>
@@ -132,15 +166,17 @@ const OutcomeButtons = memo(function OutcomeButtons({
             <div className="flex flex-col items-end z-10 flex-shrink-0">
               <div className={cn(
                 "font-bold tracking-tight flex items-center gap-1 transition-colors",
-                // Responsive text sizing
-                "text-base lg:text-xl",
+                currentSize.priceText,
                 textClasses
               )}>
                 {priceInCents}¢
-                {isYes && <TrendingUp className="w-3 h-3 lg:w-4 lg:h-4 opacity-50 group-hover:opacity-100 transition-opacity" />}
-                {isNo && <TrendingDown className="w-3 h-3 lg:w-4 lg:h-4 opacity-50 group-hover:opacity-100 transition-opacity" />}
+                {isYes && <TrendingUp className={cn(currentSize.icon, "opacity-50 group-hover:opacity-100 transition-opacity")} />}
+                {isNo && <TrendingDown className={cn(currentSize.icon, "opacity-50 group-hover:opacity-100 transition-opacity")} />}
               </div>
-              <span className="text-[9px] lg:text-xs text-gray-400 font-mono group-hover:text-gray-300 transition-colors">
+              <span className={cn(
+                "text-gray-400 font-mono group-hover:text-gray-300 transition-colors",
+                currentSize.percentageText
+              )}>
                 {percentage}%
               </span>
             </div>

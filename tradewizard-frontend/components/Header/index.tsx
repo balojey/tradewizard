@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import { useWallet } from "@/providers/WalletContext";
 import WalletInfo from "@/components/Header/WalletInfo";
+import SearchShortcut from "@/components/shared/SearchShortcut";
 import { BUTTON_BASE, BUTTON_VARIANTS } from "@/constants/ui";
 import { cn } from "@/utils/classNames";
 
@@ -120,6 +121,7 @@ export default function Header({
 
           {/* Desktop Actions */}
           <div className="hidden md:flex items-center gap-4">
+            <SearchShortcut />
             {eoaAddress ? (
               <WalletInfo onDisconnect={handleDisconnect} />
             ) : (
@@ -161,6 +163,16 @@ export default function Header({
             className="fixed inset-0 z-40 bg-black/95 backdrop-blur-2xl md:hidden pt-24 px-6 overflow-y-auto"
           >
             <nav className="flex flex-col gap-2 pb-10">
+              {/* Mobile Search */}
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.05 }}
+                className="mb-4"
+              >
+                <SearchShortcut className="w-full justify-start" />
+              </motion.div>
+
               {navItems.map((item, idx) => {
                 const isActive = pathname === item.href;
                 return (

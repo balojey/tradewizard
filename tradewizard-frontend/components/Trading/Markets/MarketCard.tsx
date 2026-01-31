@@ -25,6 +25,7 @@ interface MarketCardProps {
   disabled?: boolean;
   recommendation?: RecommendationData | null | undefined;
   recommendationLoading?: boolean;
+  compact?: boolean;
   onOutcomeClick: (
     marketTitle: string,
     outcome: string,
@@ -39,6 +40,7 @@ const MarketCard = memo(function MarketCard({
   disabled = false,
   recommendation,
   recommendationLoading = false,
+  compact = false,
   onOutcomeClick,
 }: MarketCardProps) {
   // Memoize expensive calculations
@@ -118,37 +120,37 @@ const MarketCard = memo(function MarketCard({
   }, [market.outcomes, market.clobTokenIds, market.negRisk, market.realtimePrices, market.outcomePrices, market.id]);
 
   return (
-    <Card hover className="group relative flex flex-col h-full bg-[#1C1C1E] border-white/5 hover:border-indigo-500/30 transition-all duration-300 hover:shadow-[0_0_30px_-10px_rgba(79,70,229,0.2)] overflow-hidden">
+    <Card hover className={`group relative flex flex-col h-full bg-[#1C1C1E] border-white/5 hover:border-indigo-500/30 transition-all duration-300 hover:shadow-[0_0_30px_-10px_rgba(79,70,229,0.2)] overflow-hidden ${compact ? 'min-h-0' : ''}`}>
       {/* Hover Gradient Overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/0 via-transparent to-purple-500/0 group-hover:from-indigo-500/5 group-hover:to-purple-500/5 transition-colors duration-500 pointer-events-none" />
 
-      <div className="p-4 lg:p-5 flex-1 flex flex-col gap-4 relative z-10">
+      <div className={`${compact ? 'p-3' : 'p-4 lg:p-5'} flex-1 flex flex-col gap-${compact ? '2' : '4'} relative z-10`}>
         {/* Header: Icon + Title + Gauge - Compact Layout */}
-        <div className="flex items-start gap-3 lg:gap-4">
+        <div className={`flex items-start gap-${compact ? '2' : '3 lg:gap-4'}`}>
           {/* Market Icon - Consistent sizing */}
           <div className="relative flex-shrink-0">
             {market.icon ? (
               <img
                 src={market.icon}
                 alt=""
-                className="w-11 h-11 lg:w-12 lg:h-12 rounded-xl object-cover ring-1 ring-white/10 shadow-lg group-hover:scale-105 transition-transform duration-300"
+                className={`${compact ? 'w-8 h-8' : 'w-11 h-11 lg:w-12 lg:h-12'} rounded-xl object-cover ring-1 ring-white/10 shadow-lg group-hover:scale-105 transition-transform duration-300`}
                 loading="lazy"
               />
             ) : (
-              <div className="w-11 h-11 lg:w-12 lg:h-12 rounded-xl bg-gradient-to-br from-gray-800 to-gray-900 ring-1 ring-white/10 shadow-lg flex items-center justify-center">
-                <BarChart2 className="w-5 h-5 lg:w-6 lg:h-6 text-gray-600" />
+              <div className={`${compact ? 'w-8 h-8' : 'w-11 h-11 lg:w-12 lg:h-12'} rounded-xl bg-gradient-to-br from-gray-800 to-gray-900 ring-1 ring-white/10 shadow-lg flex items-center justify-center`}>
+                <BarChart2 className={`${compact ? 'w-4 h-4' : 'w-5 h-5 lg:w-6 lg:h-6'} text-gray-600`} />
               </div>
             )}
             {/* Active Indicator Dot */}
             {marketData.isActive && (
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-[#1C1C1E]" />
+              <div className={`absolute -top-1 -right-1 ${compact ? 'w-2 h-2' : 'w-3 h-3'} bg-green-500 rounded-full border-2 border-[#1C1C1E]`} />
             )}
           </div>
 
           {/* Title and Status - More space for text */}
           <div className="flex-1 min-w-0">
             <Link href={`/market/${market.slug || market.id}`} className="block group/title">
-              <h4 className="font-semibold text-[15px] lg:text-base leading-snug mb-2 text-gray-100 group-hover/title:text-indigo-400 transition-colors line-clamp-3">
+              <h4 className={`font-semibold ${compact ? 'text-sm' : 'text-[15px] lg:text-base'} leading-snug ${compact ? 'mb-1' : 'mb-2'} text-gray-100 group-hover/title:text-indigo-400 transition-colors ${compact ? 'line-clamp-2' : 'line-clamp-3'}`}>
                 {market.question}
               </h4>
             </Link>
@@ -165,38 +167,42 @@ const MarketCard = memo(function MarketCard({
                   </span>
                 )
               )}
-              <AIInsightsBadge
-                conditionId={market.conditionId || null}
-                size="sm"
-                showDetails={false}
-              />
+              {!compact && (
+                <AIInsightsBadge
+                  conditionId={market.conditionId || null}
+                  size="sm"
+                  showDetails={false}
+                />
+              )}
             </div>
           </div>
 
           {/* Probability Gauge - Consistent sizing */}
           <div className="flex-shrink-0">
-            <PercentageGauge value={parsedMarketData.yesChance} size={46} />
+            <PercentageGauge value={parsedMarketData.yesChance} size={compact ? 36 : 46} />
           </div>
         </div>
 
         {/* AI Recommendation Display - Compact */}
-        <div className="transform transition-transform duration-300 origin-left">
-          {marketData.isClosed ? (
-            <RecommendationAccuracy
-              market={market}
-              recommendation={recommendation}
-              size="md"
-            />
-          ) : (
-            <OptimizedRecommendationBadge
-              conditionId={market.conditionId || null}
-              recommendation={recommendation || null}
-              isLoading={recommendationLoading}
-              size="md"
-              showDetails={true}
-            />
-          )}
-        </div>
+        {!compact && (
+          <div className="transform transition-transform duration-300 origin-left">
+            {marketData.isClosed ? (
+              <RecommendationAccuracy
+                market={market}
+                recommendation={recommendation}
+                size="md"
+              />
+            ) : (
+              <OptimizedRecommendationBadge
+                conditionId={market.conditionId || null}
+                recommendation={recommendation || null}
+                isLoading={recommendationLoading}
+                size="md"
+                showDetails={true}
+              />
+            )}
+          </div>
+        )}
 
         {/* Outcome Buttons - Maintain horizontal layout */}
         <div className="mt-auto">
@@ -210,35 +216,38 @@ const MarketCard = memo(function MarketCard({
             disabled={disabled}
             onOutcomeClick={onOutcomeClick}
             layout="horizontal"
+            size={compact ? "sm" : "md"}
           />
         </div>
       </div>
 
       {/* Footer: Volume + Bookmark - Compact */}
-      <div className="relative z-10 px-4 lg:px-5 py-2.5 border-t border-white/5 bg-white/[0.02] flex items-center justify-between text-xs text-gray-500 group-hover:text-gray-400 transition-colors">
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="flex items-center gap-1.5 font-medium truncate">
-            <BarChart2 className="w-3.5 h-3.5 opacity-70 flex-shrink-0" />
-            <span className="truncate">{formatVolume(marketData.volumeUSD)} Vol.</span>
-          </span>
-          {market.active && (
-            <span className="hidden sm:flex items-center gap-1.5 font-medium text-emerald-500/80">
-              <TrendingUp className="w-3.5 h-3.5" />
-              Live
+      {!compact && (
+        <div className="relative z-10 px-4 lg:px-5 py-2.5 border-t border-white/5 bg-white/[0.02] flex items-center justify-between text-xs text-gray-500 group-hover:text-gray-400 transition-colors">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="flex items-center gap-1.5 font-medium truncate">
+              <BarChart2 className="w-3.5 h-3.5 opacity-70 flex-shrink-0" />
+              <span className="truncate">{formatVolume(marketData.volumeUSD)} Vol.</span>
             </span>
-          )}
-        </div>
+            {market.active && (
+              <span className="hidden sm:flex items-center gap-1.5 font-medium text-emerald-500/80">
+                <TrendingUp className="w-3.5 h-3.5" />
+                Live
+              </span>
+            )}
+          </div>
 
-        <button
-          className="p-1.5 -mr-1.5 rounded-lg hover:bg-white/10 text-gray-600 hover:text-white transition-all active:scale-95 flex-shrink-0"
-          onClick={(e) => {
-            e.stopPropagation();
-            // TODO: Implement bookmarking
-          }}
-        >
-          <Bookmark className="w-4 h-4" />
-        </button>
-      </div>
+          <button
+            className="p-1.5 -mr-1.5 rounded-lg hover:bg-white/10 text-gray-600 hover:text-white transition-all active:scale-95 flex-shrink-0"
+            onClick={(e) => {
+              e.stopPropagation();
+              // TODO: Implement bookmarking
+            }}
+          >
+            <Bookmark className="w-4 h-4" />
+          </button>
+        </div>
+      )}
     </Card>
   );
 });

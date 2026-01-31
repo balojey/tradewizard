@@ -15,6 +15,7 @@ import ErrorState from "@/components/shared/ErrorState";
 import EmptyState from "@/components/shared/EmptyState";
 import LoadingState from "@/components/shared/LoadingState";
 import MarketCard from "@/components/Trading/Markets/MarketCard";
+import MarketSearch from "@/components/Trading/Markets/MarketSearch";
 import CategoryTabs from "@/components/Trading/Markets/CategoryTabs";
 import MarketStatusFilter, { type MarketStatus } from "@/components/Trading/Markets/MarketStatusFilter";
 import OrderPlacementModal from "@/components/Trading/OrderModal";
@@ -147,6 +148,14 @@ const PoliticalMarkets = React.memo(function PoliticalMarkets() {
   return (
     <>
       <div className="space-y-4 sm:space-y-6">
+        {/* Search Bar */}
+        <div className="w-full max-w-2xl">
+          <MarketSearch
+            onOutcomeClick={handleOutcomeClick}
+            className="w-full"
+          />
+        </div>
+
         {/* Main Toolbar - Responsive Layout */}
         <div className="flex flex-col gap-4 sm:gap-6 md:gap-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 w-full">

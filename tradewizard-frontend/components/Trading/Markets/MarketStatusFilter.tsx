@@ -16,6 +16,7 @@ interface MarketStatusFilterProps {
     closed: number;
     endingSoon: number;
   };
+  className?: string;
 }
 
 const STATUS_OPTIONS = [
@@ -29,6 +30,7 @@ export default function MarketStatusFilter({
   currentStatus,
   onStatusChange,
   marketCounts,
+  className,
 }: MarketStatusFilterProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -55,7 +57,7 @@ export default function MarketStatusFilter({
   }, []);
 
   return (
-    <div className="relative" ref={containerRef}>
+    <div className={cn("relative", className)} ref={containerRef}>
       <motion.button
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
