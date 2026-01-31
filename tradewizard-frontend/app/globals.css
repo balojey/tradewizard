@@ -86,3 +86,13 @@ body::after {
   background: linear-gradient(90deg, rgba(99, 102, 241, 0.8) 0%, rgba(167, 139, 250, 0.8) 100%);
   cursor: grab;
 }
+
+/* Hide scrollbar utility for mobile horizontal scrolling */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* Internet Explorer 10+ */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.no-scrollbar::-webkit-scrollbar { 
+  display: none;  /* Safari and Chrome */
+}

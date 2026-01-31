@@ -139,11 +139,11 @@ export default function PriceHistoryChart({
 
   if (!conditionId || !selectedTokenId) {
     return (
-      <Card className="p-6">
+      <Card className="p-3 sm:p-6">
         <div className="text-center text-gray-400">
-          <Activity className="w-12 h-12 mx-auto mb-3 opacity-50" />
-          <p>Price history not available</p>
-          <p className="text-sm mt-1">Missing market or token information</p>
+          <Activity className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-2 sm:mb-3 opacity-50" />
+          <p className="text-sm sm:text-base">Price history not available</p>
+          <p className="text-xs sm:text-sm mt-1">Missing market or token information</p>
         </div>
       </Card>
     );
@@ -151,18 +151,18 @@ export default function PriceHistoryChart({
 
   if (isLoading) {
     return (
-      <Card className="p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="h-6 bg-white/10 rounded w-48" />
-            <div className="flex gap-2">
+      <Card className="p-3 sm:p-6">
+        <div className="animate-pulse space-y-3 sm:space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+            <div className="h-5 sm:h-6 bg-white/10 rounded w-32 sm:w-48" />
+            <div className="flex gap-1 sm:gap-2">
               {[1, 2, 3, 4, 5].map(i => (
-                <div key={i} className="h-8 w-12 bg-white/10 rounded" />
+                <div key={i} className="h-6 sm:h-8 w-8 sm:w-12 bg-white/10 rounded" />
               ))}
             </div>
           </div>
-          <div className="h-64 bg-white/10 rounded" />
-          <div className="text-center text-sm text-gray-400">
+          <div className="h-48 sm:h-64 bg-white/10 rounded" />
+          <div className="text-center text-xs sm:text-sm text-gray-400">
             Loading real price data...
           </div>
         </div>
@@ -172,14 +172,14 @@ export default function PriceHistoryChart({
 
   if (error || chartData.length === 0) {
     return (
-      <Card className="p-6">
+      <Card className="p-3 sm:p-6">
         <div className="text-center text-gray-400">
-          <AlertCircle className="w-12 h-12 mx-auto mb-3 text-red-400" />
-          <p className="font-medium text-white">Price History Unavailable</p>
-          <p className="text-sm mt-1">{error?.message || 'No price data available for this market'}</p>
+          <AlertCircle className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-2 sm:mb-3 text-red-400" />
+          <p className="font-medium text-sm sm:text-base text-white">Price History Unavailable</p>
+          <p className="text-xs sm:text-sm mt-1">{error?.message || 'No price data available for this market'}</p>
           <button
             onClick={() => refetch()}
-            className="mt-3 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg transition-colors"
+            className="mt-2 sm:mt-3 px-3 sm:px-4 py-1.5 sm:py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm rounded-lg transition-colors"
           >
             Retry
           </button>
@@ -190,45 +190,47 @@ export default function PriceHistoryChart({
 
   return (
     <Card className="overflow-hidden">
-      <div className="p-4 border-b border-white/10 bg-white/5">
-        <div className="flex flex-col gap-4">
-          {/* Header Row */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Activity className="w-5 h-5 text-indigo-400" />
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-white">Price History</h3>
+      <div className="p-3 sm:p-4 border-b border-white/10 bg-white/5">
+        <div className="flex flex-col gap-3 sm:gap-4">
+          {/* Header Row - Mobile Optimized */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+            <div className="flex items-start gap-2 sm:gap-3">
+              <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-400 mt-0.5 flex-shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-semibold text-base sm:text-lg text-white">Price History</h3>
                   {dataSource === 'synthetic' && (
-                    <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 text-xs rounded-full border border-yellow-500/30">
+                    <span className="px-1.5 py-0.5 sm:px-2 bg-yellow-500/20 text-yellow-400 text-xs rounded-full border border-yellow-500/30 whitespace-nowrap">
                       Simulated
                     </span>
                   )}
                   {dataSource === 'real' && (
-                    <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full border border-green-500/30">
+                    <span className="px-1.5 py-0.5 sm:px-2 bg-green-500/20 text-green-400 text-xs rounded-full border border-green-500/30 whitespace-nowrap">
                       Real Data
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-gray-400">Current: ${selectedTokenPrice.toFixed(3)}</span>
-                  <span className={`font-medium ${
+                <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm mt-1 flex-wrap">
+                  <span className="text-gray-400 whitespace-nowrap">Current: ${selectedTokenPrice.toFixed(3)}</span>
+                  <span className={`font-medium whitespace-nowrap ${
                     priceChange.percentage > 0 ? 'text-green-400' : 
                     priceChange.percentage < 0 ? 'text-red-400' : 'text-gray-400'
                   }`}>
                     {priceChange.percentage > 0 ? '+' : ''}{priceChange.percentage.toFixed(2)}%
                   </span>
-                  <span className="text-gray-500">•</span>
-                  <span className="text-gray-400">{priceData.length} points</span>
+                  <span className="text-gray-500 hidden sm:inline">•</span>
+                  <span className="text-gray-400 text-xs whitespace-nowrap">{priceData.length} points</span>
                 </div>
               </div>
             </div>
-            <div className="flex gap-1">
+            
+            {/* Time Range Buttons - Mobile Scrollable */}
+            <div className="flex gap-1 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
               {timeRanges.map(range => (
                 <button
                   key={range.value}
                   onClick={() => setSelectedRange(range.value)}
-                  className={`px-3 py-1 text-sm font-medium rounded transition-colors ${
+                  className={`px-2 py-1 sm:px-3 text-xs sm:text-sm font-medium rounded transition-colors whitespace-nowrap flex-shrink-0 ${
                     selectedRange === range.value
                       ? 'bg-indigo-600 text-white'
                       : 'bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white'
@@ -240,37 +242,37 @@ export default function PriceHistoryChart({
             </div>
           </div>
 
-          {/* Token Selector Row */}
+          {/* Token Selector Row - Mobile Optimized */}
           {tokenOptions.length > 1 && (
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-gray-300">Viewing:</span>
-              <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+              <span className="text-xs sm:text-sm font-medium text-gray-300 flex-shrink-0">Viewing:</span>
+              <div className="flex gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
                 {tokenOptions.map((option) => (
                   <button
                     key={option.tokenId}
                     onClick={() => setSelectedTokenId(option.tokenId)}
                     className={`
-                      relative px-3 py-1.5 text-sm font-medium rounded-lg transition-all
+                      relative px-2 py-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all whitespace-nowrap flex-shrink-0
                       ${selectedTokenId === option.tokenId
                         ? 'bg-indigo-600 text-white shadow-lg'
                         : 'bg-white/10 text-gray-300 hover:bg-white/20 hover:text-white'
                       }
                     `}
                   >
-                    <div className="flex items-center gap-2">
-                      <span>{option.outcome}</span>
+                    <div className="flex items-center gap-1 sm:gap-2">
+                      <span className="truncate max-w-[60px] sm:max-w-none">{option.outcome}</span>
                       <span className="text-xs opacity-75">${option.price.toFixed(3)}</span>
                       {option.isRecommended && (
-                        <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full border border-white/20" />
+                        <div className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-400 rounded-full border border-white/20" />
                       )}
                     </div>
                   </button>
                 ))}
               </div>
               {recommendedTokenId && (
-                <div className="flex items-center gap-1 text-xs text-green-400">
-                  <div className="w-2 h-2 bg-green-400 rounded-full" />
-                  <span>AI Recommended</span>
+                <div className="flex items-center gap-1 text-xs text-green-400 mt-1 sm:mt-0">
+                  <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-400 rounded-full flex-shrink-0" />
+                  <span className="whitespace-nowrap">AI Recommended</span>
                 </div>
               )}
             </div>
@@ -278,8 +280,8 @@ export default function PriceHistoryChart({
         </div>
       </div>
 
-      <div className="p-4">
-        <div className="h-64 mb-4">
+      <div className="p-3 sm:p-4">
+        <div className="h-48 sm:h-64 mb-3 sm:mb-4">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData}>
               <defs>
@@ -291,14 +293,15 @@ export default function PriceHistoryChart({
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
               <XAxis 
                 dataKey="formattedTime"
-                tick={{ fontSize: 12, fill: '#9ca3af' }}
+                tick={{ fontSize: 10, fill: '#9ca3af' }}
                 tickLine={false}
                 axisLine={false}
                 interval="preserveStartEnd"
+                height={30}
               />
               <YAxis 
                 domain={['dataMin - 0.01', 'dataMax + 0.01']}
-                tick={{ fontSize: 12, fill: '#9ca3af' }}
+                tick={{ fontSize: 10, fill: '#9ca3af' }}
                 tickLine={false}
                 axisLine={false}
                 tickFormatter={(value) => `$${value.toFixed(3)}`}
@@ -312,31 +315,31 @@ export default function PriceHistoryChart({
                     y={aiRecommendation.entryZone[0]} 
                     stroke="#10b981" 
                     strokeDasharray="5 5"
-                    label={{ value: "Entry Min", position: "insideTopRight", fill: '#10b981' }}
+                    label={{ value: "Entry Min", position: "insideTopRight", fill: '#10b981', fontSize: 10 }}
                   />
                   <ReferenceLine 
                     y={aiRecommendation.entryZone[1]} 
                     stroke="#10b981" 
                     strokeDasharray="5 5"
-                    label={{ value: "Entry Max", position: "insideTopRight", fill: '#10b981' }}
+                    label={{ value: "Entry Max", position: "insideTopRight", fill: '#10b981', fontSize: 10 }}
                   />
                   <ReferenceLine 
                     y={aiRecommendation.targetZone[0]} 
                     stroke="#f59e0b" 
                     strokeDasharray="5 5"
-                    label={{ value: "Target Min", position: "insideTopRight", fill: '#f59e0b' }}
+                    label={{ value: "Target Min", position: "insideTopRight", fill: '#f59e0b', fontSize: 10 }}
                   />
                   <ReferenceLine 
                     y={aiRecommendation.targetZone[1]} 
                     stroke="#f59e0b" 
                     strokeDasharray="5 5"
-                    label={{ value: "Target Max", position: "insideTopRight", fill: '#f59e0b' }}
+                    label={{ value: "Target Max", position: "insideTopRight", fill: '#f59e0b', fontSize: 10 }}
                   />
                   <ReferenceLine 
                     y={aiRecommendation.consensusProbability} 
                     stroke="#8b5cf6" 
                     strokeWidth={2}
-                    label={{ value: "AI Fair Price", position: "insideTopRight", fill: '#8b5cf6' }}
+                    label={{ value: "AI Fair Price", position: "insideTopRight", fill: '#8b5cf6', fontSize: 10 }}
                   />
                 </>
               )}
@@ -352,12 +355,12 @@ export default function PriceHistoryChart({
           </ResponsiveContainer>
         </div>
 
-        {/* Data source information */}
-        <div className="mt-4 p-3 bg-white/5 rounded-lg border border-white/10">
-          <div className="flex items-center justify-between">
-            <div>
-              <h4 className="font-medium text-sm text-gray-300 mb-1">Data Information</h4>
-              <p className="text-xs text-gray-400">
+        {/* Data source information - Mobile Optimized */}
+        <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-white/5 rounded-lg border border-white/10">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+            <div className="flex-1">
+              <h4 className="font-medium text-xs sm:text-sm text-gray-300 mb-1">Data Information</h4>
+              <p className="text-xs text-gray-400 leading-relaxed">
                 {dataSource === 'real' 
                   ? `Showing ${priceData.length} real price points from Polymarket CLOB API`
                   : `Showing ${priceData.length} simulated data points (real data unavailable)`
@@ -365,27 +368,27 @@ export default function PriceHistoryChart({
               </p>
             </div>
             {aiRecommendation && (
-              <div className="text-right">
-                <h4 className="font-medium text-sm text-gray-300 mb-1">AI Trading Zones</h4>
-                <div className="grid grid-cols-2 gap-4 text-xs">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-0.5 bg-green-400 border-dashed border-green-400" style={{ borderWidth: '1px 0' }} />
-                      <span className="text-gray-400">Entry Zone</span>
+              <div className="flex-shrink-0">
+                <h4 className="font-medium text-xs sm:text-sm text-gray-300 mb-2">AI Trading Zones</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4 text-xs">
+                  <div className="space-y-1.5 sm:space-y-1">
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                      <div className="w-3 h-0.5 sm:w-4 bg-green-400 border-dashed border-green-400" style={{ borderWidth: '1px 0' }} />
+                      <span className="text-gray-400 text-xs">Entry Zone</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-0.5 bg-yellow-400 border-dashed border-yellow-400" style={{ borderWidth: '1px 0' }} />
-                      <span className="text-gray-400">Target Zone</span>
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                      <div className="w-3 h-0.5 sm:w-4 bg-yellow-400 border-dashed border-yellow-400" style={{ borderWidth: '1px 0' }} />
+                      <span className="text-gray-400 text-xs">Target Zone</span>
                     </div>
                   </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-0.5 bg-purple-400" />
-                      <span className="text-gray-400">AI Fair Price</span>
+                  <div className="space-y-1.5 sm:space-y-1">
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                      <div className="w-3 h-0.5 sm:w-4 bg-purple-400" />
+                      <span className="text-gray-400 text-xs">AI Fair Price</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-0.5 bg-indigo-400" />
-                      <span className="text-gray-400">Market Price</span>
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                      <div className="w-3 h-0.5 sm:w-4 bg-indigo-400" />
+                      <span className="text-gray-400 text-xs">Market Price</span>
                     </div>
                   </div>
                 </div>
