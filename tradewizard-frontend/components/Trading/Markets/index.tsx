@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { useTrading } from "@/providers/TradingProvider";
 import useMarkets from "@/hooks/useMarkets";
 import useUserPositions from "@/hooks/useUserPositions";
@@ -19,7 +19,7 @@ import CategoryTabs from "@/components/Trading/Markets/CategoryTabs";
 import MarketStatusFilter, { type MarketStatus } from "@/components/Trading/Markets/MarketStatusFilter";
 import OrderPlacementModal from "@/components/Trading/OrderModal";
 
-export default function PoliticalMarkets() {
+const PoliticalMarkets = React.memo(function PoliticalMarkets() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<CategoryId>(DEFAULT_CATEGORY);
   const [marketStatus, setMarketStatus] = useState<MarketStatus>("all");
@@ -41,8 +41,12 @@ export default function PoliticalMarkets() {
     error: categoriesError
   } = usePoliticalCategories();
 
-  // Get current active category details
-  const activeCategoryObj = categories.find(c => c.id === activeCategory);
+  // Get current active category details - memoized
+  const activeCategoryObj = useMemo(() => 
+    categories.find(c => c.id === activeCategory), 
+    [categories, activeCategory]
+  );
+  
   const activeTagId = activeCategoryObj?.tagId ?? 2; // Default to politics tag
 
   // Fetch markets for the active category with infinite query
@@ -60,12 +64,13 @@ export default function PoliticalMarkets() {
     categories,
   });
 
-  // Flatten all pages into a single array
+  // Flatten all pages into a single array - properly memoized
   const allMarkets = useMemo(() => {
-    return data?.pages.flat() ?? [];
-  }, [data]);
+    if (!data?.pages) return [];
+    return data.pages.flat();
+  }, [data?.pages]);
 
-  // Filter markets by status
+  // Filter markets by status - memoized
   const markets = useMemo(() => {
     return filterMarketsByStatus(allMarkets, marketStatus);
   }, [allMarkets, marketStatus]);
@@ -74,38 +79,47 @@ export default function PoliticalMarkets() {
   const {
     recommendations,
     isLoading: recommendationsLoading,
+    getRecommendation,
     getRecommendationCount
   } = useMarketRecommendations(markets);
 
-  // Calculate market counts for filter display
+  // Calculate market counts for filter display - memoized
   const marketCounts = useMemo(() => {
     return getMarketStatusCounts(allMarkets);
-  }, [allMarkets, marketStatus]);
+  }, [allMarkets]);
 
   const isLoading = categoriesLoading || marketsLoading;
   const error = categoriesError || marketsError;
 
-  // Infinite scroll callback
+  // Infinite scroll callback - stable reference
   const loadMore = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) {
       fetchNextPage();
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  // Infinite scroll hook
-  const { targetRef, resetFetching } = useInfiniteScroll(loadMore);
+  // Infinite scroll hook with optimized settings for mobile
+  const { targetRef, resetFetching } = useInfiniteScroll(loadMore, {
+    threshold: 0.1,
+    rootMargin: "100px", // Reduced from 200px for better mobile performance
+    delay: 200, // Increased debounce for mobile
+  });
 
-  // Reset fetching state when new data arrives
-  useMemo(() => {
+  // Reset fetching state when new data arrives - use useEffect instead of useMemo
+  React.useEffect(() => {
     if (!isFetchingNextPage) {
       resetFetching();
     }
   }, [isFetchingNextPage, resetFetching]);
 
-  // Helper to get consistent label
-  const categoryLabel = activeCategoryObj?.label || "Political";
+  // Helper to get consistent label - memoized
+  const categoryLabel = useMemo(() => 
+    activeCategoryObj?.label || "Political", 
+    [activeCategoryObj?.label]
+  );
 
-  const handleOutcomeClick = (
+  // Stable callback references
+  const handleOutcomeClick = useCallback((
     marketTitle: string,
     outcome: string,
     price: number,
@@ -114,20 +128,20 @@ export default function PoliticalMarkets() {
   ) => {
     setSelectedOutcome({ marketTitle, outcome, price, tokenId, negRisk });
     setIsModalOpen(true);
-  };
+  }, []);
 
-  const handleCloseModal = () => {
+  const handleCloseModal = useCallback(() => {
     setIsModalOpen(false);
     setSelectedOutcome(null);
-  };
+  }, []);
 
-  const handleCategoryChange = (categoryId: CategoryId) => {
+  const handleCategoryChange = useCallback((categoryId: CategoryId) => {
     setActiveCategory(categoryId);
-  };
+  }, []);
 
-  const handleStatusChange = (status: MarketStatus) => {
+  const handleStatusChange = useCallback((status: MarketStatus) => {
     setMarketStatus(status);
-  };
+  }, []);
 
   return (
     <>
@@ -197,14 +211,19 @@ export default function PoliticalMarkets() {
         {/* Market Cards - Optimized Responsive Grid */}
         {markets.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
-            {markets.map((market, index) => (
-              <MarketCard
-                key={`${market.id}-${index}`} // Include index to handle potential duplicates
-                market={market}
-                disabled={isGeoblocked}
-                onOutcomeClick={handleOutcomeClick}
-              />
-            ))}
+            {markets.map((market, index) => {
+              const recommendation = getRecommendation(market.conditionId || null) || null;
+              return (
+                <MarketCard
+                  key={`${market.id}-${index}`} // Include index to handle potential duplicates
+                  market={market}
+                  disabled={isGeoblocked}
+                  recommendation={recommendation}
+                  recommendationLoading={recommendationsLoading}
+                  onOutcomeClick={handleOutcomeClick}
+                />
+              );
+            })}
 
             {/* Infinite Scroll Trigger */}
             {hasNextPage && (
@@ -246,4 +265,6 @@ export default function PoliticalMarkets() {
       )}
     </>
   );
-}
+});
+
+export default PoliticalMarkets;

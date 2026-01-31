@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "../styles/mobile-optimizations.css";
 
 :root {
   /* Core Base Colors */
@@ -31,6 +32,8 @@ body {
   min-height: 100vh;
   position: relative;
   overflow-x: hidden;
+  /* Mobile scroll optimization */
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Background Gradients/Mesh */
@@ -45,6 +48,8 @@ body::before {
   filter: blur(100px);
   z-index: -1;
   pointer-events: none;
+  /* Optimize for mobile */
+  will-change: transform;
 }
 
 body::after {
@@ -58,6 +63,8 @@ body::after {
   filter: blur(100px);
   z-index: -1;
   pointer-events: none;
+  /* Optimize for mobile */
+  will-change: transform;
 }
 
 /* Custom Scrollbar Styles */

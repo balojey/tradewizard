@@ -1,3 +1,4 @@
+import React, { useMemo, memo } from "react";
 import type { PolymarketMarket } from "@/hooks/useMarkets";
 import Link from "next/link";
 import { isMarketEndingSoon } from "@/utils/marketFilters";
@@ -5,15 +6,23 @@ import { isMarketEndingSoon } from "@/utils/marketFilters";
 import Card from "@/components/shared/Card";
 import OutcomeButtons from "@/components/Trading/Markets/OutcomeButtons";
 import PercentageGauge from "@/components/shared/PercentageGauge";
-import RecommendationBadge from "@/components/Trading/Markets/RecommendationBadge";
+import OptimizedRecommendationBadge from "@/components/Trading/Markets/OptimizedRecommendationBadge";
 import AIInsightsBadge from "@/components/Trading/Markets/AIInsightsBadge";
 
 import { formatVolume } from "@/utils/formatting";
 import { TrendingUp, BarChart2, Bookmark } from "lucide-react";
 
+interface RecommendationData {
+  action: string;
+  winProbability: number;
+  expectedValue: number;
+}
+
 interface MarketCardProps {
   market: PolymarketMarket;
   disabled?: boolean;
+  recommendation?: RecommendationData | null | undefined;
+  recommendationLoading?: boolean;
   onOutcomeClick: (
     marketTitle: string,
     outcome: string,
@@ -23,65 +32,88 @@ interface MarketCardProps {
   ) => void;
 }
 
-export default function MarketCard({
+const MarketCard = memo(function MarketCard({
   market,
   disabled = false,
+  recommendation,
+  recommendationLoading = false,
   onOutcomeClick,
 }: MarketCardProps) {
-  const volumeUSD = parseFloat(
-    String(market.volume24hr || market.volume || "0")
-  );
-  const liquidityUSD = parseFloat(String(market.liquidity || "0"));
-  const isClosed = market.closed;
-  const isActive = market.active && !market.closed;
-  const isEndingSoon = isActive && isMarketEndingSoon(market);
+  // Memoize expensive calculations
+  const marketData = useMemo(() => {
+    const volumeUSD = parseFloat(
+      String(market.volume24hr || market.volume || "0")
+    );
+    const liquidityUSD = parseFloat(String(market.liquidity || "0"));
+    const isClosed = market.closed;
+    const isActive = market.active && !market.closed;
+    const isEndingSoon = isActive && isMarketEndingSoon(market);
 
-  // Determine status badge
-  const getStatusBadge = () => {
-    if (isClosed) {
+    return {
+      volumeUSD,
+      liquidityUSD,
+      isClosed,
+      isActive,
+      isEndingSoon,
+    };
+  }, [market.volume24hr, market.volume, market.liquidity, market.closed, market.active, market.endDate]);
+
+  // Memoize status badge
+  const statusBadge = useMemo(() => {
+    if (marketData.isClosed) {
       return { text: "Closed", color: "bg-red-500/10 text-red-500 border-red-500/20" };
     }
-    if (isEndingSoon) {
+    if (marketData.isEndingSoon) {
       return { text: "Ending Soon", color: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20" };
     }
-    if (isActive) {
+    if (marketData.isActive) {
       return { text: "Active", color: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" };
     }
     return null;
-  };
+  }, [marketData.isClosed, marketData.isEndingSoon, marketData.isActive]);
 
-  const statusBadge = getStatusBadge();
-
-  const outcomes = market.outcomes ? JSON.parse(market.outcomes) : [];
-  const tokenIds = market.clobTokenIds ? JSON.parse(market.clobTokenIds) : [];
-  const negRisk = market.negRisk || false;
-  const outcomePrices = tokenIds.map((tokenId: string) => {
-    // First try to get realtime prices (from CLOB client or public API)
-    const realtimePrice = market.realtimePrices?.[tokenId]?.bidPrice;
-    if (realtimePrice && realtimePrice > 0) {
-      return realtimePrice;
-    }
-
-    // Fallback to static outcome prices from market data
-    if (market.outcomePrices) {
-      try {
-        const staticPrices = JSON.parse(market.outcomePrices);
-        const tokenIndex = tokenIds.indexOf(tokenId);
-        if (tokenIndex !== -1 && staticPrices[tokenIndex]) {
-          return parseFloat(staticPrices[tokenIndex]);
-        }
-      } catch (error) {
-        console.warn(`Failed to parse static prices for market ${market.id}`);
+  // Memoize parsed market data
+  const parsedMarketData = useMemo(() => {
+    const outcomes = market.outcomes ? JSON.parse(market.outcomes) : [];
+    const tokenIds = market.clobTokenIds ? JSON.parse(market.clobTokenIds) : [];
+    const negRisk = market.negRisk || false;
+    
+    const outcomePrices = tokenIds.map((tokenId: string) => {
+      // First try to get realtime prices (from CLOB client or public API)
+      const realtimePrice = market.realtimePrices?.[tokenId]?.bidPrice;
+      if (realtimePrice && realtimePrice > 0) {
+        return realtimePrice;
       }
-    }
 
-    return 0;
-  });
+      // Fallback to static outcome prices from market data
+      if (market.outcomePrices) {
+        try {
+          const staticPrices = JSON.parse(market.outcomePrices);
+          const tokenIndex = tokenIds.indexOf(tokenId);
+          if (tokenIndex !== -1 && staticPrices[tokenIndex]) {
+            return parseFloat(staticPrices[tokenIndex]);
+          }
+        } catch (error) {
+          console.warn(`Failed to parse static prices for market ${market.id}`);
+        }
+      }
 
-  // Calculate "Yes" probability for the gauge if 'Yes' outcome exists
-  const yesIndex = outcomes.findIndex((o: string) => o.toLowerCase() === "yes");
-  const yesPrice = yesIndex !== -1 ? (outcomePrices?.[yesIndex] || 0) : 0;
-  const yesChance = Math.round(yesPrice * 100);
+      return 0;
+    });
+
+    // Calculate "Yes" probability for the gauge if 'Yes' outcome exists
+    const yesIndex = outcomes.findIndex((o: string) => o.toLowerCase() === "yes");
+    const yesPrice = yesIndex !== -1 ? (outcomePrices?.[yesIndex] || 0) : 0;
+    const yesChance = Math.round(yesPrice * 100);
+
+    return {
+      outcomes,
+      tokenIds,
+      negRisk,
+      outcomePrices,
+      yesChance,
+    };
+  }, [market.outcomes, market.clobTokenIds, market.negRisk, market.realtimePrices, market.outcomePrices, market.id]);
 
   return (
     <Card hover className="group relative flex flex-col h-full bg-[#1C1C1E] border-white/5 hover:border-indigo-500/30 transition-all duration-300 hover:shadow-[0_0_30px_-10px_rgba(79,70,229,0.2)] overflow-hidden">
@@ -98,6 +130,7 @@ export default function MarketCard({
                 src={market.icon}
                 alt=""
                 className="w-11 h-11 lg:w-12 lg:h-12 rounded-xl object-cover ring-1 ring-white/10 shadow-lg group-hover:scale-105 transition-transform duration-300"
+                loading="lazy"
               />
             ) : (
               <div className="w-11 h-11 lg:w-12 lg:h-12 rounded-xl bg-gradient-to-br from-gray-800 to-gray-900 ring-1 ring-white/10 shadow-lg flex items-center justify-center">
@@ -105,7 +138,7 @@ export default function MarketCard({
               </div>
             )}
             {/* Active Indicator Dot */}
-            {isActive && (
+            {marketData.isActive && (
               <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-[#1C1C1E]" />
             )}
           </div>
@@ -135,14 +168,16 @@ export default function MarketCard({
 
           {/* Probability Gauge - Consistent sizing */}
           <div className="flex-shrink-0">
-            <PercentageGauge value={yesChance} size={46} />
+            <PercentageGauge value={parsedMarketData.yesChance} size={46} />
           </div>
         </div>
 
         {/* AI Recommendation Display - Compact */}
         <div className="transform transition-transform duration-300 origin-left">
-          <RecommendationBadge
+          <OptimizedRecommendationBadge
             conditionId={market.conditionId || null}
+            recommendation={recommendation || null}
+            isLoading={recommendationLoading}
             size="md"
             showDetails={true}
           />
@@ -151,11 +186,11 @@ export default function MarketCard({
         {/* Outcome Buttons - Maintain horizontal layout */}
         <div className="mt-auto">
           <OutcomeButtons
-            outcomes={outcomes}
-            outcomePrices={outcomePrices}
-            tokenIds={tokenIds}
-            isClosed={isClosed}
-            negRisk={negRisk}
+            outcomes={parsedMarketData.outcomes}
+            outcomePrices={parsedMarketData.outcomePrices}
+            tokenIds={parsedMarketData.tokenIds}
+            isClosed={marketData.isClosed}
+            negRisk={parsedMarketData.negRisk}
             marketQuestion={market.question}
             disabled={disabled}
             onOutcomeClick={onOutcomeClick}
@@ -169,7 +204,7 @@ export default function MarketCard({
         <div className="flex items-center gap-3 min-w-0">
           <span className="flex items-center gap-1.5 font-medium truncate">
             <BarChart2 className="w-3.5 h-3.5 opacity-70 flex-shrink-0" />
-            <span className="truncate">${formatVolume(volumeUSD)} Vol.</span>
+            <span className="truncate">${formatVolume(marketData.volumeUSD)} Vol.</span>
           </span>
           {market.active && (
             <span className="hidden sm:flex items-center gap-1.5 font-medium text-emerald-500/80">
@@ -191,4 +226,6 @@ export default function MarketCard({
       </div>
     </Card>
   );
-}
+});
+
+export default MarketCard;

@@ -1,3 +1,4 @@
+import React, { memo } from "react";
 import { convertPriceToCents } from "@/utils/order";
 import { cn } from "@/utils/classNames";
 import { TrendingUp, TrendingDown } from "lucide-react";
@@ -20,7 +21,7 @@ interface OutcomeButtonsProps {
   layout?: "horizontal" | "vertical";
 }
 
-export default function OutcomeButtons({
+const OutcomeButtons = memo(function OutcomeButtons({
   outcomes,
   outcomePrices,
   tokenIds,
@@ -148,4 +149,6 @@ export default function OutcomeButtons({
       })}
     </div>
   );
-}
+});
+
+export default OutcomeButtons;
