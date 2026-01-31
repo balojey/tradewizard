@@ -1,5 +1,6 @@
 "use client";
 
+
 import { useState } from "react";
 
 // Debug component to test public prices API
