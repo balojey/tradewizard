@@ -4,6 +4,7 @@ import { useTrading } from "@/providers/TradingProvider";
 import Header from "@/components/Header";
 import MarketTabs from "@/components/Trading/MarketTabs";
 import GeoBlockedBanner from "@/components/GeoBlockedBanner";
+import BetaStatusBanner from "@/components/BetaStatusBanner";
 import FeaturedQuickTrade from "@/components/Home/FeaturedQuickTrade";
 
 export default function Home() {
@@ -23,6 +24,9 @@ export default function Home() {
         {isGeoblocked && !isGeoblockLoading && (
           <GeoBlockedBanner geoblockStatus={geoblockStatus} />
         )}
+
+        {/* Beta status banner - shows for all users */}
+        <BetaStatusBanner />
 
         <div className="flex flex-col gap-6">
 
