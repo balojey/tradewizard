@@ -123,6 +123,17 @@ export default function AIInsightsPanel({
   const formatPercentage = (value: number) => `${(value * 100).toFixed(1)}%`;
   const formatPrice = (value: number) => `$${value.toFixed(3)}`;
 
+  // Get the price of the token that the AI recommended
+  const getRecommendedTokenPrice = () => {
+    if (recommendation.action === 'LONG_YES') {
+      return marketPrice; // marketPrice is already the YES token price
+    } else if (recommendation.action === 'LONG_NO') {
+      return 1 - marketPrice; // NO token price is 1 - YES token price
+    }
+    return marketPrice; // Default to market price for NO_TRADE
+  };
+
+  const recommendedTokenPrice = getRecommendedTokenPrice();
   const edge = recommendation.metadata.edge;
   const edgeColor = edge > 0.05 ? 'text-green-400' : edge < -0.05 ? 'text-red-400' : 'text-yellow-400';
 
@@ -164,8 +175,11 @@ export default function AIInsightsPanel({
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-400">Market Price</span>
-                  <span className="font-medium text-white">{formatPrice(marketPrice)}</span>
+                  <span className="text-sm text-gray-400">
+                    {recommendation.action === 'LONG_YES' ? 'YES Token Price' : 
+                     recommendation.action === 'LONG_NO' ? 'NO Token Price' : 'Market Price'}
+                  </span>
+                  <span className="font-medium text-white">{formatPrice(recommendedTokenPrice)}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-400">Edge</span>

@@ -90,8 +90,34 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
     }, [market.realtimePrices, market.outcomePrices, market.id, tokenIds]);
 
     const yesIndex = outcomes.findIndex((o: string) => o.toLowerCase() === "yes");
+    const noIndex = outcomes.findIndex((o: string) => o.toLowerCase() === "no");
     const yesPrice = yesIndex !== -1 ? (outcomePrices?.[yesIndex] || 0) : 0;
-    const yesChance = Math.round(Number(yesPrice) * 100);
+    const noPrice = noIndex !== -1 ? (outcomePrices?.[noIndex] || 0) : (1 - yesPrice);
+    
+    // Determine which token price to display based on AI recommendation
+    const getDisplayTokenInfo = () => {
+        if (recommendation?.action === 'LONG_YES') {
+            return {
+                price: yesPrice,
+                label: 'Yes Price',
+                chance: Math.round(Number(yesPrice) * 100)
+            };
+        } else if (recommendation?.action === 'LONG_NO') {
+            return {
+                price: noPrice,
+                label: 'No Price', 
+                chance: Math.round(Number(noPrice) * 100)
+            };
+        }
+        // Default to YES token if no recommendation or NO_TRADE
+        return {
+            price: yesPrice,
+            label: 'Yes Price',
+            chance: Math.round(Number(yesPrice) * 100)
+        };
+    };
+
+    const displayToken = getDisplayTokenInfo();
 
     const tabs = [
         { id: 'overview' as TabType, label: 'Overview', icon: BarChart3 },
@@ -206,10 +232,13 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                                 <div className="p-3 sm:p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/[0.07] transition-colors">
                                     <div className="flex items-center gap-1.5 sm:gap-2 text-gray-400 text-xs font-medium mb-1.5">
                                         <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                                        <span>Yes Price</span>
+                                        <span>{displayToken.label}</span>
+                                        {recommendation && (
+                                            <div className="ml-1 w-1.5 h-1.5 bg-indigo-400 rounded-full animate-pulse" />
+                                        )}
                                     </div>
                                     <div className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-                                        {yesChance}%
+                                        {displayToken.chance}¢
                                     </div>
                                 </div>
 
@@ -385,7 +414,7 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
                                     <RecommendationTimeTravel
                                         conditionId={market.conditionId || null}
-                                        currentMarketPrice={yesPrice}
+                                        currentMarketPrice={displayToken.price}
                                     />
                                 </div>
                             )}
