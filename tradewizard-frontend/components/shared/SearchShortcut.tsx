@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Search, Command } from "lucide-react";
+import { Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import MarketSearch from "@/components/Trading/Markets/MarketSearch";
 import { useRouter } from "next/navigation";
@@ -56,23 +56,14 @@ const SearchShortcut: React.FC<SearchShortcutProps> = ({ className = "" }) => {
       <button
         onClick={() => setIsOpen(true)}
         className={cn(
-          "group relative flex items-center gap-2.5 px-3.5 py-2.5 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl text-gray-400 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all duration-300 shadow-lg ring-1 ring-white/5 hover:ring-white/10 hover:shadow-xl active:scale-[0.98]",
+          "group relative flex items-center justify-center w-10 h-10 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl text-gray-400 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all duration-300 shadow-lg ring-1 ring-white/5 hover:ring-white/10 hover:shadow-xl active:scale-[0.98]",
           className
         )}
+        aria-label="Search markets (Cmd+K)"
       >
-        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/0 via-transparent to-purple-500/0 group-hover:from-indigo-500/5 group-hover:to-purple-500/5 rounded-xl transition-colors duration-500" />
+        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/0 via-transparent to-purple-500/0 group-hover:from-indigo-500/10 group-hover:to-purple-500/10 rounded-xl transition-colors duration-500" />
 
-        <Search className="h-4 w-4 relative z-10 group-hover:text-indigo-400 transition-colors" />
-        <span className="hidden sm:inline text-sm font-medium relative z-10">Search markets...</span>
-
-        <div className="hidden sm:flex items-center gap-1 ml-auto relative z-10">
-          <kbd className="px-2 py-1 text-xs bg-white/10 backdrop-blur-sm rounded-md border border-white/10 text-gray-400 group-hover:text-gray-300 transition-colors">
-            <Command className="h-3 w-3" />
-          </kbd>
-          <kbd className="px-2 py-1 text-xs bg-white/10 backdrop-blur-sm rounded-md border border-white/10 text-gray-400 group-hover:text-gray-300 transition-colors">
-            K
-          </kbd>
-        </div>
+        <Search className="h-5 w-5 relative z-10 group-hover:text-indigo-400 transition-colors" />
       </button>
 
       {/* Search Modal */}
