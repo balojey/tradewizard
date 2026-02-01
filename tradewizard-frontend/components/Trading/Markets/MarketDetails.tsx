@@ -415,6 +415,8 @@ export default function MarketDetails({ market }: MarketDetailsProps) {
                                     <RecommendationTimeTravel
                                         conditionId={market.conditionId || null}
                                         currentMarketPrice={displayToken.price}
+                                        yesPrice={yesPrice}
+                                        noPrice={noPrice}
                                     />
                                 </div>
                             )}

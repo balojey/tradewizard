@@ -40,12 +40,16 @@ import RecommendationAnalytics from "@/components/Trading/Markets/Recommendation
 interface RecommendationTimeTravelProps {
   conditionId: string | null;
   currentMarketPrice: number;
+  yesPrice?: number;
+  noPrice?: number;
   className?: string;
 }
 
 export default function RecommendationTimeTravel({ 
   conditionId, 
   currentMarketPrice,
+  yesPrice,
+  noPrice,
   className = "" 
 }: RecommendationTimeTravelProps) {
   const [selectedRecommendationIndex, setSelectedRecommendationIndex] = useState(0);
@@ -62,7 +66,7 @@ export default function RecommendationTimeTravel({
   });
 
   const { data: timeline } = useRecommendationTimeline(conditionId);
-  const { data: pnlData } = usePotentialPnL(conditionId, currentMarketPrice);
+  const { data: pnlData } = usePotentialPnL(conditionId, currentMarketPrice, yesPrice, noPrice);
 
   const selectedRecommendation = recommendations?.[selectedRecommendationIndex];
   const { data: comparison } = useRecommendationComparison(
@@ -311,6 +315,8 @@ export default function RecommendationTimeTravel({
             pnlData={pnlData} 
             selectedRecommendation={selectedRecommendation}
             currentMarketPrice={currentMarketPrice}
+            yesPrice={yesPrice}
+            noPrice={noPrice}
           />
         )}
 
@@ -625,11 +631,15 @@ function ComparisonView({ comparison }: { comparison: any }) {
 function PnLView({ 
   pnlData, 
   selectedRecommendation,
-  currentMarketPrice 
+  currentMarketPrice,
+  yesPrice,
+  noPrice
 }: { 
   pnlData: PotentialPnL[];
   selectedRecommendation?: HistoricalRecommendation;
   currentMarketPrice: number;
+  yesPrice?: number;
+  noPrice?: number;
 }) {
   const formatCurrency = (value: number) => `$${value.toFixed(2)}`;
   const formatPercentage = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;

@@ -183,22 +183,28 @@ export function useRecommendationComparison(
  */
 export function usePotentialPnL(
   conditionId: string | null,
-  currentMarketPrice: number
+  currentMarketPrice: number,
+  yesPrice?: number,
+  noPrice?: number
 ) {
   const { data: recommendations } = useHistoricalRecommendations(conditionId, {
     includeAgentSignals: false
   });
 
   return useQuery({
-    queryKey: ["potential-pnl", conditionId, currentMarketPrice, recommendations?.length],
+    queryKey: ["potential-pnl", conditionId, currentMarketPrice, yesPrice, noPrice, recommendations?.length],
     queryFn: async (): Promise<PotentialPnL[]> => {
       if (!recommendations || recommendations.length === 0) {
         return [];
       }
 
+      // Calculate effective Yes and No prices
+      const effectiveYesPrice = yesPrice || currentMarketPrice;
+      const effectiveNoPrice = noPrice || (1 - effectiveYesPrice);
+
       return recommendations
         .filter(rec => rec.action !== 'NO_TRADE')
-        .map(rec => calculatePotentialPnL(rec, currentMarketPrice));
+        .map(rec => calculatePotentialPnL(rec, effectiveYesPrice, effectiveNoPrice));
     },
     enabled: !!recommendations && recommendations.length > 0 && currentMarketPrice > 0,
     staleTime: 30 * 1000, // 30 seconds (price sensitive)
@@ -331,21 +337,21 @@ function calculateRecommendationChanges(
 
 function calculatePotentialPnL(
   recommendation: HistoricalRecommendation,
-  currentPrice: number
+  yesPrice: number,
+  noPrice: number
 ): PotentialPnL {
+  // Use the correct token price based on the recommendation action
+  const currentPrice = recommendation.action === 'LONG_YES' ? yesPrice : noPrice;
+  
   const entryPrice = recommendation.action === 'LONG_YES' 
     ? recommendation.entryZone[0] 
-    : 1 - recommendation.entryZone[1]; // For LONG_NO, we buy NO tokens
+    : recommendation.entryZone[0]; // Entry zone should be in the same token's terms
 
   const targetPrice = recommendation.action === 'LONG_YES'
     ? recommendation.targetZone[1]
-    : 1 - recommendation.targetZone[0];
+    : recommendation.targetZone[1]; // Target zone should be in the same token's terms
 
-  const actualCurrentPrice = recommendation.action === 'LONG_YES' 
-    ? currentPrice 
-    : 1 - currentPrice;
-
-  const potentialReturn = actualCurrentPrice - entryPrice;
+  const potentialReturn = currentPrice - entryPrice;
   const potentialReturnPercent = entryPrice > 0 ? (potentialReturn / entryPrice) * 100 : 0;
   
   const daysHeld = Math.max(1, Math.floor(
@@ -359,7 +365,7 @@ function calculatePotentialPnL(
     timestamp: recommendation.timestamp,
     action: recommendation.action,
     entryPrice,
-    currentPrice: actualCurrentPrice,
+    currentPrice,
     targetPrice,
     potentialReturn,
     potentialReturnPercent,
