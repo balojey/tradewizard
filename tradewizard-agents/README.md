@@ -252,7 +252,7 @@ GOOGLE_DEFAULT_MODEL=gemini-1.5-flash
 
 **Agent-LLM Mapping:**
 - Market Microstructure Agent → GPT-4-turbo (OpenAI)
-- Probability Baseline Agent → Gemini-1.5-flash (Google)
+- Probability Baseline Agent → Gemini-2.5-flash (Google)
 - Risk Assessment Agent → Claude-3-sonnet (Anthropic)
 
 **Pros:**
@@ -270,9 +270,9 @@ Uses one LLM for all agents with different system prompts:
 
 ```bash
 # .env
-LLM_SINGLE_PROVIDER=openai
-OPENAI_API_KEY=sk-...
-OPENAI_DEFAULT_MODEL=gpt-4o-mini
+LLM_SINGLE_PROVIDER=google
+OPENAI_API_KEY=AI...
+OPENAI_DEFAULT_MODEL=gemini-2.5-flash
 ```
 
 **Pros:**
