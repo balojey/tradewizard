@@ -72,7 +72,7 @@ function transformRecommendation(
 
   return {
     id: rec.id,
-    marketId: rec.market_id,
+    marketId: rec.market_id || '',
     action,
     entryZone: [rec.entry_zone_min || 0, rec.entry_zone_max || 1],
     targetZone: [rec.target_zone_min || 0, rec.target_zone_max || 1],
@@ -98,7 +98,7 @@ function transformRecommendation(
       disagreementIndex,
       agentCount: agentSignals.length,
     },
-    timestamp: rec.created_at,
+    timestamp: rec.created_at || new Date().toISOString(),
   };
 }
 
@@ -272,8 +272,10 @@ export function useMultipleRecommendations(conditionIds: string[]) {
       // Group recommendations by market_id and take the latest for each
       const latestRecs = new Map<string, RecommendationRow>();
       recommendations?.forEach(rec => {
+        if (!rec.market_id || !rec.created_at) return; // Skip if null
+        
         if (!latestRecs.has(rec.market_id) || 
-            new Date(rec.created_at) > new Date(latestRecs.get(rec.market_id)!.created_at)) {
+            new Date(rec.created_at) > new Date(latestRecs.get(rec.market_id)!.created_at || '')) {
           latestRecs.set(rec.market_id, rec);
         }
       });

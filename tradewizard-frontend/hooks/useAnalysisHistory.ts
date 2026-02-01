@@ -114,13 +114,13 @@ function transformAnalysisHistory(history: AnalysisHistoryRow): AnalysisHistory 
 
   return {
     id: history.id,
-    marketId: history.market_id,
+    marketId: history.market_id || '',
     analysisType: history.analysis_type,
     status: history.status as 'completed' | 'failed' | 'running',
     durationMs: history.duration_ms,
     costUsd: history.cost_usd,
     agentsUsed,
     errorMessage: history.error_message,
-    createdAt: history.created_at,
+    createdAt: history.created_at || new Date().toISOString(),
   };
 }

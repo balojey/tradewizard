@@ -87,7 +87,7 @@ function transformAgentSignal(signal: AgentSignalRow): AgentSignal {
     direction: signal.direction as 'LONG_YES' | 'LONG_NO' | 'NO_TRADE',
     keyDrivers,
     metadata,
-    createdAt: signal.created_at,
+    createdAt: signal.created_at || new Date().toISOString(),
   };
 }
 

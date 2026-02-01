@@ -63,11 +63,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "agent_signals_market_id_fkey"
+            columns: ["market_id"]
+            isOneToOne: false
+            referencedRelation: "v_closed_markets_performance"
+            referencedColumns: ["market_id"]
+          },
+          {
             foreignKeyName: "agent_signals_recommendation_id_fkey"
             columns: ["recommendation_id"]
             isOneToOne: false
             referencedRelation: "recommendations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_signals_recommendation_id_fkey"
+            columns: ["recommendation_id"]
+            isOneToOne: false
+            referencedRelation: "v_closed_markets_performance"
+            referencedColumns: ["recommendation_id"]
           },
         ]
       }
@@ -112,6 +126,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "markets"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "analysis_history_market_id_fkey"
+            columns: ["market_id"]
+            isOneToOne: false
+            referencedRelation: "v_closed_markets_performance"
+            referencedColumns: ["market_id"]
           },
         ]
       }
@@ -214,6 +235,77 @@ export type Database = {
         }
         Relationships: []
       }
+      recommendation_outcomes: {
+        Row: {
+          actual_outcome: string
+          created_at: string | null
+          edge_captured: number | null
+          id: string
+          market_id: string | null
+          market_probability_at_recommendation: number | null
+          recommendation_id: string | null
+          recommendation_was_correct: boolean
+          resolution_date: string | null
+          roi_realized: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          actual_outcome: string
+          created_at?: string | null
+          edge_captured?: number | null
+          id?: string
+          market_id?: string | null
+          market_probability_at_recommendation?: number | null
+          recommendation_id?: string | null
+          recommendation_was_correct: boolean
+          resolution_date?: string | null
+          roi_realized?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          actual_outcome?: string
+          created_at?: string | null
+          edge_captured?: number | null
+          id?: string
+          market_id?: string | null
+          market_probability_at_recommendation?: number | null
+          recommendation_id?: string | null
+          recommendation_was_correct?: boolean
+          resolution_date?: string | null
+          roi_realized?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recommendation_outcomes_market_id_fkey"
+            columns: ["market_id"]
+            isOneToOne: false
+            referencedRelation: "markets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recommendation_outcomes_market_id_fkey"
+            columns: ["market_id"]
+            isOneToOne: false
+            referencedRelation: "v_closed_markets_performance"
+            referencedColumns: ["market_id"]
+          },
+          {
+            foreignKeyName: "recommendation_outcomes_recommendation_id_fkey"
+            columns: ["recommendation_id"]
+            isOneToOne: false
+            referencedRelation: "recommendations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recommendation_outcomes_recommendation_id_fkey"
+            columns: ["recommendation_id"]
+            isOneToOne: false
+            referencedRelation: "v_closed_markets_performance"
+            referencedColumns: ["recommendation_id"]
+          },
+        ]
+      }
       recommendations: {
         Row: {
           catalysts: Json | null
@@ -276,6 +368,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "markets"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recommendations_market_id_fkey"
+            columns: ["market_id"]
+            isOneToOne: false
+            referencedRelation: "v_closed_markets_performance"
+            referencedColumns: ["market_id"]
           },
         ]
       }
@@ -342,6 +441,13 @@ export type Database = {
             referencedRelation: "markets"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "agent_signals_market_id_fkey"
+            columns: ["market_id"]
+            isOneToOne: false
+            referencedRelation: "v_closed_markets_performance"
+            referencedColumns: ["market_id"]
+          },
         ]
       }
       v_agent_performance_summary: {
@@ -397,6 +503,35 @@ export type Database = {
           total_analyses: number | null
           unique_markets: number | null
           update_analyses: number | null
+        }
+        Relationships: []
+      }
+      v_closed_markets_performance: {
+        Row: {
+          agents_in_agreement: number | null
+          condition_id: string | null
+          confidence: string | null
+          days_to_resolution: number | null
+          direction: string | null
+          edge_captured: number | null
+          entry_zone_max: number | null
+          entry_zone_min: number | null
+          event_type: string | null
+          expected_value: number | null
+          explanation: string | null
+          fair_probability: number | null
+          market_edge: number | null
+          market_id: string | null
+          market_probability_at_recommendation: number | null
+          question: string | null
+          recommendation_created_at: string | null
+          recommendation_id: string | null
+          recommendation_was_correct: boolean | null
+          resolution_date: string | null
+          resolved_outcome: string | null
+          roi_realized: number | null
+          status: string | null
+          total_agents: number | null
         }
         Relationships: []
       }
@@ -511,6 +646,18 @@ export type Database = {
         }
         Relationships: []
       }
+      v_monthly_performance: {
+        Row: {
+          avg_edge_captured: number | null
+          avg_roi: number | null
+          correct_recommendations: number | null
+          month: string | null
+          total_profit: number | null
+          total_recommendations: number | null
+          win_rate_pct: number | null
+        }
+        Relationships: []
+      }
       v_most_analyzed_markets: {
         Row: {
           analysis_count: number | null
@@ -521,6 +668,65 @@ export type Database = {
           question: string | null
           status: string | null
           total_cost_usd: number | null
+        }
+        Relationships: []
+      }
+      v_performance_by_agent: {
+        Row: {
+          agent_correct_signals: number | null
+          agent_name: string | null
+          agent_signal_accuracy_pct: number | null
+          agent_type: string | null
+          avg_agent_confidence: number | null
+          avg_agent_probability: number | null
+          avg_roi: number | null
+          correct_recommendations: number | null
+          total_agent_signals: number | null
+          total_recommendations: number | null
+          win_rate_pct: number | null
+        }
+        Relationships: []
+      }
+      v_performance_by_category: {
+        Row: {
+          avg_edge_captured: number | null
+          avg_market_liquidity: number | null
+          avg_market_volume: number | null
+          avg_roi: number | null
+          correct_recommendations: number | null
+          event_type: string | null
+          total_recommendations: number | null
+          win_rate_pct: number | null
+        }
+        Relationships: []
+      }
+      v_performance_by_confidence: {
+        Row: {
+          avg_edge_captured: number | null
+          avg_expected_value: number | null
+          avg_fair_probability: number | null
+          avg_roi: number | null
+          confidence: string | null
+          correct_recommendations: number | null
+          total_recommendations: number | null
+          win_rate_pct: number | null
+        }
+        Relationships: []
+      }
+      v_performance_summary: {
+        Row: {
+          avg_edge_captured: number | null
+          avg_losing_roi: number | null
+          avg_roi: number | null
+          avg_winning_roi: number | null
+          correct_recommendations: number | null
+          long_no_count: number | null
+          long_no_wins: number | null
+          long_yes_count: number | null
+          long_yes_wins: number | null
+          no_trade_count: number | null
+          total_resolved_recommendations: number | null
+          win_rate_pct: number | null
         }
         Relationships: []
       }
@@ -579,6 +785,7 @@ export type Database = {
         Returns: boolean
       }
       release_migration_lock: { Args: never; Returns: undefined }
+      update_recommendation_outcomes: { Args: never; Returns: number }
     }
     Enums: {
       [_ in never]: never
