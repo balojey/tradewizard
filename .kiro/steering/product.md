@@ -1,31 +1,42 @@
-# Product Overview
+# TradeWizard Product Overview
 
-TradeWizard is an AI-powered prediction trading platform that serves as the intelligence layer for real-world prediction markets. The system consists of two main components:
+TradeWizard is an AI-powered prediction trading platform that provides intelligent analysis and trading recommendations for real-world political and economic outcomes on Polymarket.
 
-## Core Components
+## Core Value Proposition
 
-### TradeWizard Agents (Backend)
-A multi-agent system built on LangGraph that transforms raw prediction market data from Polymarket into explainable, probability-driven trade recommendations. The system uses specialized AI agents that independently analyze markets, construct competing theses, challenge assumptions, and reach consensus on fair probability estimates.
+TradeWizard transforms prediction markets from speculative guessing into guided, intelligence-driven trading by providing:
 
-**Key Features:**
-- Multi-agent analysis with adversarial reasoning
-- Structured debate protocol between bull and bear theses
-- Probability-driven consensus with uncertainty quantification
-- Full observability with Opik integration
-- Actionable trade recommendations with risk assessment
+- **Multi-Agent AI Analysis**: Specialized AI agents analyze markets from different perspectives (news, polling, market dynamics, sentiment, risk)
+- **Explainable Recommendations**: Clear trade signals with reasoning, catalysts, and risk scenarios
+- **Real Market Integration**: Direct integration with regulated Polymarket infrastructure
+- **Professional-Grade Intelligence**: Bloomberg Terminal-style analytics for prediction markets
 
-### TradeWizard Frontend
-A Next.js-based web application that provides the user interface for accessing AI-generated market intelligence and executing trades.
+## Key Components
 
-## Architecture Principles
+### Backend (tradewizard-agents)
+Multi-agent system built on LangGraph that:
+- Ingests market data from Polymarket APIs
+- Runs specialized AI agents for market analysis
+- Generates structured trade recommendations
+- Stores analysis results in Supabase database
 
-1. **Adversarial Reasoning** - Multiple agents with different perspectives prevent groupthink
-2. **Explainability First** - Every recommendation traces back to specific data and reasoning
-3. **Graceful Degradation** - Partial failures don't crash the entire pipeline
-4. **Regulated Infrastructure** - Built on top of compliant prediction market platforms
+### Frontend (tradewizard-frontend)
+Next.js web application that:
+- Displays AI-generated market intelligence
+- Provides seamless trading interface via Magic Link authentication
+- Shows real-time market data and recommendations
+- Manages user portfolios and trading sessions
 
-## Target Market
-- Prediction market power users
-- Crypto-native event traders  
-- Politically engaged retail investors
-- Data-driven traders seeking asymmetric information edges
+## Target Users
+
+- Prediction market power users seeking analytical edge
+- Politically engaged retail traders
+- Crypto-native traders looking for regulated real-world exposure
+- Data-driven investors interested in event-driven markets
+
+## Business Model
+
+SaaS subscription tiers for AI trading intelligence:
+- Starter: Basic market insights and probability analysis
+- Pro: Full strategy recommendations and risk modeling
+- Elite: Advanced agents and early signal detection

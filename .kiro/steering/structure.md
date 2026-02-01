@@ -1,137 +1,196 @@
----
-inclusion: always
----
+# TradeWizard Project Structure
 
-# Project Structure & Development Guidelines
+## Repository Organization
 
-## Repository Layout
-
-TradeWizard is a monorepo with two main applications:
+TradeWizard is organized as a monorepo with two main applications and shared documentation:
 
 ```
-├── tradewizard-agents/            # Backend: Multi-agent LangGraph system
-├── tradewizard-frontend/          # Frontend: Next.js web application
-├── docs/                          # Product documentation
-└── .kiro/                         # Kiro configuration and specs
+├── tradewizard-agents/     # Backend multi-agent system
+├── tradewizard-frontend/   # Frontend web application  
+├── docs/                   # Product and technical documentation
+├── .kiro/                  # Kiro configuration and specs
+└── *.json                  # Root-level market data files
 ```
 
-## Backend Architecture (tradewizard-agents/)
+## Backend Structure (tradewizard-agents/)
 
-### Core Directory Structure
-
-When working with the backend, follow this organization:
+### Core Directories
 
 ```
 src/
-├── nodes/                         # LangGraph workflow nodes (core business logic)
-├── models/                        # Data models, schemas, and state definitions
-├── utils/                         # Reusable services and utilities
-├── config/                        # Configuration management
-├── database/                      # Data persistence layer
-├── workflow.ts                    # Main LangGraph workflow orchestration
-├── cli.ts                        # Command-line interface
-└── monitor.ts                    # Automated monitoring service
+├── nodes/              # LangGraph node implementations
+│   ├── market-ingestion.ts      # Polymarket data ingestion
+│   ├── agents.ts                # Multi-agent analysis nodes
+│   ├── thesis-construction.ts   # Bull/bear thesis generation
+│   ├── cross-examination.ts     # Adversarial testing
+│   ├── consensus-engine.ts      # Probability consensus
+│   └── recommendation-generation.ts # Final trade recommendations
+├── models/             # Data models and type definitions
+│   ├── types.ts               # TypeScript interfaces
+│   ├── schemas.ts             # Zod validation schemas
+│   └── state.ts               # LangGraph state management
+├── utils/              # Utility functions and integrations
+│   ├── polymarket-client.ts   # Polymarket API wrapper
+│   ├── newsdata-*.ts          # News data integration
+│   ├── audit-logger.ts        # Audit trail logging
+│   └── enhanced-*.ts          # Enhanced feature implementations
+├── config/             # Configuration management
+├── database/           # Database utilities and migrations
+│   ├── persistence.ts         # Data persistence layer
+│   ├── supabase-client.ts     # Supabase integration
+│   └── migrations/            # Database schema migrations
+├── workflow.ts         # Main LangGraph workflow definition
+├── cli.ts             # Command-line interface
+├── monitor.ts         # Monitoring service
+└── index.ts           # Application entry point
 ```
 
-### Development Rules
-
-**File Placement Guidelines:**
-- **New LangGraph nodes**: Place in `src/nodes/` with descriptive kebab-case names
-- **Data models**: Define TypeScript interfaces in `src/models/types.ts`, Zod schemas in `src/models/schemas.ts`
-- **External integrations**: Create clients in `src/utils/` with `-client.ts` suffix
-- **Database operations**: Add to `src/database/` with appropriate migrations
-- **Configuration**: Environment-specific configs go in `src/config/`
-
-**Code Organization Patterns:**
-- Each LangGraph node should be self-contained with its own types and validation
-- Shared state flows through `GraphState` schema defined in `src/models/state.ts`
-- Use dependency injection pattern for external services (Polymarket, news APIs)
-- Implement graceful degradation - partial failures shouldn't crash the workflow
-
-## Frontend Architecture (tradewizard-frontend/)
-
-### Next.js App Router Structure
+### Supporting Directories
 
 ```
-├── app/                          # Next.js 13+ app router pages
-├── components/                   # React components (organized by feature)
-├── hooks/                        # Custom React hooks
-├── lib/                          # Utility libraries and configurations
-├── providers/                    # React context providers
-└── utils/                        # Pure utility functions
+scripts/               # Utility scripts
+├── e2e-test.ts       # End-to-end testing
+├── run-24h-test.ts   # Long-running tests
+└── migrate-news-api.ts # Data migration scripts
+
+docs/                 # Backend-specific documentation
+├── E2E_*.md         # End-to-end testing guides
+├── DEPLOYMENT.md    # Deployment instructions
+└── *.md             # Various technical guides
+
+supabase/            # Supabase configuration
+├── migrations/      # Database migrations
+└── config.toml      # Supabase project config
 ```
 
-**Component Organization:**
-- Group related components in feature folders under `components/`
-- Shared UI components go in `components/shared/`
-- Page-specific components can be co-located with their routes
+## Frontend Structure (tradewizard-frontend/)
+
+### App Router Structure (Next.js 16)
+
+```
+app/
+├── api/                    # API routes
+│   ├── polymarket/        # Polymarket proxy endpoints
+│   └── tradewizard/       # TradeWizard-specific APIs
+├── market/[slug]/         # Individual market pages
+├── performance/           # Performance analytics
+├── positions/             # User positions
+├── orders/               # Order management
+├── wallet/               # Wallet management
+└── page.tsx              # Homepage
+```
+
+### Component Architecture
+
+```
+components/
+├── Trading/              # Trading-related components
+│   ├── Markets/         # Market discovery and display
+│   │   ├── MarketCard.tsx           # Individual market cards
+│   │   ├── AIInsightsPanel.tsx      # AI recommendation display
+│   │   ├── RecommendationBadge.tsx  # Quick recommendation preview
+│   │   └── MarketSearch.tsx         # Market filtering/search
+│   ├── TradeRecommendation/  # AI recommendation components
+│   ├── Orders/              # Order management UI
+│   └── Positions/           # Position tracking UI
+├── Performance/          # Performance analytics components
+├── Header/              # Navigation and wallet info
+├── TradingSession/      # Trading session management
+└── shared/              # Reusable UI components
+    ├── Card.tsx         # Base card component
+    ├── Badge.tsx        # Status badges
+    ├── LoadingState.tsx # Loading indicators
+    └── ErrorState.tsx   # Error handling UI
+```
+
+### Supporting Directories
+
+```
+hooks/                   # Custom React hooks
+├── useTradeRecommendation.ts  # AI recommendation fetching
+├── useMarkets.ts             # Market data management
+├── useTradingSession.ts      # Trading session orchestration
+└── useClobClient.ts          # Polymarket CLOB integration
+
+lib/                    # Utility libraries
+├── supabase.ts        # Supabase client configuration
+├── magic.ts           # Magic Link authentication
+└── database.types.ts  # Auto-generated DB types
+
+providers/             # React context providers
+├── WalletProvider.tsx # Wallet state management
+├── TradingProvider.tsx # Trading session context
+└── QueryProvider.tsx  # React Query configuration
+
+utils/                 # Pure utility functions
+├── formatting.ts      # Data formatting helpers
+├── validation.ts      # Input validation
+└── marketFilters.ts   # Market filtering logic
+```
+
+## Shared Resources
+
+### Documentation (docs/)
+
+```
+docs/
+├── TradeWizard.md                    # Product overview
+├── TradeWizard Debate Protocol.md    # AI agent debate system
+├── Trade Wizard — Market Debate League.md # System specification
+├── newsdata-docs.md                  # News data integration
+└── tradewizard-agentic-workflow.png  # Architecture diagram
+```
+
+### Kiro Configuration (.kiro/)
+
+```
+.kiro/
+├── specs/              # Feature specifications
+│   ├── advanced-agent-league/
+│   ├── market-intelligence-engine/
+│   ├── polymarket-integration-enhancement/
+│   └── */              # Other feature specs
+└── steering/           # AI assistant guidance
+    ├── product.md      # Product overview
+    ├── tech.md         # Technical stack
+    └── structure.md    # This file
+```
 
 ## File Naming Conventions
 
-### Backend (TypeScript)
-- **LangGraph nodes**: `kebab-case.ts` (e.g., `market-ingestion.ts`)
-- **Utilities/Services**: `kebab-case.ts` with descriptive suffix (e.g., `polymarket-client.ts`)
-- **Test files**: 
-  - Unit tests: `*.test.ts`
-  - Property-based tests: `*.property.test.ts`
-  - Integration tests: `*.integration.test.ts`
-  - Performance tests: `*.performance.test.ts`
+### Backend (TypeScript/Node.js)
+- **Kebab-case** for files: `market-ingestion.ts`, `consensus-engine.ts`
+- **Test files**: `*.test.ts` for unit tests, `*.property.test.ts` for property-based tests
+- **Integration tests**: `*.integration.test.ts`, `*.e2e.test.ts`
+- **Configuration**: `*.config.ts`, `*.config.js`
 
 ### Frontend (React/Next.js)
-- **Components**: `PascalCase.tsx` for component files
-- **Pages**: Follow Next.js conventions (`page.tsx`, `layout.tsx`)
-- **Hooks**: `camelCase.ts` with `use` prefix
-- **Utilities**: `camelCase.ts`
+- **PascalCase** for components: `MarketCard.tsx`, `AIInsightsPanel.tsx`
+- **camelCase** for hooks: `useTradeRecommendation.ts`, `useMarkets.ts`
+- **kebab-case** for utilities: `market-filters.ts`, `formatting.ts`
+- **Route files**: `page.tsx`, `layout.tsx`, `route.ts`
 
-## Testing Strategy & Requirements
+## Import/Export Patterns
+
+### Barrel Exports
+- `src/nodes/index.ts` - Exports all LangGraph nodes
+- `components/shared/index.ts` - Exports reusable UI components
+- `hooks/index.ts` - Exports custom hooks
+
+### Relative Imports
+- Use relative imports within the same feature directory
+- Use absolute imports for cross-feature dependencies
+- Prefer named exports over default exports for better tree-shaking
+
+## Testing Organization
 
 ### Backend Testing
-- **Unit Tests**: Test individual functions and classes with specific examples
-- **Property Tests**: Use fast-check for testing universal properties across random inputs
-- **Integration Tests**: Test complete workflows with real external APIs
-- **Performance Tests**: Load testing for LLM-heavy operations (30s timeout configured)
+- **Unit tests**: Co-located with source files (`*.test.ts`)
+- **Property tests**: Separate files (`*.property.test.ts`)
+- **Integration tests**: Feature-specific directories
+- **E2E tests**: `scripts/` directory for complex workflows
 
-### Test File Requirements
-- All new backend features MUST include both unit and property-based tests
-- LangGraph nodes MUST have integration tests that verify the complete workflow
-- External API clients MUST have tests that can run against real APIs (with proper mocking for CI)
-
-## Architecture Patterns
-
-### Multi-Agent System Design
-- **Node Independence**: Each LangGraph node operates independently with clear inputs/outputs
-- **State Management**: Use `GraphState` for passing data between nodes
-- **Parallel Execution**: Design nodes to run in parallel where possible
-- **Error Handling**: Implement graceful degradation - node failures shouldn't crash the entire workflow
-
-### Data Flow Pattern
-```
-External APIs → Data Ingestion → Agent Analysis → 
-Thesis Construction → Cross-Examination → Consensus → 
-Final Recommendation
-```
-
-### External Integration Pattern
-- **Client Pattern**: Create dedicated client classes for external APIs (Polymarket, news sources)
-- **Rate Limiting**: Implement rate limiting and retry logic for all external calls
-- **Caching**: Use appropriate caching strategies for expensive API calls
-- **Observability**: All external calls must be traced through Opik integration
-
-## Development Workflow
-
-### Adding New Features
-1. **Backend**: Create LangGraph node in `src/nodes/`, add to workflow, write tests
-2. **Frontend**: Create components in appropriate feature folder, add routing if needed
-3. **Integration**: Ensure proper error handling and observability
-4. **Testing**: Write comprehensive test suite including property-based tests
-
-### Database Changes
-1. Create migration in `src/database/migrations/`
-2. Update TypeScript types in `src/models/types.ts`
-3. Update Zod schemas in `src/models/schemas.ts`
-4. Test migration with `npm run migrate`
-
-### Configuration Management
-- Environment variables go in `.env` files with examples in `.env.example`
-- Type-safe config validation using Zod schemas in `src/config/`
-- Different configs for development, staging, and production environments
+### Frontend Testing
+- **Component tests**: `__tests__/` directories within feature folders
+- **Hook tests**: Co-located with hook files
+- **Integration tests**: `app/` level for full user flows

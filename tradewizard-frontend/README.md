@@ -1,14 +1,24 @@
 # TradeWizard Frontend
 
-A Next.js-based web application that provides the user interface for accessing AI-generated market intelligence and executing trades on Polymarket.
+A Next.js 16-based web application that provides the user interface for TradeWizard's AI-powered prediction trading platform. Built with TypeScript and Tailwind CSS, it delivers professional-grade market intelligence and seamless trading execution on Polymarket.
+
+## Overview
+
+TradeWizard transforms prediction markets from speculative guessing into guided, intelligence-driven trading. The frontend provides a Bloomberg Terminal-style interface for prediction markets, featuring:
+
+- **Multi-Agent AI Analysis**: Display insights from specialized AI agents (news, polling, market dynamics, sentiment, risk)
+- **Explainable Recommendations**: Clear trade signals with reasoning, catalysts, and risk scenarios  
+- **Real Market Integration**: Direct integration with regulated Polymarket infrastructure
+- **Professional-Grade Intelligence**: Advanced analytics for prediction market trading
 
 ## Features
 
 ### 🤖 AI-Powered Trade Recommendations
-- **Supabase Integration**: Direct connection to the TradeWizard agents database
-- **Real-time Recommendations**: Fetch AI-generated trade recommendations stored by the backend
 - **Multi-Agent Analysis**: Display insights from specialized AI agents with adversarial reasoning
+- **LangGraph Integration**: Real-time access to multi-agent workflow results
+- **Supabase Real-time**: Live updates as new recommendations are generated
 - **Explainable AI**: Full transparency into recommendation logic, catalysts, and risk scenarios
+- **Consensus Engine**: Probability consensus from multiple AI perspectives
 
 ### 📊 Market Intelligence
 - **Market Discovery**: Browse and filter prediction markets with infinite scroll
@@ -17,25 +27,48 @@ A Next.js-based web application that provides the user interface for accessing A
 - **Event-based Organization**: Markets grouped by events and categories
 
 ### 💰 Trading Interface
-- **Magic Link Authentication**: Seamless wallet connection via Magic Link
-- **Safe Wallet Integration**: Deterministic Safe deployment from EOA
-- **Order Management**: Place, cancel, and track orders via Polymarket CLOB
-- **Token Approvals**: Automated ERC-20 and ERC-1155 approvals
-- **USDC.e Management**: Balance tracking and Polygon transfers
+- **Magic Link Authentication**: Seamless wallet connection with email-based authentication
+- **Safe Wallet Integration**: Deterministic Safe deployment from EOA for enhanced security
+- **Polymarket CLOB API**: Direct order execution via Polymarket's Central Limit Order Book
+- **Token Approvals**: Automated ERC-20 and ERC-1155 approvals for seamless trading
+- **USDC.e Management**: Balance tracking and Polygon network transfers
+- **Risk Management**: Position sizing and liquidity risk assessment
+
+## Tech Stack
+
+### Core Technologies
+- **Framework**: Next.js 16 with App Router
+- **Language**: TypeScript with strict mode enabled
+- **Styling**: Tailwind CSS 4 with custom design system
+- **State Management**: React Query (@tanstack/react-query) for server state
+- **Authentication**: Magic Link SDK for wallet connection
+- **Blockchain**: ethers.js v5 and viem for Web3 interactions
+- **Database**: Supabase with real-time subscriptions
+- **UI Components**: Lucide React icons, Framer Motion animations
+
+### Key Dependencies
+- `@polymarket/clob-client` - Trading API integration
+- `@supabase/supabase-js` - Real-time data subscriptions  
+- `magic-sdk` - Wallet authentication
+- `recharts` - Data visualization
+- `date-fns` - Date manipulation
+- `zod` - Runtime type validation
 
 ## Architecture
 
 ### Core Components
 
 #### AI Recommendation System
-- `useTradeRecommendation()` - Fetch recommendations from Supabase
-- `TradeRecommendation` - Full recommendation display with detailed analysis
-- `RecommendationButton` - Quick recommendation preview in market cards
+- `useTradeRecommendation()` - Fetch recommendations from Supabase with React Query caching
+- `AIInsightsPanel` - Comprehensive recommendation display with agent breakdown
+- `RecommendationBadge` - Quick recommendation preview in market cards
+- `AgentWorkflowDiagram` - Visual representation of multi-agent analysis process
 
 #### Market Data
-- `useMarkets()` - Market discovery with filtering and pagination
+- `useMarkets()` - Market discovery with filtering, pagination, and infinite scroll
 - `usePublicMarketPrices()` - Real-time pricing for unauthenticated users
-- `MarketCard` - Market display with AI recommendation integration
+- `MarketCard` - Market display with integrated AI recommendations
+- `CategoryTabs` - Political and economic market categorization
 
 #### Trading Session
 - `useTradingSession()` - Complete trading session orchestration
